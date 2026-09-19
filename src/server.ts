@@ -92,6 +92,15 @@ app.get("/api/github/repos/:owner/:repo", async (request, reply) => {
   }
 });
 
+app.get("/api/github/repos/:owner/:repo/context", async (request, reply) => {
+  try {
+    const { owner, repo } = request.params as { owner: string; repo: string };
+    return await serviceForRequest(request).getRepositoryContext(owner, repo);
+  } catch (error) {
+    return handleGithubError(reply, error);
+  }
+});
+
 app.get("/api/github/repos/:owner/:repo/rest", async (request, reply) => {
   try {
     const { owner, repo } = request.params as { owner: string; repo: string };
