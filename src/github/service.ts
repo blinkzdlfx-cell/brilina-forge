@@ -53,6 +53,27 @@ export class GithubService {
     return this.client.rest(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/branches?per_page=100`);
   }
 
+  async getRepositoryContext(owner: string, repo: string) {
+    const graph = await this.getRepositoryGraphQL(owner, repo);
+    const defaultBranch = graph.defaultBranchRef?.name;
+    if (!defaultBranch) {
+      return { repository: graph, branches: await this.listBranches(owner, repo), tree: null };
+    }
+
+    const [branches, tree] = await Promise.all([
+      this.listBranches(owner, repo),
+      this.getTree(owner, repo, defaultBranch, true)
+    ]);
+
+    return {
+      repository: graph,
+      defaultBranch,
+      defaultCommitSha: graph.defaultBranchRef?.target.oid ?? null,
+      branches,
+      tree
+    };
+  }
+
   getTree(owner: string, repo: string, ref: string, recursive = true): Promise<{ sha: string; tree: GithubTreeEntry[]; truncated: boolean }> {
     return this.client.rest(
       `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/trees/${encodeURIComponent(ref)}?recursive=${recursive ? "1" : "0"}`
