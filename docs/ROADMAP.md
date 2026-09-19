@@ -2,7 +2,7 @@
 
 ## Phase 0 — Documentation
 
-Status: **started**
+Status: **complete**
 
 - product definition
 - requirements
@@ -13,20 +13,33 @@ Status: **started**
 
 ## Phase 1 — GitHub foundation
 
-Status: **next**
+Status: **in progress**
 
-1. Validate GitHub authorization model.
-2. Implement GitHub connection persistence.
-3. Implement REST client.
-4. Implement GraphQL client.
-5. Implement GitHubService.
-6. Implement repository discovery.
-7. Implement repository context retrieval.
-8. Add integration tests against a real test repository.
+1. Validate GitHub authorization model. **Complete: GitHub App user authorization selected.**
+2. Implement GitHub connection persistence. **Deferred to Phase 2 because Neon is the durable state layer.**
+3. Implement REST client. **Complete.**
+4. Implement GraphQL client. **Complete.**
+5. Implement GitHubService. **Complete.**
+6. Implement repository discovery. **Complete.**
+7. Implement repository context retrieval. **In progress: repository metadata, branches, tree and file reads are implemented; context aggregation remains to be hardened.**
+8. Add integration tests against a real test repository. **Test added; requires a GitHub access token in the local environment.**
+
+Current Phase 1 backend:
+- Fastify HTTP service
+- GitHub App OAuth web flow
+- development-only in-memory sessions
+- GitHub REST client
+- GitHub GraphQL client
+- GitHubService abstraction
+- repository, branch, tree and file endpoints
+- unit test for GraphQL repository context
+- real GitHub integration test
 
 Acceptance gate:
 
 > Forge can authenticate, identify the account, discover repositories, inspect a selected repository, inspect branches, retrieve context and read files.
+
+Phase 1 is not complete until the configured GitHub App has been exercised through the OAuth flow and the acceptance path passes against a real repository.
 
 ## Phase 2 — Neon persistence
 
