@@ -49,3 +49,21 @@ Forge will implement a small typed tool/controller layer rather than importing a
 GitHub APIs remain the primary repository interface. E2 does not require Git CLI for the initial architecture.
 
 A future decision can introduce Git if execution workflows demonstrate a concrete need.
+
+## ADR-008 — GitHub App user authorization
+
+**Status:** Accepted
+
+Brilina Forge will use a GitHub App with the user authorization flow rather than a legacy OAuth App.
+
+Reasons:
+- GitHub currently recommends GitHub Apps for new integrations.
+- GitHub Apps support fine-grained permissions.
+- Repository access can be constrained during installation.
+- User access tokens can act on behalf of the authorized user.
+
+The backend keeps the GitHub client ID and secret server-side. The browser never receives the client secret or GitHub access token.
+
+Phase 1 implements the web authorization exchange and a development-only in-memory session. Durable GitHub connection persistence is deferred to Phase 2 with Neon.
+
+Permission configuration must follow least privilege and be finalized in the GitHub App registration before production use.
