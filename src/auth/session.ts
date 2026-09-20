@@ -4,22 +4,46 @@ import type { GithubUser } from "../github/types.js";
 export type Session = {
   id: string;
   accessToken: string;
+  refreshToken?: string;
+  expiresAt?: number;
+  refreshTokenExpiresAt?: number;
   githubUser: GithubUser;
   createdAt: number;
 };
 
 const sessions = new Map<string, Session>();
+const SESSION_TTL_MS = 24 * 60 * 60_000;
 
-export function createSession(accessToken: string, githubUser: GithubUser): Session {
+export function createSession(
+  accessToken: string,
+  githubUser: GithubUser,
+  credentials: Pick<Session, "refreshToken" | "expiresAt" | "refreshTokenExpiresAt"> = {}
+): Session {
   const id = randomBytes(32).toString("hex");
-  const session: Session = { id, accessToken, githubUser, createdAt: Date.now() };
+  const session: Session = { id, accessToken, githubUser, createdAt: Date.now(), ...credentials };
   sessions.set(id, session);
   return session;
 }
 
 export function getSession(id: string | undefined): Session | undefined {
   if (!id) return undefined;
-  return sessions.get(id);
+  const session = sessions.get(id);
+  if (!session) return undefined;
+  if (Date.now() - session.createdAt > SESSION_TTL_MS) {
+    sessions.delete(id);
+    return undefined;
+  }
+  return session;
+}
+
+export function updateSessionCredentials(
+  id: string,
+  credentials: Pick<Session, "accessToken" | "refreshToken" | "expiresAt" | "refreshTokenExpiresAt">
+): Session | undefined {
+  const session = getSession(id);
+  if (!session) return undefined;
+  Object.assign(session, credentials);
+  return session;
 }
 
 export function deleteSession(id: string | undefined): void {
