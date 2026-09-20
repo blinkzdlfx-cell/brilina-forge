@@ -108,15 +108,14 @@ export class GithubService {
     };
   }
 
-  getTree(owner: string, repo: string, ref: string, recursive = true): Promise<GithubTreeResult> {
+  async getTree(owner: string, repo: string, ref: string, recursive = true): Promise<GithubTreeResult> {
     assertRepo(owner, repo);
     assertRef(ref);
-    return this.client.rest<GithubTreeResult>(
+    const result = await this.client.rest<GithubTreeResult>(
       `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/trees/${encodeURIComponent(ref)}?recursive=${recursive ? "1" : "0"}`
-    ).then(result => {
-      if (result.tree.length <= MAX_TREE_ENTRIES) return { ...result, limited: false };
-      return { ...result, tree: result.tree.slice(0, MAX_TREE_ENTRIES), limited: true };
-    });
+    );
+    if (result.tree.length <= MAX_TREE_ENTRIES) return { ...result, limited: false };
+    return { ...result, tree: result.tree.slice(0, MAX_TREE_ENTRIES), limited: true };
   }
 
   async getFile(owner: string, repo: string, path: string, ref?: string): Promise<GithubFile> {
