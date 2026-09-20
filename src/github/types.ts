@@ -55,6 +55,30 @@ export type GithubTokenResponse = {
   access_token?: string;
   token_type?: string;
   scope?: string;
+  expires_in?: number;
+  refresh_token?: string;
+  refresh_token_expires_in?: number;
   error?: string;
   error_description?: string;
+};
+
+export type GithubRateLimit = {
+  limit?: number;
+  remaining?: number;
+  resetAt?: number;
+  retryAfterSeconds?: number;
+};
+
+export type GithubApiErrorDetails = {
+  message?: string;
+  documentation_url?: string;
+  status: number;
+  rateLimit: GithubRateLimit;
+};
+
+export type GithubTreeResult = {
+  sha: string;
+  tree: GithubTreeEntry[];
+  truncated: boolean;
+  limited: boolean;
 };
