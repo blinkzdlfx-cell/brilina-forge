@@ -151,7 +151,8 @@ app.get("/api/github/repos/:owner/:repo/tree", async (request, reply) => {
     const { owner, repo } = request.params as { owner: string; repo: string };
     const query = request.query as { ref?: string; recursive?: string };
     if (!query.ref) return reply.code(400).send({ error: "missing_ref" });
-    return await serviceForRequest(request).then(service => service.getTree(owner, repo, query.ref, query.recursive !== "false"));
+    const ref = query.ref;
+    return await serviceForRequest(request).then(service => service.getTree(owner, repo, ref, query.recursive !== "false"));
   } catch (error) {
     return handleGithubError(reply, error);
   }
