@@ -15,7 +15,10 @@ export class AgentController {
   constructor(private readonly model: AgentModel, private readonly registry: ToolRegistry, private readonly audit: AgentAuditStore) {}
 
   async run(input: AgentRunInput): Promise<AgentRunResult> {
-    const run = await this.audit.createRun({ conversationId: input.conversationId, userId: input.principal.userId });
+    const run = input.runId
+      ? { id: input.runId, status: "queued" as const }
+      : await this.audit.createRun({ conversationId: input.conversationId, userId: input.principal.userId });
+
     const state = new RunStateMachine(run.status);
     state.transition("running");
     await this.audit.updateRun(run.id, "running");
