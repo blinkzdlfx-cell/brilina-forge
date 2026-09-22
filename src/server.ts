@@ -4,7 +4,7 @@ import { createGithubAuthorizationUrl, exchangeGithubCode, refreshGithubAccessTo
 import { createSession, deleteSession, getSession, parseSessionCookie, updateSessionCredentials, type Session } from "./auth/session.js";
 import { GithubApiError, GithubClient } from "./github/client.js";
 import { GithubService } from "./github/service.js";
-import { getForgeUserContext, listConversations, createConversation, updateConversationContext, syncRepository, getConversationForUser, userOwnsRun } from "./db/conversation-repositories.js";
+import { getForgeUserContext, listConversations, createConversation, updateConversationContext, syncRepository, getConversationForUser, userOwnsRun, addConversationMessage, listConversationMessages } from "./db/conversation-repositories.js";
 import { neonAgentAuditStore } from "./db/agent-repositories.js";
 import { AgentController } from "./agent/controller.js";
 import { ToolRegistry } from "./agent/registry.js";
@@ -256,6 +256,18 @@ app.patch("/api/conversations/:conversationId", async (request, reply) => {
   }
 });
 
+app.get("/api/conversations/:conversationId/messages", async (request, reply) => {
+  try {
+    const { userId, workspaceId } = await forgeContextForRequest(request);
+    const { conversationId } = request.params as { conversationId: string };
+    const conversation = await getConversationForUser(conversationId, userId, workspaceId);
+    if (!conversation) return reply.code(404).send({ error: "conversation_not_found" });
+    return reply.send(await listConversationMessages(conversationId, userId, workspaceId));
+  } catch (error) {
+    return handleForgeError(reply, error);
+  }
+});
+
 app.post("/api/conversations/:conversationId/runs", async (request, reply) => {
   try {
     const { userId, workspaceId } = await forgeContextForRequest(request);
@@ -268,6 +280,14 @@ app.post("/api/conversations/:conversationId/runs", async (request, reply) => {
     if (!conversation) return reply.code(404).send({ error: "conversation_not_found" });
 
     const run = await neonAgentAuditStore.createRun({ conversationId, userId });
+    await addConversationMessage({
+      conversationId,
+      userId,
+      workspaceId,
+      runId: run.id,
+      role: "user",
+      content: message
+    });
     runEventBus.publish(run.id, { type: "run.started", runId: run.id });
 
     void (async () => {
@@ -293,6 +313,14 @@ app.post("/api/conversations/:conversationId/runs", async (request, reply) => {
           for (const chunk of result.response.match(/.{1,80}(?:\s+|$)/g) ?? [result.response]) {
             runEventBus.publish(run.id, { type: "assistant.delta", content: chunk });
           }
+          await addConversationMessage({
+            conversationId,
+            userId,
+            workspaceId,
+            runId: run.id,
+            role: "assistant",
+            content: result.response
+          });
           runEventBus.publish(run.id, { type: "assistant.completed", content: result.response });
         }
         runEventBus.publish(run.id, { type: "run.completed", runId: run.id, status: result.status });
