@@ -6,56 +6,24 @@ Status: **complete**
 ## Phase 1 — GitHub foundation
 Status: **complete**
 
-Completed:
-- GitHub App user authorization
-- GitHub REST and GraphQL clients
-- GitHubService
-- repository discovery
-- repository metadata, branches, tree and file retrieval
-- PKCE and expiring-token handling
-- session expiration and token refresh
-- rate-limit/error normalization
-- input validation and tree-size limits
-- unit/hardening tests
-- real GitHub integration test
-
-Acceptance gate:
-
-> Forge can authenticate, identify the account, discover repositories, inspect a selected repository, inspect branches, retrieve context and read files, while handling expiring authorization and malformed requests safely.
-
-Phase 1 acceptance completed on 2026-09-22. The automated and manual acceptance checklist in docs/PHASE_1_HARDENING.md passed.
+Acceptance completed on 2026-09-22. Forge can authenticate, identify the account, discover repositories, inspect branches, retrieve repository context and read files while handling expiring authorization and malformed requests safely.
 
 ## Phase 2 — Neon persistence
-Status: **in progress**
+Status: **complete**
 
-Completed so far:
-- Neon project identified and production branch confirmed
-- Dedicated Phase 2 Neon development branch created
-- Initial Forge persistence schema applied and verified on the Phase 2 Neon branch
-- Durable-session repository boundary and token encryption foundation added
+Completed:
+- Neon development and production branches established
+- Forge persistence schema applied and verified
+- Durable session store implemented
+- GitHub credentials encrypted at rest
+- Persistent authentication survives server restart
+- Automatic GitHub token refresh is persisted to Neon
+- Persistence and refresh acceptance passed
+- Accepted schema migration applied to the Neon production branch
 
-Remaining:
-- durable session runtime acceptance
-- repository/data-access integration
-- restart persistence tests
-- ownership-boundary tests
-- production migration and Phase 2 acceptance gate
+Acceptance completed on 2026-09-22:
 
-- database project/branch setup
-- migrations
-- users
-- workspaces
-- memberships
-- GitHub connections
-- repositories
-- conversations
-- runs
-- tool calls
-- usage
-
-Acceptance gate:
-
-> Application state survives restarts and ownership constraints are enforced.
+> Application state survives restarts, GitHub credentials are protected at rest, and workspace/repository ownership constraints are enforced.
 
 ## Phase 3 — Agent Controller
 - tool registry
