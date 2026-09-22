@@ -71,14 +71,14 @@ export async function getPersistentSession(token: string | undefined): Promise<S
   if (!token) return undefined;
   const tokenHash = hashSessionToken(token);
   const sql = getSql();
-  const rows = await sql.query(
+  const rows = (await sql.query(
     "SELECT s.expires_at, u.github_login, u.github_user_id, u.github_name, u.github_avatar_url, c.access_token_ciphertext, c.access_token_iv, c.access_token_tag, c.refresh_token_ciphertext, c.refresh_token_iv, c.refresh_token_tag, c.token_expires_at, c.refresh_token_expires_at FROM auth_sessions s JOIN forge_users u ON u.id = s.user_id JOIN github_connections c ON c.user_id = u.id WHERE s.session_token_hash = $1 AND s.expires_at > now() LIMIT 1",
     [tokenHash]
-  );
+  )) as Record<string, unknown>[];
 
   if (!rows[0]) return undefined;
   await sql.query("UPDATE auth_sessions SET last_seen_at = now() WHERE session_token_hash = $1", [tokenHash]);
-  return rowToSession(token, rows[0] as Record<string, unknown>);
+  return rowToSession(token, rows[0]);
 }
 
 export async function updatePersistentSessionCredentials(
@@ -87,15 +87,15 @@ export async function updatePersistentSessionCredentials(
 ): Promise<Session | undefined> {
   const tokenHash = hashSessionToken(token);
   const sql = getSql();
-  const current = await sql.query(
+  const current = (await sql.query(
     "SELECT c.refresh_token_ciphertext, c.refresh_token_iv, c.refresh_token_tag FROM auth_sessions s JOIN github_connections c ON c.user_id = s.user_id WHERE s.session_token_hash = $1 AND s.expires_at > now() LIMIT 1",
     [tokenHash]
-  );
+  )) as Record<string, unknown>[];
   if (!current[0]) return undefined;
 
   const access = encryptSecret(credentials.accessToken);
   const refresh = credentials.refreshToken ? encryptSecret(credentials.refreshToken) : undefined;
-  const currentRow = current[0] as Record<string, unknown>;
+  const currentRow = current[0];
 
   await sql.query(
     "UPDATE github_connections c SET access_token_ciphertext = $1, access_token_iv = $2, access_token_tag = $3, refresh_token_ciphertext = $4, refresh_token_iv = $5, refresh_token_tag = $6, token_expires_at = $7, refresh_token_expires_at = $8, updated_at = now() FROM auth_sessions s WHERE c.user_id = s.user_id AND s.session_token_hash = $9",
