@@ -121,3 +121,34 @@ Phase 4 is built against provider-neutral application contracts and the existing
 Phase 4 may use deterministic development/test adapters to exercise UI lifecycle behavior, but those adapters are not production AI implementations.
 
 The purpose of this ordering is to establish conversation, run, event, tool-activity, approval, repository/branch, and execution integration contracts before concrete AI providers or E2 execution infrastructure are integrated.
+
+## ADR-012 — React + Vite + TypeScript frontend
+
+**Status:** Accepted
+
+The Brilina Forge frontend uses React, Vite and TypeScript.
+
+The frontend lives under web/ beside the Fastify backend.
+
+The browser communicates with Forge application APIs only. It does not call GitHub, Neon, E2 or AI providers directly.
+
+## ADR-013 — SSE for chat/run events; WebSocket for E2 terminal
+
+**Status:** Accepted
+
+Server-Sent Events are used for server-to-browser conversation and run lifecycle events.
+
+The event contract is provider-neutral and includes:
+- run.started
+- assistant.delta
+- tool.requested
+- tool.started
+- tool.completed
+- approval.required
+- assistant.completed
+- run.completed
+- run.failed
+
+WebSocket is reserved for the Phase 6 E2 interactive terminal, where bidirectional PTY input/output is required.
+
+This avoids introducing WebSocket complexity into the normal chat stream while preserving a bidirectional transport for the terminal use case.
