@@ -16,5 +16,7 @@ export const config = {
     clientSecret: () => required("GITHUB_CLIENT_SECRET"),
     callbackUrl: () => process.env.GITHUB_CALLBACK_URL ?? "http://localhost:3000/auth/github/callback"
   },
-  cookieSecure: process.env.COOKIE_SECURE === "true"
+  cookieSecure: process.env.COOKIE_SECURE === "true",
+  databaseUrl: () => required("DATABASE_URL"),
+  githubTokenEncryptionKey: () => required("GITHUB_TOKEN_ENCRYPTION_KEY")
 };

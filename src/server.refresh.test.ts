@@ -16,7 +16,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 test("runtime session refreshes an expiring GitHub token before serving /api/github/me", async () => {
-  const session = createSession(
+  const session = await createSession(
     "old-access-token",
     {
       login: "test-user",
@@ -81,13 +81,13 @@ test("runtime session refreshes an expiring GitHub token before serving /api/git
     assert.ok(userCall);
     assert.equal(userCall.authorization, "Bearer refreshed-access-token");
   } finally {
-    deleteSession(session.id);
+    await deleteSession(session.id);
     globalThis.fetch = originalFetch;
   }
 });
 
 test("runtime session is rejected when refresh credentials are unavailable", async () => {
-  const session = createSession(
+  const session = await createSession(
     "expired-access-token",
     {
       login: "test-user",
@@ -111,12 +111,12 @@ test("runtime session is rejected when refresh credentials are unavailable", asy
       error: "GitHub authorization expired; sign in again"
     });
   } finally {
-    deleteSession(session.id);
+    await deleteSession(session.id);
   }
 });
 
 test("runtime session does not refresh a token with more than 60 seconds remaining", async () => {
-  const session = createSession(
+  const session = await createSession(
     "valid-access-token",
     {
       login: "test-user",
@@ -154,7 +154,7 @@ test("runtime session does not refresh a token with more than 60 seconds remaini
     assert.equal(response.statusCode, 200);
     assert.equal(fetchCalls, 1);
   } finally {
-    deleteSession(session.id);
+    await deleteSession(session.id);
     globalThis.fetch = originalFetch;
   }
 });

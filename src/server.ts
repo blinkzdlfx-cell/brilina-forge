@@ -20,29 +20,29 @@ function clearSessionCookie(reply: { header(name: string, value: string): void }
 async function sessionForRequest(request: { headers: Record<string, string | string[] | undefined> }): Promise<Session> {
   const cookie = request.headers.cookie as string | undefined;
   const id = parseSessionCookie(cookie);
-  const session = getSession(id);
+  const session = await getSession(id);
   if (!session) throw Object.assign(new Error("GitHub authentication required"), { statusCode: 401 });
 
   if (session.expiresAt && session.expiresAt - Date.now() <= TOKEN_REFRESH_SKEW_MS) {
     if (!session.refreshToken || (session.refreshTokenExpiresAt && session.refreshTokenExpiresAt <= Date.now())) {
-      deleteSession(id);
+      await deleteSession(id);
       throw Object.assign(new Error("GitHub authorization expired; sign in again"), { statusCode: 401 });
     }
     try {
       const refreshed = await refreshGithubAccessToken(session.refreshToken);
-      updateSessionCredentials(id as string, {
+      await updateSessionCredentials(id as string, {
         accessToken: refreshed.accessToken,
         refreshToken: refreshed.refreshToken ?? session.refreshToken,
         expiresAt: refreshed.expiresAt,
         refreshTokenExpiresAt: refreshed.refreshTokenExpiresAt ?? session.refreshTokenExpiresAt
       });
     } catch {
-      deleteSession(id);
+      await deleteSession(id);
       throw Object.assign(new Error("GitHub authorization expired; sign in again"), { statusCode: 401 });
     }
   }
 
-  return getSession(id) as Session;
+  return (await getSession(id)) as Session;
 }
 
 async function serviceForRequest(request: { headers: Record<string, string | string[] | undefined> }): Promise<GithubService> {
@@ -50,7 +50,7 @@ async function serviceForRequest(request: { headers: Record<string, string | str
   return new GithubService(new GithubClient(session.accessToken));
 }
 
-app.get("/health", async () => ({ ok: true, service: "brilina-forge", phase: 1 }));
+app.get("/health", async () => ({ ok: true, service: "brilina-forge", phase: 2 }));
 
 app.get("/auth/github/start", async (_request, reply) => {
   reply.redirect(createGithubAuthorizationUrl());
@@ -63,7 +63,7 @@ app.get("/auth/github/callback", async (request, reply) => {
 
   try {
     const result = await exchangeGithubCode(query.code, query.state);
-    const session = createSession(result.accessToken, result.user, {
+    const session = await createSession(result.accessToken, result.user, {
       refreshToken: result.refreshToken,
       expiresAt: result.expiresAt,
       refreshTokenExpiresAt: result.refreshTokenExpiresAt
@@ -73,7 +73,7 @@ app.get("/auth/github/callback", async (request, reply) => {
       authenticated: true,
       githubUser: result.user,
       tokenExpiresAt: result.expiresAt ?? null,
-      note: "Phase 1 development session. Durable persistence is implemented in Phase 2."
+      note: "GitHub authorization is persisted in Neon; GitHub tokens remain server-side and encrypted at rest."
     });
   } catch (error) {
     request.log.error(error);
@@ -83,7 +83,7 @@ app.get("/auth/github/callback", async (request, reply) => {
 
 app.get("/auth/github/logout", async (request, reply) => {
   const sessionId = parseSessionCookie(request.headers.cookie as string | undefined);
-  deleteSession(sessionId);
+  await deleteSession(sessionId);
   clearSessionCookie(reply);
   return reply.send({ authenticated: false });
 });

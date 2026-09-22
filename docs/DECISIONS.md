@@ -67,3 +67,27 @@ The backend keeps the GitHub client ID and secret server-side. The browser never
 Phase 1 implements the web authorization exchange and a development-only in-memory session. Durable GitHub connection persistence is deferred to Phase 2 with Neon.
 
 Permission configuration must follow least privilege and be finalized in the GitHub App registration before production use.
+
+
+## ADR-009 — Neon owns durable Forge application state
+
+**Status:** Accepted
+
+Neon / Lakebase Postgres is the durable state store for Forge.
+
+GitHub remains the canonical source for repository code. E2 remains disposable execution infrastructure.
+
+Phase 2 persists:
+- users
+- workspaces and memberships
+- GitHub connections
+- application sessions
+- repositories
+- conversations
+- runs
+- tool calls
+- usage records
+
+GitHub access and refresh tokens are encrypted before persistence. The encryption key is held outside the database in application-managed secrets.
+
+The first implementation uses the Neon serverless Postgres driver with raw SQL and a small repository layer. An ORM is not introduced unless a concrete requirement justifies it.
