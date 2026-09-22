@@ -4,7 +4,7 @@
 Status: **complete**
 
 ## Phase 1 — GitHub foundation
-Status: **hardening implementation complete; acceptance testing required**
+Status: **complete**
 
 Completed:
 - GitHub App user authorization
@@ -23,7 +23,7 @@ Acceptance gate:
 
 > Forge can authenticate, identify the account, discover repositories, inspect a selected repository, inspect branches, retrieve context and read files, while handling expiring authorization and malformed requests safely.
 
-Phase 1 is complete only after the automated and manual acceptance checklist in docs/PHASE_1_HARDENING.md passes.
+Phase 1 acceptance completed on 2026-09-22. The automated and manual acceptance checklist in docs/PHASE_1_HARDENING.md passed.
 
 ## Phase 2 — Neon persistence
 - database project/branch setup
