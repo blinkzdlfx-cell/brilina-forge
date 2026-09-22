@@ -87,7 +87,7 @@ test("runtime session refreshes an expiring GitHub token before serving /api/git
 });
 
 test("runtime session is rejected when refresh credentials are unavailable", async () => {
-  const session = createSession(
+  const session = await createSession(
     "expired-access-token",
     {
       login: "test-user",
@@ -111,7 +111,7 @@ test("runtime session is rejected when refresh credentials are unavailable", asy
       error: "GitHub authorization expired; sign in again"
     });
   } finally {
-    deleteSession(session.id);
+    await deleteSession(session.id);
   }
 });
 
