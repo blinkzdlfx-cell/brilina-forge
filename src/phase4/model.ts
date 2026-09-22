@@ -7,7 +7,15 @@ export class Phase4DeterministicModel implements AgentModel {
     if (this.used) return { type: "final", content: "The development run is complete." };
     this.used = true;
 
-    const message = input.messages.findLast(item => item.role === "user")?.content ?? "";
+    let message = "";
+    for (let index = input.messages.length - 1; index >= 0; index--) {
+      const item = input.messages[index];
+      if (item?.role === "user") {
+        message = item.content;
+        break;
+      }
+    }
+
     if (/inspect|repository|repo|branch/i.test(message)) {
       return {
         type: "final",
