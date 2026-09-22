@@ -116,7 +116,7 @@ test("runtime session is rejected when refresh credentials are unavailable", asy
 });
 
 test("runtime session does not refresh a token with more than 60 seconds remaining", async () => {
-  const session = createSession(
+  const session = await createSession(
     "valid-access-token",
     {
       login: "test-user",
@@ -154,7 +154,7 @@ test("runtime session does not refresh a token with more than 60 seconds remaini
     assert.equal(response.statusCode, 200);
     assert.equal(fetchCalls, 1);
   } finally {
-    deleteSession(session.id);
+    await deleteSession(session.id);
     globalThis.fetch = originalFetch;
   }
 });
