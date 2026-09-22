@@ -26,13 +26,25 @@ Acceptance completed on 2026-09-22:
 > Application state survives restarts, GitHub credentials are protected at rest, and workspace/repository ownership constraints are enforced.
 
 ## Phase 3 — Agent Controller
+Status: **in progress**
+
+Completed foundation:
+- typed tool contract
 - tool registry
-- schemas
-- authorization
+- schema validation boundary
+- tool policy/authorization boundary
 - run state machine
-- model context assembly
-- tool execution loop
-- audit events
+- bounded model context assembly
+- deterministic controller loop
+- fake model and in-memory audit store for tests
+- Neon audit-store adapter
+- real read-only GitHub repository tool adapter
+
+Remaining acceptance:
+- verify build and automated tests
+- verify the read-only tool against the real GitHub service
+- verify audit persistence on the Phase 3 Neon development branch
+- review and merge Phase 3
 
 Acceptance gate:
 

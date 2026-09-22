@@ -68,7 +68,6 @@ Phase 1 implements the web authorization exchange and a development-only in-memo
 
 Permission configuration must follow least privilege and be finalized in the GitHub App registration before production use.
 
-
 ## ADR-009 — Neon owns durable Forge application state
 
 **Status:** Accepted
@@ -91,3 +90,15 @@ Phase 2 persists:
 GitHub access and refresh tokens are encrypted before persistence. The encryption key is held outside the database in application-managed secrets.
 
 The first implementation uses the Neon serverless Postgres driver with raw SQL and a small repository layer. An ORM is not introduced unless a concrete requirement justifies it.
+
+## ADR-010 — Typed Agent Controller before provider integration
+
+**Status:** Accepted
+
+Forge implements a small provider-neutral Agent Controller before integrating real AI provider SDKs.
+
+The controller owns tool registration, schema validation, authorization/policy checks, run lifecycle transitions, bounded context assembly and audit persistence.
+
+Deterministic fake models and fake tools are test infrastructure only. They are not runtime dependencies and are not part of the production AI architecture.
+
+Real provider adapters are deferred to Phase 5. E2 execution is deferred to Phase 4.
