@@ -37,7 +37,7 @@ export async function syncGithubRepository(repository: GithubRepository): Promis
     credentials: "include",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
-      id: repository.id,
+      nodeId: repository.node_id,
       owner: repository.owner.login,
       name: repository.name,
       fullName: repository.full_name,
