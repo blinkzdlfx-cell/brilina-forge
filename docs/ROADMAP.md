@@ -76,13 +76,15 @@ Implemented foundation:
 - deterministic Phase 4 model adapter
 - Agent Controller integration for Phase 4 runs
 - Brilina Forge brand assets in the frontend
+- repository selector backed by the authenticated GitHub repository API
+- branch selector backed by the selected repository's GitHub branches
+- repository context synchronization into Forge's existing repository table
+- conversation context update API for repository/branch selection
+- richer tool activity cards for requested/running/completed states
+- approval-required activity presentation
 
 Remaining Phase 4 scope:
-- repository selector
-- branch selector
 - persistent message history
-- richer tool activity cards
-- approval-required UI
 - execution/diff integration points
 - authenticated production app serving/deployment path
 - Phase 4 automated UI/API acceptance tests
