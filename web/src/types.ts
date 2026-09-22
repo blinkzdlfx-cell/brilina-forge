@@ -4,8 +4,34 @@ export type Conversation = {
   id: string;
   title: string | null;
   repositoryId: string | null;
+  repositoryFullName: string | null;
   branchName: string | null;
   updatedAt: string;
+};
+
+export type GithubRepository = {
+  id: number;
+  name: string;
+  full_name: string;
+  private: boolean;
+  default_branch: string;
+  html_url: string;
+  owner: { login: string };
+};
+
+export type GithubBranch = {
+  name: string;
+  protected: boolean;
+  commit: { sha: string };
+};
+
+export type ForgeRepository = {
+  id: string;
+  githubNodeId: string;
+  name: string;
+  fullName: string;
+  owner: string;
+  defaultBranch: string;
 };
 
 export type ChatMessage = {
