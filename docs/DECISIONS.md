@@ -30,11 +30,13 @@ The Agent Controller does not care which protocol is used.
 
 The model receives only the repository context required for the task rather than the whole repository by default.
 
-## ADR-005 — Backend before chat UI
+## ADR-005 — Chat UI after backend contracts
 
-**Status:** Accepted
+**Status:** Superseded by ADR-011
 
-The UI comes after the GitHub, database, agent, execution and AI provider foundations.
+The original sequencing placed the chat UI after the GitHub, database, agent, execution and AI provider foundations.
+
+The implementation sequence was later changed so that the chat UI is built immediately after the Agent Controller, before real AI provider integration and E2 execution. The UI remains dependent on proven backend contracts and the provider-neutral Agent Controller rather than on a specific AI provider.
 
 ## ADR-006 — No giant agent framework initially
 
@@ -101,4 +103,21 @@ The controller owns tool registration, schema validation, authorization/policy c
 
 Deterministic fake models and fake tools are test infrastructure only. They are not runtime dependencies and are not part of the production AI architecture.
 
-Real provider adapters are deferred to Phase 5. E2 execution is deferred to Phase 4.
+Real provider adapters are Phase 5. E2 execution is Phase 6.
+
+## ADR-011 — Chat UI before AI providers and E2
+
+**Status:** Accepted
+
+The remaining implementation sequence is:
+
+1. Phase 4 — Chat UI
+2. Phase 5 — AI provider abstraction
+3. Phase 6 — E2 execution
+4. Phase 7 — Verification and hardening
+
+Phase 4 is built against provider-neutral application contracts and the existing Agent Controller. It must not introduce a dependency on a specific AI provider SDK.
+
+Phase 4 may use deterministic development/test adapters to exercise UI lifecycle behavior, but those adapters are not production AI implementations.
+
+The purpose of this ordering is to establish conversation, run, event, tool-activity, approval, repository/branch, and execution integration contracts before concrete AI providers or E2 execution infrastructure are integrated.
