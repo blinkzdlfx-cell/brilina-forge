@@ -50,7 +50,7 @@ async function serviceForRequest(request: { headers: Record<string, string | str
   return new GithubService(new GithubClient(session.accessToken));
 }
 
-app.get("/health", async () => ({ ok: true, service: "brilina-forge", phase: 2 }));
+app.get("/health", async () => ({ ok: true, service: "brilina-forge", phase: 3 }));
 
 app.get("/auth/github/start", async (_request, reply) => {
   reply.redirect(createGithubAuthorizationUrl());
