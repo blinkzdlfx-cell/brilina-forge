@@ -70,6 +70,34 @@ Application code never scatters raw GitHub API calls. All access goes through Gi
 
 Models request typed tools. Models do not receive arbitrary backend credentials or direct network access.
 
+## Agent Controller boundary
+
+The Agent Controller owns orchestration, not provider-specific behavior or infrastructure implementation.
+
+Its inputs are:
+- authenticated principal
+- conversation/run identifiers
+- bounded user/model context
+- registered typed tools
+- model decisions through an internal provider-neutral interface
+
+Its responsibilities are:
+- create and transition runs
+- expose only registered tool schemas
+- validate tool arguments
+- evaluate tool policy and authorization
+- execute typed tools
+- append structured tool results to model context
+- persist run/tool-call audit state
+- enforce a maximum step count
+
+The controller does not:
+- call provider SDKs directly
+- execute arbitrary shell commands
+- access GitHub outside GitHubService
+- load an entire repository by default
+- receive or expose raw credentials
+
 ## Backend package direction
 
 The eventual application can be organized conceptually as:
@@ -130,7 +158,6 @@ message
 ## Future extensibility
 
 The architecture should allow:
-
 - GitLab service
 - Bitbucket service
 - local execution worker
