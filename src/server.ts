@@ -4,7 +4,7 @@ import { createGithubAuthorizationUrl, exchangeGithubCode, refreshGithubAccessTo
 import { createSession, deleteSession, getSession, parseSessionCookie, updateSessionCredentials, type Session } from "./auth/session.js";
 import { GithubApiError, GithubClient } from "./github/client.js";
 import { GithubService } from "./github/service.js";
-import { getForgeUserContext, listConversations, createConversation, getConversationForUser } from "./db/conversation-repositories.js";
+import { getForgeUserContext, listConversations, createConversation, getConversationForUser, userOwnsRun } from "./db/conversation-repositories.js";
 import { neonAgentAuditStore } from "./db/agent-repositories.js";
 import { AgentController } from "./agent/controller.js";
 import { ToolRegistry } from "./agent/registry.js";
@@ -232,6 +232,7 @@ app.post("/api/conversations/:conversationId/runs", async (request, reply) => {
             userId,
             workspaceId,
             repositoryId: conversation.repositoryId ?? undefined,
+            repositoryFullName: conversation.repositoryFullName ?? undefined,
             branchName: conversation.branchName ?? undefined
           },
           message
@@ -259,8 +260,9 @@ app.post("/api/conversations/:conversationId/runs", async (request, reply) => {
 
 app.get("/api/runs/:runId/events", async (request, reply) => {
   try {
-    await sessionForRequest(request);
+    const { userId, workspaceId } = await forgeContextForRequest(request);
     const { runId } = request.params as { runId: string };
+    if (!(await userOwnsRun(runId, userId, workspaceId))) return reply.code(404).send({ error: "run_not_found" });
     reply.hijack();
     reply.raw.writeHead(200, {
       "Content-Type": "text/event-stream",
