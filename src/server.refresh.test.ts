@@ -16,7 +16,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 test("runtime session refreshes an expiring GitHub token before serving /api/github/me", async () => {
-  const session = createSession(
+  const session = await createSession(
     "old-access-token",
     {
       login: "test-user",
@@ -81,7 +81,7 @@ test("runtime session refreshes an expiring GitHub token before serving /api/git
     assert.ok(userCall);
     assert.equal(userCall.authorization, "Bearer refreshed-access-token");
   } finally {
-    deleteSession(session.id);
+    await deleteSession(session.id);
     globalThis.fetch = originalFetch;
   }
 });
