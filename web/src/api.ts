@@ -1,4 +1,4 @@
-import type { Conversation, ForgeEvent, ForgeRepository, GithubBranch, GithubRepository } from "./types";
+import type { ChatMessage, Conversation, ForgeEvent, ForgeRepository, GithubBranch, GithubRepository } from "./types";
 
 async function readError(response: Response, fallback: string): Promise<never> {
   try {
@@ -104,4 +104,10 @@ export function streamRun(runId: string, onEvent: (event: ForgeEvent) => void, o
 
   source.onerror = onError;
   return () => source.close();
+}
+
+export async function listConversationMessages(conversationId: string): Promise<ChatMessage[]> {
+  const response = await fetch(`/api/conversations/${conversationId}/messages`, { credentials: "include" });
+  if (!response.ok) await readError(response, "Unable to load conversation messages");
+  return response.json();
 }
