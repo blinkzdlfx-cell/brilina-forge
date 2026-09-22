@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { getSql } from "./client.js";
 import { decryptSecret, encryptSecret } from "./crypto.js";
 import type { GithubUser } from "../github/types.js";
-import type { Session } from "../auth/session.js";
+import type { Session, SessionStore } from "../auth/session.js";
 
 const SESSION_TTL_MS = 24 * 60 * 60_000;
 
@@ -148,5 +148,14 @@ function rowToSession(token: string, row: Record<string, unknown>): Session {
       html_url: "https://github.com/" + String(row.github_login)
     },
     createdAt: new Date(String(row.expires_at)).getTime() - SESSION_TTL_MS
+  };
+}
+
+export function createNeonSessionStore(): SessionStore {
+  return {
+    create: createPersistentSession,
+    get: getPersistentSession,
+    update: updatePersistentSessionCredentials,
+    delete: deletePersistentSession
   };
 }
