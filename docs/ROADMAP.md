@@ -82,9 +82,10 @@ Implemented foundation:
 - conversation context update API for repository/branch selection
 - richer tool activity cards for requested/running/completed states
 - approval-required activity presentation
+- persistent conversation message history backed by Neon
+- conversation history loading when reopening a chat
 
 Remaining Phase 4 scope:
-- persistent message history
 - execution/diff integration points
 - authenticated production app serving/deployment path
 - Phase 4 automated UI/API acceptance tests
