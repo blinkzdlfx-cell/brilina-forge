@@ -1,6 +1,6 @@
 # Phase 2 — Neon Persistence
 
-Status: **schema designed; implementation in progress**
+Status: **complete**
 
 ## Objective
 
@@ -16,7 +16,7 @@ Existing project:
 - Production branch: `production`
 - Phase 2 development branch: `phase-2-neon-persistence`
 
-The Phase 2 database work is developed against the dedicated Neon branch first. Production schema changes are applied only after the branch schema is tested and accepted.
+The Phase 2 database work was developed and verified against the dedicated Neon branch first. The accepted schema was then applied to the production branch.
 
 ## Initial persistence model
 
@@ -48,30 +48,34 @@ The browser continues to receive only the application session cookie.
 
 ## Ownership rules
 
-The persistence layer must enforce:
-- a workspace has one owner;
-- workspace membership is explicit;
-- repositories belong to a workspace;
-- conversations belong to a workspace and user;
-- runs belong to conversations and users;
-- tool calls belong to runs;
-- usage records belong to runs when applicable.
+The persistence layer enforces database relationships for:
+- workspace ownership;
+- explicit workspace membership;
+- repository-to-workspace ownership;
+- conversation-to-workspace/user relationships;
+- run-to-conversation/user relationships;
+- tool-call-to-run relationships;
+- usage-record-to-run relationships when applicable.
 
 Authorization checks remain application-layer responsibilities in addition to database foreign-key constraints.
 
-## Migration workflow
+## Verification
 
-1. Develop schema on the Phase 2 Neon branch.
-2. Verify tables, constraints and indexes.
-3. Implement database access behind a small repository/data-access layer.
-4. Replace the Phase 1 in-memory session implementation.
-5. Add integration tests for restart persistence and ownership boundaries.
-6. Apply the accepted migration to the Neon production branch.
-7. Update the Phase 2 completion status only after the acceptance gate passes.
+Phase 2 verification completed on 2026-09-22:
+- Neon development schema inspected and verified.
+- Application tests: 9/9 passed.
+- TypeScript build completed successfully.
+- GitHub authentication persisted across a server restart.
+- A near-expiry GitHub token was refreshed automatically without reauthentication.
+- Refreshed GitHub credential metadata was persisted back to Neon.
+- GitHub credentials remained encrypted at rest.
+- Accepted migration was applied to the Neon production branch.
 
 ## Acceptance gate
 
 > Application state survives process restarts, GitHub credentials are protected at rest, and workspace/repository ownership constraints are enforced.
+
+Phase 2 acceptance gate passed on 2026-09-22.
 
 ## Explicit non-goals
 
