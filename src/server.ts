@@ -4,7 +4,7 @@ import { createGithubAuthorizationUrl, exchangeGithubCode, refreshGithubAccessTo
 import { createSession, deleteSession, getSession, parseSessionCookie, updateSessionCredentials, type Session } from "./auth/session.js";
 import { GithubApiError, GithubClient } from "./github/client.js";
 import { GithubService } from "./github/service.js";
-import { getForgeUserContext, listConversations, createConversation, getConversationForUser, userOwnsRun } from "./db/conversation-repositories.js";
+import { getForgeUserContext, listConversations, createConversation, updateConversationContext, syncRepository, getConversationForUser, userOwnsRun } from "./db/conversation-repositories.js";
 import { neonAgentAuditStore } from "./db/agent-repositories.js";
 import { AgentController } from "./agent/controller.js";
 import { ToolRegistry } from "./agent/registry.js";
@@ -122,6 +122,33 @@ app.get("/api/github/repos", async (request, reply) => {
   }
 });
 
+app.post("/api/github/repositories/sync", async (request, reply) => {
+  try {
+    const { userId, workspaceId } = await forgeContextForRequest(request);
+    const body = request.body as { id?: number; owner?: string; name?: string; fullName?: string; defaultBranch?: string };
+    if (!Number.isInteger(body?.id) || !body.owner || !body.name || !body.fullName || !body.defaultBranch) {
+      return reply.code(400).send({ error: "invalid_repository" });
+    }
+
+    const repository = await serviceForRequest(request).then(service => service.getRepository(body.owner!, body.name!));
+    if (repository.id !== body.id || repository.full_name !== body.fullName) {
+      return reply.code(409).send({ error: "repository_context_mismatch" });
+    }
+
+    return reply.send(await syncRepository({
+      userId,
+      workspaceId,
+      githubId: repository.id,
+      owner: repository.owner.login,
+      name: repository.name,
+      fullName: repository.full_name,
+      defaultBranch: repository.default_branch
+    }));
+  } catch (error) {
+    return handleForgeError(reply, error);
+  }
+});
+
 app.get("/api/github/repos/:owner/:repo", async (request, reply) => {
   try {
     const { owner, repo } = request.params as { owner: string; repo: string };
@@ -200,6 +227,30 @@ app.post("/api/conversations", async (request, reply) => {
       repositoryId: body.repositoryId,
       branchName: body.branchName
     }));
+  } catch (error) {
+    return handleForgeError(reply, error);
+  }
+});
+
+app.patch("/api/conversations/:conversationId", async (request, reply) => {
+  try {
+    const { userId, workspaceId } = await forgeContextForRequest(request);
+    const { conversationId } = request.params as { conversationId: string };
+    const body = request.body as { repositoryId?: string | null; branchName?: string | null };
+    const branchName = body.branchName === undefined || body.branchName === null ? null : body.branchName.trim();
+    if (branchName !== null && (!branchName || branchName.length > 512)) {
+      return reply.code(400).send({ error: "invalid_branch_name" });
+    }
+
+    const conversation = await updateConversationContext({
+      conversationId,
+      userId,
+      workspaceId,
+      repositoryId: body.repositoryId ?? null,
+      branchName
+    });
+    if (!conversation) return reply.code(404).send({ error: "conversation_not_found" });
+    return reply.send(conversation);
   } catch (error) {
     return handleForgeError(reply, error);
   }
