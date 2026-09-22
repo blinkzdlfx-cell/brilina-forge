@@ -26,6 +26,21 @@ Acceptance gate:
 Phase 1 acceptance completed on 2026-09-22. The automated and manual acceptance checklist in docs/PHASE_1_HARDENING.md passed.
 
 ## Phase 2 — Neon persistence
+Status: **in progress**
+
+Completed so far:
+- Neon project identified and production branch confirmed
+- Dedicated Phase 2 Neon development branch created
+- Initial Forge persistence schema applied and verified on the Phase 2 Neon branch
+- Durable-session repository boundary and token encryption foundation added
+
+Remaining:
+- durable session runtime acceptance
+- repository/data-access integration
+- restart persistence tests
+- ownership-boundary tests
+- production migration and Phase 2 acceptance gate
+
 - database project/branch setup
 - migrations
 - users
