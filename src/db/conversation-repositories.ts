@@ -60,10 +60,11 @@ export async function getConversationForUser(id: string, userId: string, workspa
   userId: string;
   workspaceId: string;
   repositoryId: string | null;
+  repositoryFullName: string | null;
   branchName: string | null;
 } | undefined> {
   const rows = (await getSql().query(
-    "SELECT id, user_id, workspace_id, repository_id, branch_name FROM conversations WHERE id = $1 AND user_id = $2 AND workspace_id = $3 LIMIT 1",
+    "SELECT c.id, c.user_id, c.workspace_id, c.repository_id, c.branch_name, CASE WHEN r.github_owner IS NOT NULL AND r.github_name IS NOT NULL THEN r.github_owner || '/' || r.github_name ELSE NULL END AS repository_full_name FROM conversations c LEFT JOIN repositories r ON r.id = c.repository_id WHERE c.id = $1 AND c.user_id = $2 AND c.workspace_id = $3 LIMIT 1",
     [id, userId, workspaceId]
   )) as Record<string, unknown>[];
   if (!rows[0]) return undefined;
@@ -72,6 +73,15 @@ export async function getConversationForUser(id: string, userId: string, workspa
     userId: String(rows[0].user_id),
     workspaceId: String(rows[0].workspace_id),
     repositoryId: rows[0].repository_id === null ? null : String(rows[0].repository_id),
+    repositoryFullName: rows[0].repository_full_name === null ? null : String(rows[0].repository_full_name),
     branchName: rows[0].branch_name === null ? null : String(rows[0].branch_name)
   };
+}
+
+export async function userOwnsRun(runId: string, userId: string, workspaceId: string): Promise<boolean> {
+  const rows = (await getSql().query(
+    "SELECT 1 FROM runs r JOIN conversations c ON c.id = r.conversation_id WHERE r.id = $1 AND r.user_id = $2 AND c.workspace_id = $3 LIMIT 1",
+    [runId, userId, workspaceId]
+  )) as Record<string, unknown>[];
+  return Boolean(rows[0]);
 }
