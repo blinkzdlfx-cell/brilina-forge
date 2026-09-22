@@ -188,7 +188,9 @@ function handleGithubError(reply: any, error: unknown) {
   return reply.code(500).send({ error: "request_failed" });
 }
 
-if (process.env.NODE_ENV !== "test") {
+const isTestEnvironment = process.env.NODE_ENV === "test" || process.argv.includes("--test");
+
+if (!isTestEnvironment) {
   app.listen({ host: config.host, port: config.port }).catch(error => {
     app.log.error(error);
     process.exit(1);
