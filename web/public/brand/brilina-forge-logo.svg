@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 170">
+  <g transform="translate(18 33)">
+    <path fill="#3B3D9C" d="M28 84V22L60 5l30 16v18L57 56l33 16v18l-33 8z"/>
+    <path fill="#fff" d="M46 27l14-8 11 6v8L46 47zM46 60l14-7 15 8v9L46 85z"/>
+  </g>
+  <text x="138" y="85" font-family="Inter,Arial,sans-serif" font-size="46" font-weight="400" fill="#111318">Brilina</text>
+  <text x="327" y="85" font-family="Inter,Arial,sans-serif" font-size="46" font-weight="700" fill="#111318"> Forge</text>
+  <text x="140" y="119" font-family="Inter,Arial,sans-serif" font-size="19" fill="#737783">Turn ideas into working software.</text>
+</svg>

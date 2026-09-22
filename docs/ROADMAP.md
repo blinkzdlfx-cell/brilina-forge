@@ -46,20 +46,56 @@ Acceptance completed on 2026-09-22:
 
 > The controller can accept a provider-neutral model decision, validate and authorize a registered read-only tool, execute the typed tool, append its structured result to model context, and audit the run/tool lifecycle. Automated CI verified the build and 10 tests.
 
-Notes:
-- Fake models/tools are test infrastructure only.
-- Human approval UI/resume flow remains a future integration concern for the chat/UI layer.
-- Real AI provider integration remains Phase 5.
-- E2 execution remains Phase 4.
+## Phase 4 — Chat UI
+Status: **in progress**
 
-## Phase 4 — E2 execution
-- worker provisioning
-- persistent PTY
-- WebSocket transport
-- workspace hydration
-- command policy
-- execution logs
-- failure recovery
+Purpose:
+- establish the user-facing Forge workspace contract before real AI provider integration
+- build the UI against the provider-neutral Agent Controller
+- avoid coupling the UI directly to any AI provider SDK
+
+Accepted frontend:
+- React
+- Vite
+- TypeScript
+
+Accepted event transport:
+- SSE for conversation/run events
+- WebSocket reserved for the Phase 6 E2 interactive terminal
+
+Implemented foundation:
+- branded Brilina Forge application shell
+- responsive expandable/collapsible sidebar
+- conversation list and creation
+- chat composer
+- provider-neutral run lifecycle presentation
+- SSE client/event contract
+- backend conversation API
+- backend run-start API
+- backend SSE run-event API
+- deterministic Phase 4 model adapter
+- Agent Controller integration for Phase 4 runs
+- Brilina Forge brand assets in the frontend
+- repository selector backed by the authenticated GitHub repository API
+- branch selector backed by the selected repository's GitHub branches
+- repository context synchronization into Forge's existing repository table
+- conversation context update API for repository/branch selection
+- richer tool activity cards for requested/running/completed states
+- approval-required activity presentation
+- persistent conversation message history backed by Neon
+- conversation history loading when reopening a chat
+
+Remaining Phase 4 scope:
+- execution/diff integration points
+- authenticated production app serving/deployment path
+- Phase 4 automated UI/API acceptance tests
+
+Constraints:
+- no production AI provider SDK
+- deterministic development responses only as test/development adapters
+- stable backend contracts, not provider-specific payloads
+- E2 execution deferred to Phase 6
+- real AI provider integration is Phase 5
 
 ## Phase 5 — AI provider abstraction
 - provider interface
@@ -71,17 +107,14 @@ Notes:
 - rate-limit handling
 - cooldown retry
 
-## Phase 6 — Chat UI
-- authentication
-- conversations
-- repository/branch selector
-- model selector
-- streaming response
-- tool activity
-- terminal
-- diffs
-- approval prompts
-- settings
+## Phase 6 — E2 execution
+- worker provisioning
+- persistent PTY
+- WebSocket transport
+- workspace hydration
+- command policy
+- execution logs
+- failure recovery
 
 ## Phase 7 — Verification and hardening
 - end-to-end testing
