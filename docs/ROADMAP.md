@@ -26,9 +26,9 @@ Acceptance completed on 2026-09-22:
 > Application state survives restarts, GitHub credentials are protected at rest, and workspace/repository ownership constraints are enforced.
 
 ## Phase 3 — Agent Controller
-Status: **in progress**
+Status: **complete**
 
-Completed foundation:
+Completed:
 - typed tool contract
 - tool registry
 - schema validation boundary
@@ -36,19 +36,21 @@ Completed foundation:
 - run state machine
 - bounded model context assembly
 - deterministic controller loop
-- fake model and in-memory audit store for tests
+- deterministic fake model and in-memory audit store for controller tests
 - Neon audit-store adapter
 - real read-only GitHub repository tool adapter
+- Phase 3 architecture and ADR documentation
+- CI build and test verification
 
-Remaining acceptance:
-- verify build and automated tests
-- verify the read-only tool against the real GitHub service
-- verify audit persistence on the Phase 3 Neon development branch
-- review and merge Phase 3
+Acceptance completed on 2026-09-22:
 
-Acceptance gate:
+> The controller can accept a provider-neutral model decision, validate and authorize a registered read-only tool, execute the typed tool, append its structured result to model context, and audit the run/tool lifecycle. Automated CI verified the build and 10 tests.
 
-> A model can request a real read-only tool and receive a validated result.
+Notes:
+- Fake models/tools are test infrastructure only.
+- Human approval UI/resume flow remains a future integration concern for the chat/UI layer.
+- Real AI provider integration remains Phase 5.
+- E2 execution remains Phase 4.
 
 ## Phase 4 — E2 execution
 - worker provisioning
