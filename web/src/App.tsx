@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   createConversation,
   listConversations,
+  listConversationMessages,
   listGithubBranches,
   listGithubRepositories,
   startRun,
@@ -54,11 +55,20 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (!active) return;
+    if (!active) {
+      setMessages(demoMessages);
+      return;
+    }
+
     setSelectedForgeRepoId(active.repositoryId);
     setSelectedBranch(active.branchName ?? "");
     const githubRepo = repositories.find(item => item.full_name === active.repositoryFullName);
     setSelectedRepoId(githubRepo?.id ?? null);
+    setError(null);
+
+    void listConversationMessages(active.id)
+      .then(history => setMessages(history.length ? history : demoMessages))
+      .catch(err => setError(err instanceof Error ? err.message : "Unable to load conversation history"));
   }, [active, repositories]);
 
   const title = useMemo(() => active?.title ?? "New Forge conversation", [active]);
@@ -160,7 +170,7 @@ export function App() {
     const conversation = await ensureConversation();
 
     setMessages(items => [
-      ...items,
+      ...items.filter(item => item.id !== "welcome"),
       { id: crypto.randomUUID(), role: "user", content: message, createdAt: new Date().toISOString() }
     ]);
     setRunning(true);
