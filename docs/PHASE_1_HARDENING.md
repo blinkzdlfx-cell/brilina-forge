@@ -1,6 +1,6 @@
 # Phase 1 Hardening
 
-Status: **implementation complete; acceptance testing required**
+Status: **accepted**
 
 ## Scope
 
@@ -73,4 +73,4 @@ Phase 1 hardening is complete when:
 - Token-refresh behavior is verified locally.
 - No secrets are exposed in responses or repository files.
 
-Only after this gate should Phase 2 Neon implementation begin.
+Acceptance gate passed on 2026-09-22. Phase 2 Neon implementation may begin.
