@@ -30,7 +30,7 @@ export async function getForgeUserContext(githubUserId: number): Promise<{ userI
 export async function syncRepository(input: {
   userId: string;
   workspaceId: string;
-  githubId: number;
+  githubNodeId: string;
   owner: string;
   name: string;
   fullName: string;
@@ -40,7 +40,7 @@ export async function syncRepository(input: {
     "INSERT INTO repositories (workspace_id, github_connection_id, github_node_id, github_owner, github_name, github_full_name, default_branch) SELECT $1, c.id, $2, $3, $4, $5, $6 FROM github_connections c WHERE c.user_id = $7 ON CONFLICT (workspace_id, github_node_id) DO UPDATE SET github_owner = EXCLUDED.github_owner, github_name = EXCLUDED.github_name, github_full_name = EXCLUDED.github_full_name, default_branch = EXCLUDED.default_branch, updated_at = now() RETURNING id, github_node_id, github_owner, github_name, github_full_name, default_branch",
     [
       input.workspaceId,
-      String(input.githubId),
+      input.githubNodeId,
       input.owner,
       input.name,
       input.fullName,
