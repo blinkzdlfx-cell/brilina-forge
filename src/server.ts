@@ -88,6 +88,23 @@ app.get("/auth/github/logout", async (request, reply) => {
   return reply.send({ authenticated: false });
 });
 
+// TEMPORARY DEVELOPMENT-ONLY TEST ROUTE. Remove after token-refresh acceptance testing.
+if (config.nodeEnv === "development") {
+  app.post("/__dev/auth/expire", async (request, reply) => {
+    const sessionId = parseSessionCookie(request.headers.cookie as string | undefined);
+    const session = getSession(sessionId);
+    if (!session) return reply.code(401).send({ error: "GitHub authentication required" });
+
+    session.expiresAt = Date.now() + 30_000;
+    return reply.send({
+      ok: true,
+      expiresInSeconds: 30,
+      hasRefreshToken: Boolean(session.refreshToken),
+      refreshTokenExpiresAt: session.refreshTokenExpiresAt ?? null
+    });
+  });
+}
+
 app.get("/api/github/me", async (request, reply) => {
   try {
     return await serviceForRequest(request).then(service => service.getAuthenticatedUser());
