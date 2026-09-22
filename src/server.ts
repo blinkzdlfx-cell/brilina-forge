@@ -11,6 +11,7 @@ import { ToolRegistry } from "./agent/registry.js";
 import { createGithubGetRepositoryTool } from "./agent/tools/github-read-repository.js";
 import { Phase4DeterministicModel } from "./phase4/model.js";
 import { runEventBus } from "./phase4/events.js";
+import { registerWebApp } from "./web-serving.js";
 
 const app = Fastify({ logger: true });
 const TOKEN_REFRESH_SKEW_MS = 60_000;
@@ -399,6 +400,8 @@ function handleForgeError(reply: any, error: unknown) {
   requestLog(error);
   return reply.code(500).send({ error: error instanceof Error ? error.message : "request_failed" });
 }
+
+registerWebApp(app);
 
 function requestLog(error: unknown) {
   app.log.error(error);
