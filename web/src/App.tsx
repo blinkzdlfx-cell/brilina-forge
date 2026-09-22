@@ -244,7 +244,7 @@ export function App() {
         <header className="topbar">
           <div className="context">
             <strong>{title}</strong>
-            <span>{active?.branchName ?? selectedBranch || "No branch selected"}</span>
+            <span>{(active?.branchName ?? selectedBranch) || "No branch selected"}</span>
           </div>
           <div className="top-actions">
             <label className="context-select">
