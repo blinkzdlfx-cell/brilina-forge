@@ -42,7 +42,10 @@ button, textarea { font: inherit; }
 .context strong { font-size: 14px; }
 .context span { margin-top: 3px; font-size: 11px; color: #8a8d99; }
 .top-actions { display: flex; gap: 8px; align-items: center; }
-.ghost-button { border: 1px solid #dedfe6; background: #fff; border-radius: 9px; padding: 8px 12px; color: #454851; }
+.context-select { display: grid; gap: 3px; }
+.context-select span { font-size: 9px; text-transform: uppercase; letter-spacing: .08em; color: #8a8d99; font-weight: 700; }
+.context-select select { max-width: 190px; border: 1px solid #dedfe6; background: #fff; border-radius: 9px; padding: 8px 28px 8px 10px; color: #454851; outline: none; }
+.context-select select:focus { border-color: #3b3d9c; box-shadow: 0 0 0 3px #ececf9; }
 .avatar { width: 32px; height: 32px; border: 0; border-radius: 50%; background: #3b3d9c; color: #fff; font-weight: 700; }
 
 .chat { flex: 1; overflow: auto; }
@@ -61,7 +64,15 @@ button, textarea { font: inherit; }
 .message.user { padding-left: 38px; }
 .message.user .message-content { background: #fff; border: 1px solid #e3e4ea; padding: 12px 14px; border-radius: 12px; }
 
-.run-status { margin-left: 38px; display: flex; align-items: center; gap: 8px; color: #737783; font-size: 13px; }
+.tool-activity { margin-left: 38px; border: 1px solid #e3e4ea; background: #fff; border-radius: 12px; overflow: hidden; }
+.tool-activity-title { padding: 10px 12px; border-bottom: 1px solid #eeeef2; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #737783; }
+.tool-activity-row { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; gap: 9px; align-items: center; padding: 9px 12px; font-size: 12px; }
+.tool-state { width: 7px; height: 7px; border-radius: 50%; background: #92949e; }
+.tool-state.running { background: #3b3d9c; box-shadow: 0 0 0 4px #ececf9; }
+.tool-state.completed { background: #4d8b5a; }
+.tool-state.approval { background: #b47a1c; }
+.tool-status { color: #8a8d99; }
+.approval-note { margin: 0 12px 11px; padding: 9px 10px; border-radius: 8px; background: #fff8e9; border: 1px solid #f0dfb5; color: #76520f; font-size: 11px; line-height: 1.45; }
 .pulse { width: 7px; height: 7px; border-radius: 50%; background: #3b3d9c; box-shadow: 0 0 0 5px #e8e8f7; animation: pulse 1.3s infinite; }
 @keyframes pulse { 50% { opacity: .35; transform: scale(.75); } }
 
@@ -80,5 +91,7 @@ button, textarea { font: inherit; }
   .topbar { padding: 0 14px; }
   .chat-inner { width: min(100% - 22px, 860px); padding-top: 42px; }
   .message.user { padding-left: 0; }
-  .run-status { margin-left: 0; }
+  .tool-activity { margin-left: 0; }
+  .top-actions { flex-wrap: wrap; justify-content: flex-end; }
+  .context-select select { max-width: 145px; }
 }
