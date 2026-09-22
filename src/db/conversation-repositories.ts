@@ -150,3 +150,84 @@ export async function userOwnsRun(runId: string, userId: string, workspaceId: st
   )) as Record<string, unknown>[];
   return Boolean(rows[0]);
 }
+
+export type ConversationMessage = {
+  id: string;
+  conversationId: string;
+  runId: string | null;
+  role: "user" | "assistant" | "system" | "tool";
+  content: string;
+  toolName: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+};
+
+export async function addConversationMessage(input: {
+  conversationId: string;
+  userId: string;
+  workspaceId: string;
+  runId?: string | null;
+  role: ConversationMessage["role"];
+  content: string;
+  toolName?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<ConversationMessage> {
+  const rows = (await getSql().query(
+    `INSERT INTO conversation_messages
+      (conversation_id, run_id, role, content, tool_name, metadata)
+     SELECT c.id, $4, $5, $6, $7, $8::jsonb
+     FROM conversations c
+     WHERE c.id = $1 AND c.user_id = $2 AND c.workspace_id = $3
+     RETURNING id, conversation_id, run_id, role, content, tool_name, metadata, created_at`,
+    [
+      input.conversationId,
+      input.userId,
+      input.workspaceId,
+      input.runId ?? null,
+      input.role,
+      input.content,
+      input.toolName ?? null,
+      JSON.stringify(input.metadata ?? {})
+    ]
+  )) as Record<string, unknown>[];
+
+  if (!rows[0]) throw Object.assign(new Error("Conversation not found"), { statusCode: 404 });
+
+  await getSql().query(
+    "UPDATE conversations SET updated_at = now() WHERE id = $1",
+    [input.conversationId]
+  );
+
+  return mapConversationMessage(rows[0]);
+}
+
+export async function listConversationMessages(
+  conversationId: string,
+  userId: string,
+  workspaceId: string
+): Promise<ConversationMessage[]> {
+  const rows = (await getSql().query(
+    `SELECT m.id, m.conversation_id, m.run_id, m.role, m.content, m.tool_name, m.metadata, m.created_at
+     FROM conversation_messages m
+     JOIN conversations c ON c.id = m.conversation_id
+     WHERE m.conversation_id = $1 AND c.user_id = $2 AND c.workspace_id = $3
+     ORDER BY m.created_at ASC, m.id ASC
+     LIMIT 1000`,
+    [conversationId, userId, workspaceId]
+  )) as Record<string, unknown>[];
+
+  return rows.map(mapConversationMessage);
+}
+
+function mapConversationMessage(row: Record<string, unknown>): ConversationMessage {
+  return {
+    id: String(row.id),
+    conversationId: String(row.conversation_id),
+    runId: row.run_id === null ? null : String(row.run_id),
+    role: String(row.role) as ConversationMessage["role"],
+    content: String(row.content),
+    toolName: row.tool_name === null ? null : String(row.tool_name),
+    metadata: (row.metadata ?? {}) as Record<string, unknown>,
+    createdAt: new Date(String(row.created_at)).toISOString()
+  };
+}
