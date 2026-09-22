@@ -54,18 +54,38 @@ Purpose:
 - build the UI against the provider-neutral Agent Controller
 - avoid coupling the UI directly to any AI provider SDK
 
-Scope:
-- authenticated Forge shell
-- conversation list and lifecycle
-- repository and branch selection
-- chat composer and message history
-- run lifecycle/status presentation
-- streaming/event contract
-- tool activity presentation
-- approval-required state presentation
-- provider-neutral model UI contract
-- terminal and diff integration points for later execution work
-- responsive workspace layout
+Accepted frontend:
+- React
+- Vite
+- TypeScript
+
+Accepted event transport:
+- SSE for conversation/run events
+- WebSocket reserved for the Phase 6 E2 interactive terminal
+
+Implemented foundation:
+- branded Brilina Forge application shell
+- responsive expandable/collapsible sidebar
+- conversation list and creation
+- chat composer
+- provider-neutral run lifecycle presentation
+- SSE client/event contract
+- backend conversation API
+- backend run-start API
+- backend SSE run-event API
+- deterministic Phase 4 model adapter
+- Agent Controller integration for Phase 4 runs
+- Brilina Forge brand assets in the frontend
+
+Remaining Phase 4 scope:
+- repository selector
+- branch selector
+- persistent message history
+- richer tool activity cards
+- approval-required UI
+- execution/diff integration points
+- authenticated production app serving/deployment path
+- Phase 4 automated UI/API acceptance tests
 
 Constraints:
 - no production AI provider SDK
