@@ -125,20 +125,20 @@ app.get("/api/github/repos", async (request, reply) => {
 app.post("/api/github/repositories/sync", async (request, reply) => {
   try {
     const { userId, workspaceId } = await forgeContextForRequest(request);
-    const body = request.body as { id?: number; owner?: string; name?: string; fullName?: string; defaultBranch?: string };
-    if (!Number.isInteger(body?.id) || !body.owner || !body.name || !body.fullName || !body.defaultBranch) {
+    const body = request.body as { nodeId?: string; owner?: string; name?: string; fullName?: string; defaultBranch?: string };
+    if (!body?.nodeId || !body.owner || !body.name || !body.fullName || !body.defaultBranch) {
       return reply.code(400).send({ error: "invalid_repository" });
     }
 
     const repository = await serviceForRequest(request).then(service => service.getRepository(body.owner!, body.name!));
-    if (repository.id !== body.id || repository.full_name !== body.fullName) {
+    if (repository.full_name !== body.fullName) {
       return reply.code(409).send({ error: "repository_context_mismatch" });
     }
 
     return reply.send(await syncRepository({
       userId,
       workspaceId,
-      githubId: repository.id,
+      githubNodeId: body.nodeId,
       owner: repository.owner.login,
       name: repository.name,
       fullName: repository.full_name,
