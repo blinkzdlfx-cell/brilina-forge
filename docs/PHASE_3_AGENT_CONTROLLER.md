@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress.
+Complete — accepted 2026-09-22.
 
 ## Purpose
 
@@ -17,8 +17,9 @@ Phase 3 establishes the backend orchestration contract between future AI provide
 - run lifecycle state machine
 - model context assembly
 - deterministic execution loop
-- audit persistence
+- audit persistence adapter
 - deterministic fake model and fake tools for controller tests
+- read-only GitHub tool adapter
 
 ## Out of scope
 
@@ -28,66 +29,24 @@ Phase 3 establishes the backend orchestration contract between future AI provide
 - chat UI
 - autonomous production coding
 
-## Core flow
+## Acceptance
 
-```
-request
-→ create run
-→ assemble bounded context
-→ model decision
-→ validate tool request
-→ authorize
-→ execute typed tool
-→ persist tool result
-→ append result to context
-→ continue or finish
-```
+CI passed the TypeScript build and 10 automated tests.
 
-## Tool contract
+The accepted controller contract is:
 
-Tools expose stable semantic operations. A tool has a name, description, input schema, operation class, and execution function. The controller never gives a model direct credentials or arbitrary backend access.
-
-## Policy classes
-
-- allowed: may execute when identity, workspace and repository constraints pass
-- approval-required: controller pauses before execution
-- blocked: controller rejects execution
-
-Phase 3 initially proves these policy paths with deterministic test doubles. Real terminal policy is deferred to Phase 4.
-
-## Run lifecycle
-
-```
-queued → running → completed
-              ├→ failed
-              ├→ cancelled
-              └→ interrupted
-```
-
-The implementation must reject invalid transitions and persist terminal outcomes.
-
-## Context assembly
-
-The controller receives explicitly supplied context only. It does not load an entire repository automatically. Repository context remains behind the existing GitHub service boundary.
-
-## Persistence
-
-The existing Phase 2 tables are authoritative:
-
-- conversations
-- runs
-- tool_calls
-- usage_records
-
-Phase 3 does not create duplicate run or tool-call state.
-
-## Acceptance criteria
-
-1. A deterministic model can request a real read-only Forge tool.
-2. The controller validates the request against the registered schema.
-3. Authorization is evaluated before execution.
+1. A provider-neutral model can request a registered read-only Forge tool.
+2. The controller validates the request against the tool schema boundary.
+3. Authorization/policy is evaluated before execution.
 4. The tool executes through its typed interface.
-5. The result is persisted and returned to the model context.
-6. A rejected/failed tool call is audited without exposing secrets.
-7. Run state transitions are persisted and invalid transitions are rejected.
-8. Controller tests pass without external AI or E2 dependencies.
+5. Structured results are appended to model context.
+6. Tool failures and rejections are audited.
+7. Run lifecycle transitions are enforced.
+8. A Neon audit-store adapter persists runs and tool calls using the Phase 2 schema.
+9. Fake model/tool implementations remain test-only.
+
+## Important boundary
+
+Human approval is represented by the tool policy boundary. The interactive approval/resume experience belongs to the later UI integration; Phase 3 does not expose an approval UI.
+
+Real provider adapters remain Phase 5, and E2 execution remains Phase 4.
