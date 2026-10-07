@@ -47,83 +47,143 @@ Acceptance completed on 2026-09-22:
 > The controller can accept a provider-neutral model decision, validate and authorize a registered read-only tool, execute the typed tool, append its structured result to model context, and audit the run/tool lifecycle. Automated CI verified the build and 10 tests.
 
 ## Phase 4 — Chat UI
-Status: **in progress**
+Status: **complete in code; browser acceptance not performed**
 
-Purpose:
-- establish the user-facing Forge workspace contract before real AI provider integration
-- build the UI against the provider-neutral Agent Controller
-- avoid coupling the UI directly to any AI provider SDK
+Detail: [Phase 4 Chat UI](PHASE_4_CHAT_UI.md).
 
-Accepted frontend:
-- React
-- Vite
-- TypeScript
-
-Accepted event transport:
-- SSE for conversation/run events
-- WebSocket reserved for the Phase 6 E2 interactive terminal
-
-Implemented foundation:
+Completed:
 - branded Brilina Forge application shell
 - responsive expandable/collapsible sidebar
+- sign-in gate driven by `GET /api/session`, sign-out via `POST /auth/github/logout`
 - conversation list and creation
-- chat composer
-- provider-neutral run lifecycle presentation
-- SSE client/event contract
-- backend conversation API
-- backend run-start API
-- backend SSE run-event API
-- deterministic Phase 4 model adapter
-- Agent Controller integration for Phase 4 runs
-- Brilina Forge brand assets in the frontend
-- repository selector backed by the authenticated GitHub repository API
-- branch selector backed by the selected repository's GitHub branches
-- repository context synchronization into Forge's existing repository table
-- conversation context update API for repository/branch selection
-- richer tool activity cards for requested/running/completed states
-- approval-required activity presentation
 - persistent conversation message history backed by Neon
 - conversation history loading when reopening a chat
+- chat composer with streaming cursor
+- tool activity cards keyed by the provider `callId`, covering requested / running / completed / approval-required / rejected
+- approval-required and tool-rejected presentation
+- repository selector backed by the authenticated GitHub repository API
+- branch selector backed by the selected repository's GitHub branches
+- repository context synchronization into Forge's repository table
+- conversation context update API for repository/branch selection
+- branch comparison diff panel (`GET /api/github/repos/:owner/:repo/compare`)
+- backend conversation, run-start and SSE run-event APIs
+- deterministic Phase 4 model adapter that issues a real tool call for inspection intent
+- Agent Controller tool-lifecycle observer wired to the SSE `RunEventBus`
 
-Remaining Phase 4 scope:
-- execution/diff integration points
-- authenticated production app serving/deployment path
-- Phase 4 automated UI/API acceptance tests
-
-Constraints:
-- no production AI provider SDK
-- deterministic development responses only as test/development adapters
-- stable backend contracts, not provider-specific payloads
-- E2 execution deferred to Phase 6
-- real AI provider integration is Phase 5
+Honest caveats:
+- No automated UI acceptance test exists and no browser session has driven the built frontend through sign-in, run, tool activity, diff and terminal flows.
+- The UI still labels the composer "Provider-neutral development mode" regardless of whether a live provider is active.
 
 ## Phase 5 — AI provider abstraction
-- provider interface
-- provider adapters
-- model registry
-- streaming normalization
-- tool-call normalization
-- usage extraction
-- rate-limit handling
-- cooldown retry
+Status: **complete in code; adapter unit-tested only, no live provider key used**
+
+Detail: [Phase 5 AI Provider](PHASE_5_AI_PROVIDER.md).
+
+Completed:
+- `AiProvider` / `AiModelResult` / `AiStreamEvent` / `AiProviderError` contracts
+- OpenAI-compatible `chat/completions` adapter with SSE streaming and tool-call reassembly across chunk indices
+- usage normalization
+- HTTP status classification into retryable and terminal kinds
+- `Retry-After` and `x-ratelimit-*` parsing (seconds, HTTP-date, durations, epochs)
+- cooldown retry honoring provider-supplied retry-after with exponential fallback and a cap
+- `ProviderModelRegistry`
+- `ProviderAgentModel` adapter onto the controller's `AgentModel` contract
+- `DeterministicDevelopmentProvider` retained as the keyless development adapter
+- `createProviderRuntime` with key-gated activation
+- `runs.provider` / `runs.model` recorded per run
+- `usage_records` written per run
+
+Honest caveats:
+- The adapter has never been run against a real provider endpoint. All evidence is unit tests against recorded/faked response shapes.
+- The deterministic adapter remains the active model unless `AI_PROVIDER_API_KEY` is set. That is intentional, not a defect.
+- There is no cost estimation: `usage_records.estimated_cost_usd` is left null.
+- Token accounting falls back to message-length heuristics when the provider does not return usage.
 
 ## Phase 6 — E2 execution
-- worker provisioning
-- persistent PTY
-- WebSocket transport
-- workspace hydration
-- command policy
-- execution logs
-- failure recovery
+Status: **complete against a local worker; Google Cloud E2 adapter not implemented**
+
+Detail: [Phase 6 Execution](PHASE_6_EXECUTION.md).
+
+Completed:
+- `ExecutionService` contract with terminal session, log and exec types
+- command policy: allow-list, block-list, approval list, chaining/substitution/redirection rejection, Windows command set
+- disposable local execution worker with session lifecycle, LRU eviction, log cap, output cap, execution-root containment
+- worker environment allow-list
+- `exec` completion-marker protocol with drain window and output truncation
+- terminal HTTP routes and a WebSocket transport with backlog replay, live streaming and heartbeat
+- no raw-stdin write path on any transport
+- four terminal tools registered in the Agent Controller
+- frontend `TerminalPanel.tsx`
+
+Honest caveats:
+- The worker is `local-disposable`: it runs on the Forge host with **no isolation boundary** beyond the command-policy layer. It is not Google Cloud E2 and must not be treated as an E2 substitute in production.
+- Worker processes are shell-backed per session, not true PTYs on Windows.
+- Terminal sessions and their logs are in-memory only and are lost on restart.
+- Approval-required commands are classified but cannot be approved interactively; the model-facing terminal tools are `approval-required` and therefore rejected by the controller.
 
 ## Phase 7 — Verification and hardening
-- end-to-end testing
-- security review
-- observability
-- failure recovery
-- performance
-- deployment
-- documentation synchronization
+Status: **controls implemented and tested; live end-to-end verification outstanding**
+
+Detail: [Phase 7 Hardening](PHASE_7_HARDENING.md).
+
+Completed:
+- removal of the WebSocket raw-stdin path
+- worker environment allow-list
+- origin validation on state-changing routes, SSE and the WebSocket
+- OAuth state bound to an HttpOnly browser cookie
+- `SameSite=Strict` session cookie; logout is `POST`
+- `@fastify/helmet` with CSP, framing `DENY`, `nosniff`, referrer policy
+- `@fastify/rate-limit` at 120/min keyed by session cookie then IP
+- UUID validation for conversation and run ids
+- generic `internal_error` for unexpected failures
+- secret redaction of persisted tool arguments, results, errors and run error messages
+- workspace slug keyed on immutable GitHub user id; `workspace_members` cross-join fixed
+- GitHub read tools deny when no repository is bound
+- terminal sessions scoped to `userId`
+- branch name and conversation title validation against prompt injection into system context
+- conversation `UPDATE` scoped by user and workspace
+- static serving path decode, backslash rejection and `realpath` containment
+- detached run closure capture before reply; 8000-character run message cap; one active run per conversation
+- `POST /api/runs/:runId/cancel` with cooperative cancellation
+- `GET /api/runs/:runId/audit` and `GET /api/conversations/:conversationId/runs`
+- `runEventBus.release` on completion plus a 5-minute sweep interval
+- SIGINT/SIGTERM graceful shutdown
+- CI `verify` and `security-audit` jobs
+- test suite grew from 17 to 95 passing tests
+
+Honest caveats:
+- No live verification was performed: no provider key, no GitHub OAuth application, no browser-driven terminal session, no Neon-backed end-to-end run.
+- Security testing is unit/integration level. There is no penetration test and no multi-instance deployment test.
+- The OAuth state store, run event history and terminal sessions remain process-local.
+
+## Forward-looking work
+
+Not started. Ordered roughly by the risk they retire.
+
+### Execution isolation
+1. Google Cloud E2 adapter implementing `ExecutionService`, with provisioning, teardown, workspace hydration and a real PTY.
+2. Decide whether the local worker is development-only behind a flag, or is removed entirely.
+3. Move execution logs to durable storage if audit requires them.
+
+### Human control
+4. Interactive approval/resume flow: persist a pending tool call, expose an approve/reject API, and let the controller resume rather than reject.
+5. Approval decisions with an audit record of who approved what.
+
+### Durability and multi-instance
+6. Persist run event history, or replace SSE replay with a durable log.
+7. Move the OAuth state store to Neon so several instances can serve authorization.
+8. Persist or explicitly discard terminal sessions across restarts.
+
+### AI provider work
+9. Live verification of the OpenAI-compatible adapter against a real endpoint, including streaming tool calls and rate-limit headers.
+10. Streaming assistant text to SSE from the provider stream instead of chunking a completed response.
+11. Cost estimation for `usage_records.estimated_cost_usd`.
+12. Additional providers registered in `createProviderRuntime`; per-model capability checks against `AiModelDescriptor`.
+
+### Scale and correctness
+13. Pagination on `listConversationMessages` and conversation listing.
+14. Update the stale `phase: 4` value reported by `GET /health`.
+15. Automated UI acceptance tests against the built frontend.
 
 ## Rule
-Do not skip a phase simply because a UI can be made to appear functional. A visible UI without proven backend contracts is not considered implementation complete.
+Do not skip a phase simply because a UI can be made to appear functional. A visible UI without proven backend contracts is not considered implementation complete. Equally, do not report a phase as verified when only unit tests cover it.

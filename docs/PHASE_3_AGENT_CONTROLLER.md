@@ -6,7 +6,7 @@ Complete — accepted 2026-09-22.
 
 ## Purpose
 
-Phase 3 establishes the backend orchestration contract between future AI providers and typed Forge tools. It does not implement a real AI provider, E2 execution, or chat UI.
+Phase 3 establishes the backend orchestration contract between future AI providers and typed Forge tools. It does not implement a real AI provider, execution, or chat UI.
 
 ## Scope
 
@@ -49,4 +49,15 @@ The accepted controller contract is:
 
 Human approval is represented by the tool policy boundary. The interactive approval/resume experience belongs to the later UI integration; Phase 3 does not expose an approval UI.
 
-Real provider adapters remain Phase 5, and E2 execution remains Phase 4.
+Real provider adapters remain Phase 5, and execution — including the interactive terminal and its WebSocket transport — is Phase 6 work.
+
+## Later changes to the controller
+
+The accepted contract above is unchanged. Phases 4–7 added optional capabilities without changing the core loop:
+
+- an optional `AgentObserver` that emits the tool lifecycle with the provider `callId`
+- injection of the active repository and branch as a system context message
+- recording of the assistant tool-call turn so provider message protocols stay valid
+- an optional `AgentRunLifecycle.shouldStop` hook checked at each step boundary for cooperative cancellation
+
+Approval-required behaviour is still rejection, not interactive approval. See [Phase 7 Hardening](PHASE_7_HARDENING.md).

@@ -10,6 +10,8 @@ type OAuthState = {
 
 const states = new Map<string, OAuthState>();
 const STATE_TTL_MS = 10 * 60_000;
+const MAX_PENDING_STATES = 500;
+export const OAUTH_STATE_COOKIE = "brilina_oauth_state";
 
 function base64Url(buffer: Buffer): string {
   return buffer.toString("base64url");
@@ -26,6 +28,30 @@ function purgeExpiredStates(): void {
   for (const [key, state] of states) {
     if (state.expiresAt <= now) states.delete(key);
   }
+  // Bound the pending-authorization map so repeated auth starts cannot grow it
+  // without limit.
+  while (states.size > MAX_PENDING_STATES) {
+    const oldest = states.keys().next();
+    if (oldest.done) break;
+    states.delete(oldest.value);
+  }
+}
+
+/**
+ * Binds the OAuth `state` to the browser that started the flow. Without this,
+ * an attacker can complete their own authorization and hand the victim a
+ * callback URL, logging the victim into the attacker's GitHub account.
+ */
+export function verifyStateBinding(cookieValue: string | undefined, presented: string): boolean {
+  if (!cookieValue) return false;
+  return timingSafeEqualText(cookieValue, presented);
+}
+
+function timingSafeEqualText(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let difference = 0;
+  for (let index = 0; index < a.length; index++) difference |= a.charCodeAt(index) ^ b.charCodeAt(index);
+  return difference === 0;
 }
 
 export function createGithubAuthorizationUrl(): string {

@@ -24,7 +24,10 @@ export async function createPersistentSession(
   const access = encryptSecret(accessToken);
   const refresh = credentials.refreshToken ? encryptSecret(credentials.refreshToken) : undefined;
   const expiresAt = sessionExpiresAt();
-  const workspaceSlug = "personal-" + githubUser.login.toLowerCase();
+  // The workspace slug is keyed on the immutable GitHub user id, not the login:
+  // GitHub recycles logins, and a login-keyed unique slug would let a new
+  // account collide with a previous owner's workspace row.
+  const workspaceSlug = `personal-${githubUser.id}`;
   const workspaceName = githubUser.login + "'s Forge";
 
   const sql = getSql();
@@ -34,12 +37,12 @@ export async function createPersistentSession(
       [githubUser.id, githubUser.login, githubUser.name, githubUser.avatar_url]
     ),
     sql.query(
-      "INSERT INTO workspaces (owner_user_id, name, slug) SELECT id, $1, $2 FROM forge_users WHERE github_user_id = $3 ON CONFLICT (slug) DO UPDATE SET updated_at = now()",
+      "INSERT INTO workspaces (owner_user_id, name, slug) SELECT id, $1, $2 FROM forge_users WHERE github_user_id = $3 ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, updated_at = now()",
       [workspaceName, workspaceSlug, githubUser.id]
     ),
     sql.query(
-      "INSERT INTO workspace_members (workspace_id, user_id, role) SELECT w.id, u.id, 'owner' FROM workspaces w JOIN forge_users u ON u.id = w.owner_user_id WHERE u.github_user_id = $1 ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = 'owner'",
-      [githubUser.id]
+      "INSERT INTO workspace_members (workspace_id, user_id, role) SELECT w.id, w.owner_user_id, 'owner' FROM workspaces w WHERE w.slug = $1 ON CONFLICT (workspace_id, user_id) DO NOTHING",
+      [workspaceSlug]
     ),
     sql.query(
       "INSERT INTO github_connections (user_id, github_login, access_token_ciphertext, access_token_iv, access_token_tag, refresh_token_ciphertext, refresh_token_iv, refresh_token_tag, token_expires_at, refresh_token_expires_at, scopes) SELECT id, $1, $2, $3, $4, $5, $6, $7, $8, $9, '{}'::text[] FROM forge_users WHERE github_user_id = $10 ON CONFLICT (user_id) DO UPDATE SET github_login = EXCLUDED.github_login, access_token_ciphertext = EXCLUDED.access_token_ciphertext, access_token_iv = EXCLUDED.access_token_iv, access_token_tag = EXCLUDED.access_token_tag, refresh_token_ciphertext = EXCLUDED.refresh_token_ciphertext, refresh_token_iv = EXCLUDED.refresh_token_iv, refresh_token_tag = EXCLUDED.refresh_token_tag, token_expires_at = EXCLUDED.token_expires_at, refresh_token_expires_at = EXCLUDED.refresh_token_expires_at, updated_at = now()",
@@ -77,7 +80,12 @@ export async function getPersistentSession(token: string | undefined): Promise<S
   )) as Record<string, unknown>[];
 
   if (!rows[0]) return undefined;
-  await sql.query("UPDATE auth_sessions SET last_seen_at = now() WHERE session_token_hash = $1", [tokenHash]);
+  // Throttled so an authenticated read does not become a database write on
+  // every request.
+  await sql.query(
+    "UPDATE auth_sessions SET last_seen_at = now() WHERE session_token_hash = $1 AND last_seen_at < now() - interval '5 minutes'",
+    [tokenHash]
+  );
   return rowToSession(token, rows[0]);
 }
 

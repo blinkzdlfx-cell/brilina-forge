@@ -151,6 +151,19 @@ export async function userOwnsRun(runId: string, userId: string, workspaceId: st
   return Boolean(rows[0]);
 }
 
+/**
+ * Returns the conversation a run belongs to, but only when the caller owns both
+ * the run and the workspace. Ownership is enforced here so callers cannot read a
+ * run audit trail by guessing an id.
+ */
+export async function getOwnedRunConversation(runId: string, userId: string, workspaceId: string): Promise<string | undefined> {
+  const rows = (await getSql().query(
+    "SELECT r.conversation_id FROM runs r JOIN conversations c ON c.id = r.conversation_id WHERE r.id = $1 AND r.user_id = $2 AND c.user_id = $2 AND c.workspace_id = $3 LIMIT 1",
+    [runId, userId, workspaceId]
+  )) as Record<string, unknown>[];
+  return rows[0] ? String(rows[0].conversation_id) : undefined;
+}
+
 export type ConversationMessage = {
   id: string;
   conversationId: string;
@@ -194,8 +207,8 @@ export async function addConversationMessage(input: {
   if (!rows[0]) throw Object.assign(new Error("Conversation not found"), { statusCode: 404 });
 
   await getSql().query(
-    "UPDATE conversations SET updated_at = now() WHERE id = $1",
-    [input.conversationId]
+    "UPDATE conversations SET updated_at = now() WHERE id = $1 AND user_id = $2 AND workspace_id = $3",
+    [input.conversationId, input.userId, input.workspaceId]
   );
 
   return mapConversationMessage(rows[0]);

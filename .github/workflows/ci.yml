@@ -2,7 +2,7 @@ name: Brilina Forge CI
 
 on:
   push:
-    branches: [main, 'phase-1/**', 'phase-4/**']
+    branches: [main, 'phase-*/**']
   pull_request:
 
 jobs:
@@ -13,10 +13,24 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install
+      - run: npm ci
       - run: npm run build
       - run: npm test
-      - run: npm install
+      - run: npm ci
         working-directory: web
       - run: npm run build
+        working-directory: web
+
+  security-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm audit --audit-level=high
+      - run: npm ci
+        working-directory: web
+      - run: npm audit --audit-level=high
         working-directory: web

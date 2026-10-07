@@ -1,6 +1,8 @@
 import { GithubClient } from "./client.js";
 import type {
   GithubBranch,
+  GithubCommit,
+  GithubCompareResult,
   GithubFile,
   GithubGraphQLRepository,
   GithubRepository,
@@ -133,5 +135,23 @@ export class GithubService {
       throw Object.assign(new Error("Requested path is a directory, not a file"), { statusCode: 400 });
     }
     return result;
+  }
+
+  async compareBranches(owner: string, repo: string, base: string, head: string): Promise<GithubCompareResult> {
+    assertRepo(owner, repo);
+    assertRef(base);
+    assertRef(head);
+    return this.client.rest<GithubCompareResult>(
+      `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/compare/${encodeURIComponent(base)}...${encodeURIComponent(head)}`
+    );
+  }
+
+  async listCommits(owner: string, repo: string, ref?: string, perPage = 20): Promise<GithubCommit[]> {
+    assertRepo(owner, repo);
+    if (ref) assertRef(ref);
+    const query = ref ? `?sha=${encodeURIComponent(ref)}&per_page=${perPage}` : `?per_page=${perPage}`;
+    return this.client.rest<GithubCommit[]>(
+      `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commits${query}`
+    );
   }
 }

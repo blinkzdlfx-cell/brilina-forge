@@ -82,3 +82,26 @@ export type GithubTreeResult = {
   truncated: boolean;
   limited: boolean;
 };
+
+export type GithubCommit = {
+  sha: string;
+  commit: { message: string; author: { name: string; date: string } | null };
+  html_url: string;
+};
+
+export type GithubCompareFile = {
+  filename: string;
+  status: string;
+  additions: number;
+  deletions: number;
+  changes: number;
+  patch?: string;
+};
+
+export type GithubCompareResult = {
+  status: string;
+  ahead_by: number;
+  behind_by: number;
+  total_commits: number;
+  files: GithubCompareFile[];
+};

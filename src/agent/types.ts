@@ -3,7 +3,10 @@ export type ToolStatus = "requested" | "authorized" | "running" | "completed" | 
 export type ToolPolicy = "allowed" | "approval-required" | "blocked";
 
 export type AgentPrincipal = { userId: string; workspaceId: string; repositoryId?: string; repositoryFullName?: string; branchName?: string };
-export type AgentContextItem = { role: "system" | "user" | "tool"; content: string; toolCallId?: string };
+export type AgentContextItem =
+  | { role: "system" | "user"; content: string }
+  | { role: "assistant"; content: string; toolCalls?: ToolCallRequest[] }
+  | { role: "tool"; content: string; toolCallId: string };
 export type ToolCallRequest = { id: string; name: string; arguments: unknown };
 export type ModelDecision = { type: "tool_call"; call: ToolCallRequest } | { type: "final"; content: string };
 export type ModelInput = { messages: AgentContextItem[]; tools: Array<{ name: string; description: string; inputSchema: Record<string, unknown> }> };
@@ -15,6 +18,23 @@ export type ForgeTool<TArgs = unknown, TResult = unknown> = {
   execute(context: ToolExecutionContext, args: TArgs): Promise<TResult>;
 };
 export type RunRecord = { id: string; status: RunStatus };
+export type AgentObserverEvent =
+  | { type: "tool.requested"; toolName: string; callId: string }
+  | { type: "tool.started"; toolName: string; callId: string }
+  | { type: "tool.completed"; toolName: string; callId: string }
+  | { type: "approval.required"; toolName: string; callId: string }
+  | { type: "tool.rejected"; toolName: string; callId: string; reason: string };
+export type AgentObserver = {
+  emit(event: AgentObserverEvent): void;
+  onRetry?(attempt: { attempt: number; kind: string; delayMs: number }): void;
+};
+
+/**
+ * Cooperative cancellation. The controller checks `shouldStop` at each step
+ * boundary so a cancelled run halts without leaving the run state machine in an
+ * inconsistent status.
+ */
+export type AgentRunLifecycle = { shouldStop(): boolean };
 export type AgentAuditStore = {
   createRun(input: { conversationId: string; userId: string }): Promise<RunRecord>;
   updateRun(id: string, status: RunStatus, errorMessage?: string): Promise<void>;

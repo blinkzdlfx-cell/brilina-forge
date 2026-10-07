@@ -1,4 +1,4 @@
-import type { ChatMessage, Conversation, ForgeEvent, ForgeRepository, GithubBranch, GithubRepository } from "./types";
+import type { ChatMessage, Conversation, ForgeDiff, ForgeEvent, ForgeRepository, GithubBranch, GithubRepository, SessionInfo, TerminalSession } from "./types";
 
 async function readError(response: Response, fallback: string): Promise<never> {
   try {
@@ -8,6 +8,21 @@ async function readError(response: Response, fallback: string): Promise<never> {
     if (error instanceof Error && error.message !== fallback) throw error;
     throw new Error(fallback);
   }
+}
+
+export async function loadSession(): Promise<SessionInfo> {
+  const response = await fetch("/api/session", { credentials: "include" });
+  if (!response.ok) return { authenticated: false };
+  return response.json();
+}
+
+export function startGithubSignIn(): void {
+  window.location.assign("/auth/github/start");
+}
+
+export async function signOut(): Promise<void> {
+  await fetch("/auth/github/logout", { method: "POST", credentials: "include" });
+  window.location.reload();
 }
 
 export async function listConversations(): Promise<Conversation[]> {
@@ -92,7 +107,7 @@ export function streamRun(runId: string, onEvent: (event: ForgeEvent) => void, o
   const source = new EventSource(`/api/runs/${runId}/events`, { withCredentials: true });
   const eventTypes = [
     "run.started", "assistant.delta", "tool.requested", "tool.started",
-    "tool.completed", "approval.required", "assistant.completed",
+    "tool.completed", "approval.required", "tool.rejected", "assistant.completed",
     "run.completed", "run.failed"
   ] as const;
 
@@ -110,4 +125,62 @@ export async function listConversationMessages(conversationId: string): Promise<
   const response = await fetch(`/api/conversations/${conversationId}/messages`, { credentials: "include" });
   if (!response.ok) await readError(response, "Unable to load conversation messages");
   return response.json();
+}
+
+export async function compareBranches(owner: string, repo: string, base: string, head: string): Promise<ForgeDiff> {
+  const response = await fetch(
+    `/api/github/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/compare?base=${encodeURIComponent(base)}&head=${encodeURIComponent(head)}`,
+    { credentials: "include" }
+  );
+  if (!response.ok) await readError(response, "Unable to load the branch comparison");
+  return response.json();
+}
+
+export async function createTerminalSession(conversationId: string): Promise<TerminalSession> {
+  const response = await fetch("/api/terminal/sessions", {
+    method: "POST",
+    credentials: "include",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ conversationId })
+  });
+  if (!response.ok) await readError(response, "Unable to open a terminal session");
+  return response.json();
+}
+
+export async function killTerminalSession(sessionId: string): Promise<void> {
+  const response = await fetch(`/api/terminal/sessions/${sessionId}`, {
+    method: "DELETE",
+    credentials: "include"
+  });
+  if (!response.ok) await readError(response, "Unable to close the terminal session");
+}
+
+export type TerminalSocketEvent =
+  | { type: "session.ready"; sessionId: string; state: TerminalSession["state"] }
+  | { type: "output"; stream: "stdout" | "stderr" | "system"; chunk: string; at: number }
+  | { type: "exec.completed"; output: string; exitCode: number | null; truncated: boolean }
+  | { type: "error"; error: string };
+
+export function openTerminalSocket(
+  sessionId: string,
+  onEvent: (event: TerminalSocketEvent) => void,
+  onClose: () => void
+): () => void {
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const socket = new WebSocket(`${protocol}//${window.location.host}/api/terminal/sessions/${sessionId}/socket`);
+
+  socket.onmessage = message => {
+    try {
+      onEvent(JSON.parse(String(message.data)) as TerminalSocketEvent);
+    } catch {
+      onEvent({ type: "error", error: "invalid_terminal_event" });
+    }
+  };
+  socket.onclose = onClose;
+  socket.onerror = () => onEvent({ type: "error", error: "terminal_socket_error" });
+
+  return () => {
+    socket.onclose = null;
+    socket.close();
+  };
 }

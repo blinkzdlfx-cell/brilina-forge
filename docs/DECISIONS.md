@@ -68,6 +68,8 @@ The backend keeps the GitHub client ID and secret server-side. The browser never
 
 Phase 1 implements the web authorization exchange and a development-only in-memory session. Durable GitHub connection persistence is deferred to Phase 2 with Neon.
 
+Historical note: Phase 2 replaced that in-memory session with the Neon-backed store described in ADR-009, and ADR-017 later added the browser cookie binding for OAuth state. The session store described in this paragraph no longer describes the runtime.
+
 Permission configuration must follow least privilege and be finalized in the GitHub App registration before production use.
 
 ## ADR-009 — Neon owns durable Forge application state
@@ -122,6 +124,8 @@ Phase 4 may use deterministic development/test adapters to exercise UI lifecycle
 
 The purpose of this ordering is to establish conversation, run, event, tool-activity, approval, repository/branch, and execution integration contracts before concrete AI providers or E2 execution infrastructure are integrated.
 
+Phase 6 delivered those contracts against a local worker rather than Google Cloud E2; see ADR-016 for what that does and does not claim.
+
 ## ADR-012 — React + Vite + TypeScript frontend
 
 **Status:** Accepted
@@ -152,3 +156,83 @@ The event contract is provider-neutral and includes:
 WebSocket is reserved for the Phase 6 E2 interactive terminal, where bidirectional PTY input/output is required.
 
 This avoids introducing WebSocket complexity into the normal chat stream while preserving a bidirectional transport for the terminal use case.
+
+As implemented, the terminal socket carries live output and classified `exec` requests. It deliberately carries no raw-stdin write path; see ADR-015.
+
+## ADR-014 — OpenAI-compatible adapter as the first provider, activated by key
+
+**Status:** Accepted
+
+The first real provider adapter in Forge is a generic **OpenAI-compatible** client (`src/ai/openai-compatible.ts`) rather than a vendor SDK.
+
+The adapter speaks `POST {base}/chat/completions` with `Authorization: Bearer`, supports SSE streaming, and normalizes tool calls and usage into Forge's own `AiModelResult` / `AiStreamEvent` types. Reassembling streamed tool calls across chunk indices is part of the adapter, not the controller.
+
+Activation is **key-gated**:
+
+- `AI_PROVIDER_API_KEY` unset or empty → `createProviderRuntime` registers only `DeterministicDevelopmentProvider` and the active model is `forge-deterministic`.
+- `AI_PROVIDER_API_KEY` set → `OpenAiCompatibleProvider` is registered and the active model becomes `AI_PROVIDER_MODEL` (default `gpt-4o-mini`).
+- `AI_PROVIDER_BASE_URL` selects a non-OpenAI endpoint; `AI_PROVIDER_TIMEOUT_MS` bounds each request.
+
+Reasons:
+- One adapter covers OpenAI and the many services that mirror its API, so a second provider is configuration rather than code.
+- Key-gating means the deterministic development adapter stays usable with no credentials, which keeps CI and local development deterministic and free.
+- Provider concerns — status classification, retry-after parsing, cooldown retry, timeout, cancellation — stay in `src/ai/` and never reach the Agent Controller (Rule 5).
+
+The deterministic adapter is real, unit-tested code, not a stub. It remains a development adapter and is not a production AI implementation.
+
+Honest status: the adapter has never been run against a live provider endpoint. Its evidence is unit tests against recorded response shapes.
+
+## ADR-015 — Allow-list command policy with no raw-stdin transport path
+
+**Status:** Accepted
+
+Terminal commands are classified by an **allow-list** policy (`src/execution/command-policy.ts`) before a worker executes them, and no transport exposes a raw shell write.
+
+Classification order: reject empty, oversized and control-character input; reject chaining, command substitution and redirection; apply a block list (destructive, privilege-escalating, publishing, power-state, plus Windows equivalents); apply an approval list (installs, mutations, network fetches, containers, process termination, dev servers, interactive programs, remote access, environment inspection); then allow only read-only inspection executables. Anything unrecognised is approval-required, so an unknown command never runs unattended.
+
+Two consequences are deliberate:
+
+1. **Chaining is rejected rather than classified.** One submitted command may not contain `;`, `&`, `|`, backticks, `$(`, `<<`, `>` or a newline. A classified command therefore cannot smuggle in a second one.
+2. **There is no raw-stdin path.** `ExecutionService.write` exists in the contract but is not reachable from any route or socket message. The terminal socket accepts only `{ type: "exec", command }`, and every browser command path calls `exec`, which classifies first.
+
+Reasons:
+- An earlier WebSocket `input` message wrote straight to the shell's stdin. It bypassed the policy entirely, which meant command classification was advisory rather than enforced. A raw write path turns command policy into decoration, so it was removed rather than gated.
+- Deny-by-default means a policy gap fails closed: an unlisted executable asks for approval instead of running.
+
+Trade-off accepted: the policy is regular-expression matching, not a shell parser. It raises the cost of a mistake and blocks known destructive shapes; it is not a complete sandbox. This is one reason the worker is not treated as production-safe (ADR-016).
+
+## ADR-016 — A local disposable execution worker is the Phase 6 stand-in for GCP E2
+
+**Status:** Accepted
+
+Phase 6 delivers the **contract** of execution — `ExecutionService`, command policy, session lifecycle, log and output bounds, HTTP routes and a WebSocket transport — implemented by `LocalExecutionWorker` (`local-disposable`) running on the Forge host. A Google Cloud E2 adapter is **not** implemented and remains future work.
+
+Reasons:
+- The contracts, the policy layer, the transport, the authorization checks and the UI could all be built and tested without provisioning remote VMs, which unblocked the terminal and tool work.
+- Building against an interface first means an E2 adapter later is an implementation of `ExecutionService`, not a redesign.
+- The worker is disposable in the ADR-001 sense: it holds no source of record.
+
+What this decision explicitly does **not** claim:
+
+- The local worker has **no isolation boundary** beyond the command-policy layer. It runs on the Forge host with the host filesystem and network available.
+- It is a development/local worker. It must not be treated as a substitute for a disposable remote E2 in production, and the roadmap keeps the E2 adapter as open work.
+- Sessions and their logs are in-memory only and are lost on restart.
+- Session processes are shell-backed, not true PTYs on Windows.
+
+The README, roadmap and phase documents state this limitation rather than describing the worker as "E2".
+
+## ADR-017 — OAuth state is bound to a browser cookie
+
+**Status:** Accepted
+
+The GitHub authorization `state` value is bound to the browser that started the flow through an HttpOnly `SameSite=Lax` cookie (`brilina_oauth_state`, 10-minute max age) in addition to the server-side pending-state map.
+
+`/auth/github/start` writes the cookie; `/auth/github/callback` requires the cookie value to equal the presented `state`, compares them in constant time, and clears the cookie on both success and mismatch. A mismatch returns `400 oauth_state_binding_mismatch`. PKCE (`S256`) remains in place.
+
+Reason:
+- A server-side `state` map alone proves only that *some* authorization started on this server. An attacker can start their own authorization, then hand a victim the callback URL containing the attacker's `code` and `state`. The server would accept it and sign the victim into the **attacker's** GitHub account — a login CSRF that leaks the victim's subsequent work.
+- Binding the state to the browser that received it means a callback only works in the browser that started the flow.
+
+The state cookie uses `SameSite=Lax` (not `Strict`) because the callback is a top-level cross-site navigation from GitHub, which `Strict` would withhold. The session cookie remains `SameSite=Strict`.
+
+Remaining limitation: the server-side pending-state map is still process-local and in-memory. A multi-instance deployment needs a DB-backed state store; the cookie binding does not solve that.

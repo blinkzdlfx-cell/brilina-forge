@@ -1,16 +1,21 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  compareBranches,
   createConversation,
   listConversations,
   listConversationMessages,
   listGithubBranches,
   listGithubRepositories,
+  loadSession,
+  signOut,
+  startGithubSignIn,
   startRun,
   streamRun,
   syncGithubRepository,
   updateConversationContext
 } from "./api";
-import type { ChatMessage, Conversation, ForgeEvent, GithubBranch, GithubRepository } from "./types";
+import type { ChatMessage, Conversation, ForgeDiff, ForgeEvent, GithubBranch, GithubRepository, SessionInfo } from "./types";
+import { TerminalPanel } from "./TerminalPanel";
 
 const demoMessages: ChatMessage[] = [
   {
@@ -22,17 +27,21 @@ const demoMessages: ChatMessage[] = [
 ];
 
 type ToolActivity = {
+  callId: string;
   toolName: string;
-  status: "requested" | "running" | "completed" | "approval";
+  status: "requested" | "running" | "completed" | "approval" | "rejected";
+  detail?: string;
 };
 
 export function App() {
+  const [session, setSession] = useState<SessionInfo | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [repositories, setRepositories] = useState<GithubRepository[]>([]);
   const [branches, setBranches] = useState<GithubBranch[]>([]);
   const [active, setActive] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>(demoMessages);
+  const [streaming, setStreaming] = useState("");
   const [composer, setComposer] = useState("");
   const [running, setRunning] = useState(false);
   const [toolActivities, setToolActivities] = useState<ToolActivity[]>([]);
@@ -40,19 +49,47 @@ export function App() {
   const [selectedForgeRepoId, setSelectedForgeRepoId] = useState<string | null>(null);
   const [selectedBranch, setSelectedBranch] = useState("");
   const [loadingRepos, setLoadingRepos] = useState(true);
-  const [loadingBranches, setLoadingBranches] = useState(false);
+  const [diff, setDiff] = useState<ForgeDiff | null>(null);
+  const [diffBase, setDiffBase] = useState("");
+  const [loadingDiff, setLoadingDiff] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const closeStream = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    Promise.all([listConversations(), listGithubRepositories()])
+    let cancelled = false;
+    void loadSession()
+      .then(info => {
+        if (cancelled) return;
+        setSession(info);
+      })
+      .catch(() => {
+        if (!cancelled) setError("Unable to reach the Forge backend.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingRepos(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => () => { closeStream.current?.(); }, []);
+
+  useEffect(() => {
+    if (!session?.authenticated) {
+      setConversations([]);
+      setRepositories([]);
+      setActive(null);
+      setMessages(demoMessages);
+      return;
+    }
+
+    void Promise.all([listConversations(), listGithubRepositories()])
       .then(([items, repoItems]) => {
         setConversations(items);
         setRepositories(repoItems);
         if (items[0]) setActive(items[0]);
       })
-      .catch(() => setError("Sign in with GitHub to use Forge."))
-      .finally(() => setLoadingRepos(false));
-  }, []);
+      .catch(err => setError(err instanceof Error ? err.message : "Unable to load Forge workspace data."));
+  }, [session?.authenticated]);
 
   useEffect(() => {
     if (!active) {
@@ -73,6 +110,22 @@ export function App() {
 
   const title = useMemo(() => active?.title ?? "New Forge conversation", [active]);
   const selectedGithubRepo = repositories.find(item => item.id === selectedRepoId) ?? null;
+
+  async function loadDiff(base: string, head: string) {
+    if (!selectedGithubRepo || !base || !head) {
+      setDiff(null);
+      return;
+    }
+    setLoadingDiff(true);
+    try {
+      setDiff(await compareBranches(selectedGithubRepo.owner.login, selectedGithubRepo.name, base, head));
+    } catch (err) {
+      setDiff(null);
+      setError(err instanceof Error ? err.message : "Unable to load the branch comparison");
+    } finally {
+      setLoadingDiff(false);
+    }
+  }
 
   async function applyConversationContext(repositoryId: string | null, branchName: string | null) {
     if (!active) return;
@@ -98,7 +151,7 @@ export function App() {
     if (!repository) return;
 
     try {
-      setLoadingBranches(true);
+      setLoadingRepos(true);
       const [forgeRepo, branchItems] = await Promise.all([
         syncGithubRepository(repository),
         listGithubBranches(repository.owner.login, repository.name)
@@ -113,23 +166,22 @@ export function App() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to select repository");
     } finally {
-      setLoadingBranches(false);
+      setLoadingRepos(false);
     }
   }
 
   async function handleBranchChange(value: string) {
     setSelectedBranch(value);
-    if (active && selectedForgeRepoId) {
-      try {
-        const updated = await updateConversationContext(active.id, {
-          repositoryId: selectedForgeRepoId,
-          branchName: value || null
-        });
-        setActive(updated);
-        setConversations(items => items.map(item => item.id === updated.id ? updated : item));
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Unable to select branch");
-      }
+    if (!active || !selectedForgeRepoId) return;
+    try {
+      const updated = await updateConversationContext(active.id, {
+        repositoryId: selectedForgeRepoId,
+        branchName: value || null
+      });
+      setActive(updated);
+      setConversations(items => items.map(item => item.id === updated.id ? updated : item));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to select branch");
     }
   }
 
@@ -150,6 +202,7 @@ export function App() {
     setActive(conversation);
     setMessages(demoMessages);
     setToolActivities([]);
+    setStreaming("");
     setError(null);
   }
 
@@ -158,8 +211,62 @@ export function App() {
     setActive(null);
     setMessages(demoMessages);
     setToolActivities([]);
+    setStreaming("");
     setError(null);
   }
+
+  const upsertTool = useCallback((callId: string, toolName: string, patch: Partial<ToolActivity>) => {
+    setToolActivities(items => {
+      const existing = items.find(item => item.callId === callId);
+      if (existing) return items.map(item => item.callId === callId ? { ...item, ...patch } : item);
+      return [...items, { callId, toolName, status: "requested", ...patch }];
+    });
+  }, []);
+
+  const handleRunEvent = useCallback((event: ForgeEvent) => {
+    switch (event.type) {
+      case "run.started":
+        setToolActivities([]);
+        setStreaming("");
+        break;
+      case "tool.requested":
+        upsertTool(event.callId, event.toolName, { status: "requested" });
+        break;
+      case "tool.started":
+        upsertTool(event.callId, event.toolName, { status: "running" });
+        break;
+      case "tool.completed":
+        upsertTool(event.callId, event.toolName, { status: "completed" });
+        break;
+      case "approval.required":
+        upsertTool(event.callId, event.toolName, { status: "approval" });
+        break;
+      case "tool.rejected":
+        upsertTool(event.callId, event.toolName, { status: "rejected", detail: event.reason });
+        break;
+      case "assistant.delta":
+        setStreaming(value => value + event.content);
+        break;
+      case "assistant.completed":
+        setMessages(items => [
+          ...items,
+          { id: crypto.randomUUID(), role: "assistant", content: event.content, createdAt: new Date().toISOString() }
+        ]);
+        setStreaming("");
+        break;
+      case "run.failed":
+        setRunning(false);
+        setStreaming("");
+        setError(event.message);
+        closeStream.current?.();
+        break;
+      case "run.completed":
+        setRunning(false);
+        setStreaming("");
+        closeStream.current?.();
+        break;
+    }
+  }, [upsertTool]);
 
   async function send() {
     const message = composer.trim();
@@ -167,42 +274,19 @@ export function App() {
 
     setError(null);
     setComposer("");
-    const conversation = await ensureConversation();
-
-    setMessages(items => [
-      ...items.filter(item => item.id !== "welcome"),
-      { id: crypto.randomUUID(), role: "user", content: message, createdAt: new Date().toISOString() }
-    ]);
     setRunning(true);
+    setStreaming("");
     setToolActivities([]);
 
     try {
+      const conversation = await ensureConversation();
+      setMessages(items => [
+        ...items.filter(item => item.id !== "welcome"),
+        { id: crypto.randomUUID(), role: "user", content: message, createdAt: new Date().toISOString() }
+      ]);
+
       const { runId } = await startRun(conversation.id, message);
-      const close = streamRun(runId, (event: ForgeEvent) => {
-        if (event.type === "run.started") setToolActivities([]);
-        if (event.type === "tool.requested") {
-          setToolActivities(items => [...items.filter(item => item.toolName !== event.toolName), { toolName: event.toolName, status: "requested" }]);
-        }
-        if (event.type === "tool.started") {
-          setToolActivities(items => items.map(item => item.toolName === event.toolName ? { ...item, status: "running" } : item));
-        }
-        if (event.type === "tool.completed") {
-          setToolActivities(items => items.map(item => item.toolName === event.toolName ? { ...item, status: "completed" } : item));
-        }
-        if (event.type === "approval.required") {
-          setToolActivities(items => [...items.filter(item => item.toolName !== event.toolName), { toolName: event.toolName, status: "approval" }]);
-        }
-        if (event.type === "assistant.completed") {
-          setMessages(items => [
-            ...items,
-            { id: crypto.randomUUID(), role: "assistant", content: event.content, createdAt: new Date().toISOString() }
-          ]);
-        }
-        if (event.type === "run.completed" || event.type === "run.failed") {
-          setRunning(false);
-          close();
-        }
-      }, () => {
+      closeStream.current = streamRun(runId, handleRunEvent, () => {
         setRunning(false);
         setError("The run event stream disconnected.");
       });
@@ -210,6 +294,20 @@ export function App() {
       setRunning(false);
       setError(err instanceof Error ? err.message : "Run failed");
     }
+  }
+
+  if (!loadingRepos && session && !session.authenticated) {
+    return (
+      <div className="forge-app sign-in">
+        <div className="sign-in-card">
+          <img src="/brand/brilina-forge-logo.svg" alt="Brilina Forge" />
+          <h1>Sign in to Brilina Forge</h1>
+          <p>Forge authorizes with GitHub. Your GitHub credentials stay server-side and are encrypted at rest.</p>
+          <button className="sign-in-button" onClick={startGithubSignIn}>Continue with GitHub</button>
+          {error && <div className="error-banner">{error}</div>}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -242,9 +340,10 @@ export function App() {
             <div className="workspace-card">
               <div className="workspace-dot" />
               <div>
-                <strong>Personal workspace</strong>
+                <strong>{session?.githubUser?.login ? session.githubUser.login : "Personal workspace"}</strong>
                 <span>GitHub connected</span>
               </div>
+              <button className="icon-button sign-out" onClick={() => void signOut()} aria-label="Sign out">⏻</button>
             </div>
           </>
         )}
@@ -256,8 +355,29 @@ export function App() {
             <strong>{title}</strong>
             <span>{(active?.branchName ?? selectedBranch) || "No branch selected"}</span>
           </div>
-          <div className="top-actions">
-            <label className="context-select">
+<div className="top-actions">
+              <label className="context-select">
+                <span>Compare base</span>
+                <select
+                  value={diffBase}
+                  onChange={event => setDiffBase(event.target.value)}
+                  disabled={!selectedForgeRepoId || running}
+                >
+                  <option value="">Select base</option>
+                  {branches.map(branch => (
+                    <option key={branch.name} value={branch.name}>{branch.name}</option>
+                  ))}
+                </select>
+              </label>
+              <button
+                className="icon-button diff-button"
+                disabled={!diffBase || !selectedBranch || loadingDiff}
+                onClick={() => void loadDiff(diffBase, selectedBranch)}
+                aria-label="Compare branches"
+              >
+                ⇄
+              </button>
+              <label className="context-select">
               <span>Repository</span>
               <select
                 value={selectedRepoId ?? ""}
@@ -275,15 +395,17 @@ export function App() {
               <select
                 value={selectedBranch}
                 onChange={event => void handleBranchChange(event.target.value)}
-                disabled={!selectedForgeRepoId || loadingBranches || running}
+                disabled={!selectedForgeRepoId || running}
               >
-                <option value="">{loadingBranches ? "Loading…" : "Select branch"}</option>
+                <option value="">Select branch</option>
                 {branches.map(branch => (
                   <option key={branch.name} value={branch.name}>{branch.name}{branch.protected ? " · protected" : ""}</option>
                 ))}
               </select>
             </label>
-            <button className="avatar" aria-label="Forge workspace">F</button>
+            {session?.githubUser?.avatar_url
+              ? <img className="avatar" src={session.githubUser.avatar_url} alt="" />
+              : <button className="avatar" aria-label="Forge workspace">F</button>}
           </div>
         </header>
 
@@ -310,7 +432,7 @@ export function App() {
                 <div className="tool-activity">
                   <div className="tool-activity-title">Run activity</div>
                   {toolActivities.map(item => (
-                    <div className="tool-activity-row" key={item.toolName}>
+                    <div className="tool-activity-row" key={item.callId}>
                       <span className={`tool-state ${item.status}`} />
                       <span>{item.toolName}</span>
                       <span className="tool-status">
@@ -318,19 +440,53 @@ export function App() {
                         {item.status === "running" && "Running"}
                         {item.status === "completed" && "Completed"}
                         {item.status === "approval" && "Approval required"}
+                        {item.status === "rejected" && (item.detail ?? "Rejected")}
                       </span>
                     </div>
                   ))}
                   {toolActivities.some(item => item.status === "approval") && (
                     <div className="approval-note">
-                      This action requires human approval. Interactive approval/resume is reserved for the next controller UI iteration.
+                      This action requires human approval. Interactive approval/resume is reserved for a later controller iteration.
                     </div>
                   )}
                 </div>
               )}
+
+              {streaming && (
+                <article className="message assistant">
+                  <img src="/brand/brilina-forge-mark.svg" alt="" />
+                  <div className="message-body">
+                    <div className="message-role">Brilina Forge</div>
+                    <div className="message-content streaming">{streaming}</div>
+                  </div>
+                </article>
+              )}
             </div>
 
-            {error && <div className="error-banner">{error}</div>}
+{diff && (
+              <div className="diff-panel">
+                <div className="diff-panel-title">
+                  {diffBase} → {selectedBranch} · {diff.ahead_by} ahead, {diff.behind_by} behind · {diff.total_commits} commits
+                </div>
+                {diff.files.length === 0 && <div className="diff-empty">No file differences between these refs.</div>}
+                {diff.files.map(file => (
+                  <details className="diff-file" key={file.filename}>
+                    <summary>
+                      <span className={`diff-status ${file.status}`} />
+                      <span>{file.filename}</span>
+                      <span className="diff-counts">+{file.additions} −{file.deletions}</span>
+                    </summary>
+                    {file.patch
+                      ? <pre className="diff-patch">{file.patch}</pre>
+                      : <div className="diff-empty">GitHub did not return a patch for this file.</div>}
+                  </details>
+                ))}
+              </div>
+            )}
+
+{error && <div className="error-banner">{error}</div>}
+
+            <TerminalPanel conversationId={active?.id ?? null} disabled={running} />
 
             <div className="composer-wrap">
               <textarea
@@ -346,12 +502,11 @@ export function App() {
                 rows={3}
                 disabled={running}
               />
-              <div className="composer-footer">
-                <span>Provider-neutral development mode</span>
-                <button className="send-button" disabled={!composer.trim() || running} onClick={() => void send()}>
-                  {running ? "Running…" : "Send"}
-                </button>
-              </div>
+               <div className="composer-footer">
+                 <button className="send-button" disabled={!composer.trim() || running} onClick={() => void send()}>
+                   {running ? "Running…" : "Send"}
+                 </button>
+               </div>
             </div>
 
             <p className="disclaimer">Forge can make mistakes. Review proposed changes before implementation.</p>
