@@ -1,120 +1,182 @@
-# Cloudflare Workers deployment
+# Cloudflare Worker deployment
 
-Brilina Forge is split into two runtime planes:
+Brilina Forge is being migrated to a **single native Cloudflare Worker runtime**.
 
-- **Cloudflare Worker**: serves the React/Vite application from Workers Static Assets and acts as the same-origin edge gateway for `/api/*`, `/auth/*`, and `/health`.
-- **Forge API origin**: runs the existing Node.js/Fastify application. It owns GitHub OAuth, Neon access, AI provider calls, SSE run events, and the local execution service.
+```
+Browser
+  |
+  v
+Cloudflare Worker
+  |---- React static assets
+  |---- GitHub authentication
+  |---- Forge API
+  |---- GitHub API calls
+  |---- AI provider calls
+  |---- run streaming
+  |
+  v
+Neon Postgres
+```
 
-This split is intentional. The current Fastify application is a Node server and should not be bundled directly into a Worker. In particular, the terminal execution service uses `node:child_process`, filesystem access, and long-lived processes. Cloudflare Workers does not provide that execution model. If an all-Cloudflare deployment is required later, the API/execution plane should move into Cloudflare Containers rather than pretending the Fastify process is a Worker.
+There is no permanent Fastify API origin in the new architecture.
 
-## Cloudflare Workers build settings
+## What changed
 
-Use the repository root as the build root.
+The Worker entrypoint is `worker/index.ts`.
 
-- **Build command:** `npm run build:cloudflare`
-- **Deploy command:** `npm run deploy:cloudflare`
-- **Root directory:** `/`
-- **Output directory:** not required; Wrangler reads `web/dist` from `wrangler.jsonc`
+- `worker/api.ts` contains the HTTP API.
+- Static frontend files are served through Workers Static Assets.
+- Neon remains the application database.
+- GitHub access remains server-side.
+- AI providers remain server-side.
+- Run state is stored in Neon.
+- The SSE connection owns the active agent run while it is executing.
+- The old local shell/terminal worker is **not** part of the Worker runtime.
 
-The Worker configuration is committed in `wrangler.jsonc`.
+Cloudflare Workers is built around standard Fetch APIs and Web Streams, so the new API uses `Request`, `Response`, `ReadableStream` and URL routing instead of Fastify's Node HTTP server model. citeturn4search2turn2search0
 
-## Required Worker variable
+## Database
 
-Configure this non-secret Worker variable:
+Keep Neon Postgres.
 
-`FORGE_API_ORIGIN=https://<your-node-forge-api>`
+The existing `@neondatabase/serverless` driver is designed for serverless/edge environments including Cloudflare Workers, so a D1 migration is not required for this architecture. citeturn3search0turn3search6
 
-Do not put database credentials, GitHub secrets, AI keys, or encryption keys in this variable. Those remain on the API origin.
+Required Worker secret:
 
-The browser continues to call relative URLs such as `/api/session`. The Worker proxies them to `FORGE_API_ORIGIN`, so the browser stays same-origin and no public API CORS configuration is required.
+- `DATABASE_URL`
 
-## Backend configuration
+## Required secrets and variables
 
-The Node/Fastify origin must use the public Worker URL as its public application URL:
-
-`PUBLIC_BASE_URL=https://brilina-forge.blinkzdlfx.workers.dev`
-
-The GitHub OAuth callback URL must therefore be:
-
-`https://brilina-forge.blinkzdlfx.workers.dev/auth/github/callback`
-
-Keep the existing backend secrets on the backend:
+### Secrets
 
 - `DATABASE_URL`
 - `GITHUB_CLIENT_ID`
 - `GITHUB_CLIENT_SECRET`
 - `GITHUB_TOKEN_ENCRYPTION_KEY`
-- `AI_PROVIDER_API_KEY` and related provider settings, when used
+- `AI_PROVIDER_API_KEY` when a real provider is enabled
 
-The backend must be reachable over HTTPS by the Worker.
+### Variables
 
-## Deployment flow
+- `PUBLIC_BASE_URL=https://brilina-forge.blinkzdlfx.workers.dev`
+- `GITHUB_CALLBACK_URL=https://brilina-forge.blinkzdlfx.workers.dev/auth/github/callback` (optional; derived from `PUBLIC_BASE_URL` when omitted)
+- `AI_PROVIDER_MODEL` (optional; defaults to `gpt-4o-mini`)
+- `AI_PROVIDER_BASE_URL` (optional)
+- `AI_PROVIDER_TIMEOUT_MS` (optional)
 
-```text
-GitHub
-  |
-  | npm run build:cloudflare
-  v
-web/dist
-  |
-  | Wrangler
-  v
-Cloudflare Worker
-  |\
-  | \__ static assets -> React SPA
-  |
-  +---- /api/*, /auth/*, /health
-             |
-             v
-       Node/Fastify API
-             |
-       +-----+-----+----------------+
-       |           |                |
-      Neon       GitHub        AI provider
-       |
-  local execution service
-  (Node/container host)
-```
+Do not configure `FORGE_API_ORIGIN`. The Worker no longer proxies API requests to a separate Forge server.
 
-The React build is uploaded as Workers Static Assets. SPA routes fall back to `index.html`. API/auth routes are executed by the Worker first and forwarded to the backend.
+Cloudflare recommends storing credentials such as API keys as Worker secrets rather than putting them in source code. citeturn4search3
 
-## Important production limitation
+## OAuth
 
-The existing local execution worker is intentionally a development/local implementation. It starts shell processes with `child_process.spawn`. It cannot be moved into the ordinary Workers isolate simply by enabling Node compatibility.
+The callback is handled directly by the Worker:
 
-For a fully Cloudflare-native production Forge, the next infrastructure step is to run the API/execution plane in a Cloudflare Container and have the Worker route requests to that container. Cloudflare Containers are a paid Workers feature. Until that is provisioned, deploy the existing Node/Fastify API on a normal Node host and keep this Worker as the edge/frontend gateway.
+`/auth/github/callback`
 
-## Local Worker development
+The callback must be registered in the GitHub App with the Worker URL.
 
-Build the frontend first:
+The existing PKCE and browser-bound OAuth state protections remain in place. The pending server-side state map is still a migration follow-up for multi-instance durability.
+
+## API and streaming
+
+The Worker owns:
+
+- authentication/session
+- GitHub repositories and repository context
+- conversations
+- conversation messages
+- run creation
+- agent execution
+- AI provider selection
+- run audit
+- usage recording
+- SSE run events
+
+The run flow is:
+
+1. `POST /api/conversations/:conversationId/runs` creates a queued run.
+2. The browser opens `GET /api/runs/:runId/events`.
+3. The first stream atomically claims the queued run.
+4. The Worker executes the agent while the SSE response remains open.
+5. The Worker emits run/tool/assistant events through a Web Stream.
+6. Run status and audit records remain in Neon.
+
+This removes the production dependency on process-local `Set`, `Map`, event buses and detached Node promises. Cloudflare supports streaming responses through standard Web Streams. citeturn2search0
+
+The Worker enables `enable_request_signal` so a disconnected browser can signal cancellation to the active request. citeturn7search0turn7search3
+
+## Execution / terminal
+
+The old terminal implementation used `child_process.spawn`, local filesystem workspaces, shell processes and an interactive WebSocket.
+
+Those are intentionally **not** part of the native Worker API.
+
+Future execution can be added behind an execution adapter, such as a local Brilina Agent or Codespaces. The Worker must not become an unrestricted remote shell for the user's computer.
+
+## Static frontend
+
+Wrangler deploys the Worker and `web/dist` together.
+
+The configuration uses:
+
+- `assets.directory = ./web/dist`
+- `not_found_handling = single-page-application`
+- `run_worker_first` for API/auth/health routes
+
+Cloudflare Workers Static Assets supports this full-stack Worker + SPA arrangement. citeturn5search0turn5search1
+
+## Local development
 
 ```bash
-npm run build:cloudflare
+npm run build
+npm run dev
 ```
 
-Then run:
-
-```npx wrangler@4.68.0 dev
-```
-
-For local API proxying, create a local `.dev.vars` file:
+For local secrets/variables, use `.dev.vars`. Do not commit it.
 
 ```text
-FORGE_API_ORIGIN=http://localhost:3000
+DATABASE_URL=...
+GITHUB_CLIENT_ID=...
+GITHUB_CLIENT_SECRET=...
+GITHUB_TOKEN_ENCRYPTION_KEY=...
+PUBLIC_BASE_URL=http://localhost:8787
+GITHUB_CALLBACK_URL=http://localhost:8787/auth/github/callback
+AI_PROVIDER_API_KEY=...
 ```
 
-Do not commit `.dev.vars`.
+## Deployment
 
-## Cloudflare dashboard
+```bash
+npm run build
+npm run deploy:cloudflare
+```
 
-If the Worker is connected to GitHub through Workers Builds, make sure the dashboard is not using an old framework auto-configuration. The committed `wrangler.jsonc` should be the source of truth for the deployment.
+Wrangler deploys the Worker and frontend assets together. citeturn5search8
 
-After the first successful deployment:
+After deployment, verify:
 
-1. Confirm the Worker serves the React shell.
-2. Confirm a generated JS asset returns JavaScript rather than `index.html`.
-3. Confirm `/health` reaches the API origin.
-4. Confirm `/api/session` returns the unauthenticated session response.
-5. Confirm GitHub OAuth callback uses the Worker hostname.
-6. Test SSE run events.
-7. Test the terminal WebSocket only after the Node/execution origin is reachable.
+1. `/health` reports `runtime: cloudflare-worker`.
+2. The React shell loads.
+3. `/api/session` returns `authenticated: false` before sign-in.
+4. GitHub sign-in reaches the configured callback.
+5. A repository can be selected and synced.
+6. A conversation can be created.
+7. A run can be started.
+8. The SSE stream receives events.
+9. The final assistant message is persisted in Neon.
+
+## Current migration status
+
+The first native Worker API implementation is now on the migration branch.
+
+Still required before calling the migration complete:
+
+- remove unused Fastify/terminal source and dependencies after route parity is verified
+- add full Worker-focused integration tests
+- verify a real GitHub App OAuth flow
+- verify a real Neon-backed browser session
+- verify a real AI provider
+- decide the future execution adapter
+- move OAuth pending state from process memory to durable storage before multi-instance production use
+
+Do not describe those items as verified until they have been exercised against the deployed Worker.
