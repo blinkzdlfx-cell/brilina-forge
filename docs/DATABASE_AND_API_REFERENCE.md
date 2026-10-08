@@ -171,3 +171,24 @@ Because approval-required tools are rejected by the controller, the three approv
 - `listConversationMessages` has a hard `LIMIT 1000` and no pagination.
 - Terminal output returned to the model is truncated to 8000 characters; persisted tool output is redacted and length-bounded.
 - `estimated_cost_usd` is never populated.
+
+
+## Native Worker runtime note
+
+The route inventory above describes the application contract. The production HTTP implementation is now being moved from `src/server.ts` to the native Cloudflare Worker in `worker/api.ts`.
+
+The current Worker implementation covers authentication, GitHub, conversations, runs, audit and SSE.
+
+The following legacy terminal routes are **not** implemented by the native Worker:
+
+- `/api/terminal/sessions`
+- `/api/terminal/sessions/:sessionId`
+- `/api/terminal/sessions/:sessionId/output`
+- `/api/terminal/sessions/:sessionId/exec`
+- `/api/terminal/sessions/:sessionId/socket`
+
+They depended on the local shell execution service and are intentionally outside the Worker runtime. Future execution adapters will expose a separate controlled execution contract.
+
+The run SSE implementation also changed: run state is durable in Neon, and the first SSE connection claims a queued run and executes it while the stream remains open. The old in-memory `runEventBus` is not part of the target Worker runtime.
+
+See [Native Worker migration](NATIVE_WORKER_MIGRATION.md) and [Cloudflare deployment](CLOUDFLARE_DEPLOYMENT.md).
