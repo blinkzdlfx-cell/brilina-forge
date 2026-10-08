@@ -21,6 +21,9 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const apiResponse = await handleApi(request, env);
     if (apiResponse) return securityHeaders(apiResponse);
+    if (request.url.includes("/api/") || new URL(request.url).pathname.startsWith("/auth/") || new URL(request.url).pathname === "/health") {
+      return securityHeaders(Response.json({ error: "not_found" }, { status: 404, headers: { "Cache-Control": "no-store" } }));
+    }
     return env.ASSETS.fetch(request);
   }
 } satisfies ExportedHandler<Env>;
