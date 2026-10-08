@@ -225,9 +225,11 @@ The README, roadmap and phase documents state this limitation rather than descri
 
 **Status:** Accepted
 
-The GitHub authorization `state` value is bound to the browser that started the flow through an HttpOnly `SameSite=Lax` cookie (`brilina_oauth_state`, 10-minute max age) in addition to the server-side pending-state map.
+The GitHub authorization `state` value is bound to the browser that started the flow through an HttpOnly `SameSite=Lax` cookie (`brilina_oauth_state`, 10-minute max age).
 
-`/auth/github/start` writes the cookie; `/auth/github/callback` requires the cookie value to equal the presented `state`, compares them in constant time, and clears the cookie on both success and mismatch. A mismatch returns `400 oauth_state_binding_mismatch`. PKCE (`S256`) remains in place.
+`/auth/github/start` generates both the state and PKCE verifier, packs them into the browser-bound cookie, and sends the state to GitHub. `/auth/github/callback` requires the cookie-bound state to equal the presented `state`, compares them in constant time, recovers the verifier from the same cookie, and clears the cookie on success or mismatch. A mismatch returns `400 oauth_state_binding_mismatch`. PKCE (`S256`) remains in place.
+
+There is no process-local pending-state map in the native Worker flow.
 
 Reason:
 - A server-side `state` map alone proves only that *some* authorization started on this server. An attacker can start their own authorization, then hand a victim the callback URL containing the attacker's `code` and `state`. The server would accept it and sign the victim into the **attacker's** GitHub account — a login CSRF that leaks the victim's subsequent work.
@@ -235,7 +237,7 @@ Reason:
 
 The state cookie uses `SameSite=Lax` (not `Strict`) because the callback is a top-level cross-site navigation from GitHub, which `Strict` would withhold. The session cookie remains `SameSite=Strict`.
 
-Remaining limitation: the server-side pending-state map is still process-local and in-memory. A multi-instance deployment needs a DB-backed state store; the cookie binding does not solve that.
+The remaining OAuth dependency is the GitHub App configuration itself; the callback still requires the Worker URL and the configured GitHub client credentials.
 
 
 ## ADR-018 — Native Cloudflare Worker is the production API runtime
