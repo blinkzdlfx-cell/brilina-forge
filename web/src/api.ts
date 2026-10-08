@@ -1,4 +1,4 @@
-import type { ChatMessage, Conversation, ForgeDiff, ForgeEvent, ForgeRepository, GithubBranch, GithubRepository, SessionInfo, TerminalSession } from "./types";
+import type { ChatMessage, Conversation, ForgeDiff, ForgeEvent, ForgeRepository, GithubBranch, GithubRepository, SessionInfo } from "./types";
 
 async function readError(response: Response, fallback: string): Promise<never> {
   try {
