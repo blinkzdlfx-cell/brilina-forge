@@ -50,8 +50,6 @@ const MAX_RUN_MESSAGE_LENGTH = 8_000;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const BRANCH_NAME_PATTERN = /^[A-Za-z0-9._/-]{1,255}$/;
 
-let initialized = false;
-
 type Env = Record<string, unknown>;
 
 export function initializeWorker(env: Env): void {
@@ -60,10 +58,7 @@ export function initializeWorker(env: Env): void {
     if (typeof value === "string") runtimeEnv[key] = value;
   }
   configureRuntimeEnv(runtimeEnv);
-  if (!initialized) {
-    configureSessionStore(createNeonSessionStore());
-    initialized = true;
-  }
+  configureSessionStore(createNeonSessionStore());
 }
 
 function json(value: unknown, status = 200, headers?: HeadersInit): Response {
