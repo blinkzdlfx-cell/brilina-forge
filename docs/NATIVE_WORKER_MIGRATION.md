@@ -161,3 +161,10 @@ The implementation is not considered production-complete until these are tested:
 13. cancellation after browser disconnect
 
 No live OAuth, Neon or AI result should be claimed from code inspection alone.
+
+
+## Latest hardening
+
+OAuth no longer keeps the PKCE verifier in a process-local map. The Worker stores the state and verifier in the browser-bound HttpOnly OAuth cookie and validates the state during callback. This makes the OAuth flow independent of Worker isolate affinity.
+
+Worker runtime configuration and the Neon session store are also configured from the current request environment rather than retained from an earlier request.
