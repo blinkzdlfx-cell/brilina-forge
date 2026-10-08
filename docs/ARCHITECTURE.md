@@ -289,3 +289,39 @@ The architecture should allow:
 - persisted run-event history and a DB-backed OAuth state store
 
 without changing the conversation model or Agent Controller contract.
+
+
+---
+
+## Current deployment architecture: native Cloudflare Worker
+
+The original architecture described a Node/Fastify API with a local execution worker. That is no longer the target production runtime.
+
+The current target is:
+
+```
+Browser
+   |
+   v
+Cloudflare Worker
+   |-- React Static Assets
+   |-- Auth/session
+   |-- GitHubService
+   |-- Conversations
+   |-- Agent Controller
+   |-- AI provider
+   |-- SSE
+   |
+   v
+Neon Postgres
+```
+
+The Worker uses standard Fetch APIs and Web Streams. Neon remains the durable application database. GitHub remains the source of truth for repository code.
+
+The local shell execution service is outside this runtime. Future execution is an adapter concern and may use Codespaces or a local Brilina Agent.
+
+Do not add new API behavior to `src/server.ts`. New application routes belong in `worker/api.ts`.
+
+The run stream now atomically claims a queued run and executes the Agent Controller while the SSE connection remains open. This removes production dependence on process-local run ownership and event history.
+
+See [Native Worker migration](NATIVE_WORKER_MIGRATION.md) for the implementation record and [Cloudflare deployment](CLOUDFLARE_DEPLOYMENT.md) for deployment configuration.
