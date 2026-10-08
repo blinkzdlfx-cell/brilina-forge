@@ -15,7 +15,6 @@ import {
   updateConversationContext
 } from "./api";
 import type { ChatMessage, Conversation, ForgeDiff, ForgeEvent, GithubBranch, GithubRepository, SessionInfo } from "./types";
-import { TerminalPanel } from "./TerminalPanel";
 
 const demoMessages: ChatMessage[] = [
   {
@@ -485,8 +484,6 @@ export function App() {
             )}
 
 {error && <div className="error-banner">{error}</div>}
-
-            <TerminalPanel conversationId={active?.id ?? null} disabled={running} />
 
             <div className="composer-wrap">
               <textarea
