@@ -6,11 +6,11 @@
   "scripts": {
     "dev": "node --env-file=.env --import tsx src/start.ts",
     "build": "npm run build:backend && npm run build:web",
-    "web:build": "npm --prefix web ci && npm --prefix web run build",
+    "web:build": "npm --prefix web ci && npm --prefix web run build && node scripts/package-web.mjs",
     "start": "node --env-file=.env dist/start.js",
     "test": "node --import tsx --test src/**/*.test.ts",
     "build:backend": "tsc -p tsconfig.json",
-    "build:web": "npm --prefix web ci && npm --prefix web run build"
+    "build:web": "npm --prefix web ci && npm --prefix web run build && node scripts/package-web.mjs"
   },
   "engines": {
     "node": ">=20"
