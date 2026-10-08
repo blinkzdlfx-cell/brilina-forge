@@ -2,13 +2,6 @@ import { createHash, randomBytes } from "node:crypto";
 import { config } from "../config.js";
 import type { GithubTokenResponse, GithubUser } from "../github/types.js";
 
-type OAuthState = {
-  value: string;
-  verifier: string;
-  expiresAt: number;
-};
-
-const STATE_TTL_MS = 10 * 60_000;
 export const OAUTH_STATE_COOKIE = "brilina_oauth_state";
 
 function base64Url(buffer: Buffer): string {
