@@ -8,9 +8,7 @@ type OAuthState = {
   expiresAt: number;
 };
 
-const states = new Map<string, OAuthState>();
 const STATE_TTL_MS = 10 * 60_000;
-const MAX_PENDING_STATES = 500;
 export const OAUTH_STATE_COOKIE = "brilina_oauth_state";
 
 function base64Url(buffer: Buffer): string {
@@ -23,28 +21,38 @@ function createPkcePair(): { verifier: string; challenge: string } {
   return { verifier, challenge };
 }
 
-function purgeExpiredStates(): void {
-  const now = Date.now();
-  for (const [key, state] of states) {
-    if (state.expiresAt <= now) states.delete(key);
-  }
-  // Bound the pending-authorization map so repeated auth starts cannot grow it
-  // without limit.
-  while (states.size > MAX_PENDING_STATES) {
-    const oldest = states.keys().next();
-    if (oldest.done) break;
-    states.delete(oldest.value);
-  }
+/**
+ * The PKCE verifier is returned to the Worker so it can be stored in the
+ * browser-bound HttpOnly OAuth cookie. This avoids process-local OAuth state
+ * that would be lost when a request lands on another Worker isolate.
+ */
+export function createGithubAuthorization(): { url: string; stateCookieValue: string } {
+  const state = randomBytes(32).toString("hex");
+  const { verifier, challenge } = createPkcePair();
+
+  const url = new URL("https://github.com/login/oauth/authorize");
+  url.searchParams.set("client_id", config.github.clientId());
+  url.searchParams.set("redirect_uri", config.github.callbackUrl());
+  url.searchParams.set("state", state);
+  url.searchParams.set("code_challenge", challenge);
+  url.searchParams.set("code_challenge_method", "S256");
+  url.searchParams.set("allow_signup", "false");
+
+  return { url: url.toString(), stateCookieValue: `${state}.${verifier}` };
 }
 
-/**
- * Binds the OAuth `state` to the browser that started the flow. Without this,
- * an attacker can complete their own authorization and hand the victim a
- * callback URL, logging the victim into the attacker's GitHub account.
- */
 export function verifyStateBinding(cookieValue: string | undefined, presented: string): boolean {
   if (!cookieValue) return false;
-  return timingSafeEqualText(cookieValue, presented);
+  const separator = cookieValue.indexOf(".");
+  if (separator <= 0) return false;
+  return timingSafeEqualText(cookieValue.slice(0, separator), presented);
+}
+
+export function verifierFromStateCookie(cookieValue: string | undefined): string | undefined {
+  if (!cookieValue) return undefined;
+  const separator = cookieValue.indexOf(".");
+  if (separator <= 0 || separator === cookieValue.length - 1) return undefined;
+  return cookieValue.slice(separator + 1);
 }
 
 function timingSafeEqualText(a: string, b: string): boolean {
@@ -54,35 +62,13 @@ function timingSafeEqualText(a: string, b: string): boolean {
   return difference === 0;
 }
 
-export function createGithubAuthorizationUrl(): string {
-  purgeExpiredStates();
-  const state = randomBytes(32).toString("hex");
-  const { verifier, challenge } = createPkcePair();
-  states.set(state, { value: state, verifier, expiresAt: Date.now() + STATE_TTL_MS });
-
-  const url = new URL("https://github.com/login/oauth/authorize");
-  url.searchParams.set("client_id", config.github.clientId());
-  url.searchParams.set("redirect_uri", config.github.callbackUrl());
-  url.searchParams.set("state", state);
-  url.searchParams.set("code_challenge", challenge);
-  url.searchParams.set("code_challenge_method", "S256");
-  url.searchParams.set("allow_signup", "false");
-  return url.toString();
-}
-
-export async function exchangeGithubCode(code: string, state: string): Promise<{
+export async function exchangeGithubCode(code: string, state: string, verifier: string): Promise<{
   accessToken: string;
   refreshToken?: string;
   expiresAt?: number;
   refreshTokenExpiresAt?: number;
   user: GithubUser;
 }> {
-  purgeExpiredStates();
-  const saved = states.get(state);
-  states.delete(state);
-  if (!saved || saved.expiresAt < Date.now() || saved.value !== state) {
-    throw new Error("Invalid or expired GitHub OAuth state");
-  }
 
   const response = await fetch("https://github.com/login/oauth/access_token", {
     method: "POST",
@@ -93,7 +79,7 @@ export async function exchangeGithubCode(code: string, state: string): Promise<{
       code,
       redirect_uri: config.github.callbackUrl(),
       state,
-      code_verifier: saved.verifier
+      code_verifier: verifier
     })
   });
 
