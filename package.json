@@ -12,7 +12,7 @@
     "build:backend": "tsc -p tsconfig.json",
     "build:web": "npm --prefix web ci && npm --prefix web run build && node scripts/package-web.mjs",
     "build:cloudflare": "npm run build:web",
-    "deploy:cloudflare": "npm run build:cloudflare && npx wrangler@4.68.0 deploy"
+    "deploy:cloudflare": "npx wrangler@4.68.0 deploy"
   },
   "engines": {
     "node": ">=20"
