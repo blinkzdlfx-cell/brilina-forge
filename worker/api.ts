@@ -556,13 +556,15 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
                 }
               }
 
-              const finalAudit = await getRunAudit(runId, audit.conversationId);
-              if (finalAudit?.status === "completed") {
-                send({ type: "run.completed", runId, status: finalAudit.status });
-              } else if (finalAudit?.status === "cancelled") {
-                send({ type: "run.failed", runId, message: "Run cancelled" });
-              } else if (finalAudit && ["failed","interrupted"].includes(finalAudit.status)) {
-                send({ type: "run.failed", runId, message: finalAudit.errorMessage ?? "Run failed" });
+              if (!claimed) {
+                const finalAudit = await getRunAudit(runId, audit.conversationId);
+                if (finalAudit?.status === "completed") {
+                  send({ type: "run.completed", runId, status: finalAudit.status });
+                } else if (finalAudit?.status === "cancelled") {
+                  send({ type: "run.failed", runId, message: "Run cancelled" });
+                } else if (finalAudit && ["failed","interrupted"].includes(finalAudit.status)) {
+                  send({ type: "run.failed", runId, message: finalAudit.errorMessage ?? "Run failed" });
+                }
               }
             } catch (error) {
               console.error(error);
@@ -605,7 +607,7 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
       const conversationId = await getOwnedRunConversation(runId, userId, workspaceId);
       if (!conversationId) return json({ error: "run_not_found" }, 404);
       const rows = await getSql().query(
-        "UPDATE runs SET status = 'cancelled', finished_at = now(), error_message = 'Run cancelled by user' WHERE id = $1 AND status IN ('queued','running') RETURNING id",
+        "UPDATE runs SET status = 'cancelled', finished_at = now(), error_message = 'Run cancelled by user' WHERE id = $1 AND status = 'queued' RETURNING id",
         [runId]
       ) as Record<string, unknown>[];
       if (!rows[0]) return json({ error: "run_not_cancellable" }, 409);
