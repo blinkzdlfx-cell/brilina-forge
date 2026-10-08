@@ -75,7 +75,7 @@ The callback is handled directly by the Worker:
 
 The callback must be registered in the GitHub App with the Worker URL.
 
-The existing PKCE and browser-bound OAuth state protections remain in place. The pending server-side state map is still a migration follow-up for multi-instance durability.
+The PKCE verifier and OAuth state are stored in the browser-bound HttpOnly OAuth cookie, so the flow does not depend on Worker-isolate memory.
 
 ## API and streaming
 
@@ -177,6 +177,5 @@ Still required before calling the migration complete:
 - verify a real Neon-backed browser session
 - verify a real AI provider
 - decide the future execution adapter
-- move OAuth pending state from process memory to durable storage before multi-instance production use
 
 Do not describe those items as verified until they have been exercised against the deployed Worker.
