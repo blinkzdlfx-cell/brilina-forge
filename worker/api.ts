@@ -1,6 +1,6 @@
 import { configureRuntimeEnv, config } from "../src/config.js";
 import {
-  createGithubAuthorizationUrl,
+  createGithubAuthorization,
   exchangeGithubCode,
   refreshGithubAccessToken,
   OAUTH_STATE_COOKIE,
@@ -322,13 +322,12 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
     }
 
     if (path === "/auth/github/start" && method === "GET") {
-      const authorizationUrl = createGithubAuthorizationUrl();
-      const state = new URL(authorizationUrl).searchParams.get("state") ?? "";
+      const authorization = createGithubAuthorization();
       return new Response(null, {
         status: 302,
         headers: {
-          Location: authorizationUrl,
-          "Set-Cookie": cookie(OAUTH_STATE_COOKIE, state, 600, "Lax"),
+          Location: authorization.url,
+          "Set-Cookie": cookie(OAUTH_STATE_COOKIE, authorization.stateCookieValue, 600, "Lax"),
           "Cache-Control": "no-store"
         }
       });
@@ -348,9 +347,11 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
           headers: { "Content-Type": "application/json", "Set-Cookie": clearCookie(OAUTH_STATE_COOKIE), "Cache-Control": "no-store" }
         });
       }
+      const verifier = verifierFromStateCookie(boundState);
+      if (!verifier) return json({ error: "oauth_verifier_missing" }, 400);
 
       try {
-        const result = await exchangeGithubCode(code, state);
+        const result = await exchangeGithubCode(code, state, verifier);
         const session = await createSession(result.accessToken, result.user, {
           refreshToken: result.refreshToken,
           expiresAt: result.expiresAt,
