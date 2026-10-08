@@ -51,10 +51,14 @@ const BRANCH_NAME_PATTERN = /^[A-Za-z0-9._/-]{1,255}$/;
 
 let initialized = false;
 
-type Env = Record<string, string | undefined>;
+type Env = Record<string, unknown>;
 
 export function initializeWorker(env: Env): void {
-  configureRuntimeEnv(env);
+  const runtimeEnv: Record<string, string | undefined> = {};
+  for (const [key, value] of Object.entries(env)) {
+    if (typeof value === "string") runtimeEnv[key] = value;
+  }
+  configureRuntimeEnv(runtimeEnv);
   if (!initialized) {
     configureSessionStore(createNeonSessionStore());
     initialized = true;
