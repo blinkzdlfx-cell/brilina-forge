@@ -174,3 +174,35 @@ Still untested live:
 ## Completion rule
 
 A feature is not complete because the happy path works. The associated failure modes must be tested and documented. Equally, a feature covered only by unit tests must not be reported as verified end to end; the [README](../README.md) section "What is verified and what is not" is the canonical statement of that boundary.
+
+
+## Native Worker testing
+
+The production API runtime is now the native Cloudflare Worker in `worker/`.
+
+Worker-specific automated checks currently include:
+
+- `worker/api.test.ts` health-route behavior
+- unknown API routes falling through to Static Assets
+- CI Worker bundle validation through `wrangler deploy --dry-run`
+
+Run locally with:
+
+```bash
+npm run test:worker
+npx wrangler@4.68.0 deploy --dry-run
+```
+
+The following live Worker checks remain required:
+
+1. deployed health endpoint
+2. GitHub App OAuth
+3. Neon-backed session
+4. repository sync
+5. conversation creation
+6. deterministic run
+7. real AI-provider run
+8. SSE completion
+9. request-disconnect cancellation
+
+The old Fastify/terminal tests remain migration-era coverage until the legacy runtime is removed. They must not be used as evidence that the native Worker runtime is verified.

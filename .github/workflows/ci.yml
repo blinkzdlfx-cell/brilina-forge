@@ -15,7 +15,8 @@ jobs:
           node-version: 20
       - run: npm ci
       - run: npm run build
-      - run: npm test
+      - run: npm run test:worker
+      - run: npx wrangler@4.68.0 deploy --dry-run
 
   security-audit:
     runs-on: ubuntu-latest

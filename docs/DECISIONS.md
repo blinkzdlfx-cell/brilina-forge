@@ -236,3 +236,52 @@ Reason:
 The state cookie uses `SameSite=Lax` (not `Strict`) because the callback is a top-level cross-site navigation from GitHub, which `Strict` would withhold. The session cookie remains `SameSite=Strict`.
 
 Remaining limitation: the server-side pending-state map is still process-local and in-memory. A multi-instance deployment needs a DB-backed state store; the cookie binding does not solve that.
+
+
+## ADR-018 — Native Cloudflare Worker is the production API runtime
+
+**Status:** Accepted
+
+Brilina Forge no longer uses Fastify as the production HTTP runtime.
+
+The Worker owns the HTTP API directly with standard Fetch APIs and Web Streams. The React application and API are deployed together through Workers Static Assets.
+
+The old Node/Fastify server and local execution implementation are migration-era code and are not part of the target production runtime.
+
+Reason:
+
+- Cloudflare Workers is the chosen deployment platform.
+- A native Worker avoids maintaining a second API server.
+- The existing application services — GitHub, Neon, AI, repositories and the Agent Controller — can be reused without keeping the Fastify HTTP shell.
+- Terminal execution requires a separate execution environment rather than a shell inside the API Worker.
+
+## ADR-019 — Neon remains the Forge database during the Worker migration
+
+**Status:** Accepted
+
+Do not migrate Forge from Neon Postgres to D1 as part of the API runtime migration.
+
+The current repository layer already uses Neon's serverless driver and PostgreSQL SQL. Neon is compatible with serverless/edge runtimes, including Cloudflare Workers.
+
+A D1 migration would combine two large changes — runtime migration and database migration — without solving a problem required by the Worker architecture.
+
+A future D1 evaluation may happen separately if a concrete requirement justifies it.
+
+## ADR-020 — SSE request owns the active agent run
+
+**Status:** Accepted
+
+A run is created as `queued`. The browser then opens the run SSE endpoint. The first stream atomically changes the run to `running` and executes the Agent Controller while the stream remains connected.
+
+This replaces the old process-local active-run set, controller map and detached background promise.
+
+Reasons:
+
+- Worker isolates do not provide reliable process-local coordination.
+- `waitUntil()` is limited to 30 seconds after the response/disconnect, so it is not a reliable execution queue for an AI coding run.
+- A streaming HTTP invocation can remain active while the response body is being streamed.
+- Neon remains the durable source of run state.
+
+If the browser disconnects, the Worker request signal can be used to stop the active run cooperatively.
+
+This design does not yet provide durable job execution after the browser disconnects. A future Queue, Workflow or Durable Object design can be introduced if Forge must continue runs independently of an open browser stream.

@@ -3,6 +3,10 @@
   "name": "brilina-forge",
   "main": "./worker/index.ts",
   "compatibility_date": "2026-10-08",
+  "compatibility_flags": [
+    "enable_request_signal",
+    "nodejs_compat"
+  ],
   "assets": {
     "directory": "./web/dist",
     "binding": "ASSETS",

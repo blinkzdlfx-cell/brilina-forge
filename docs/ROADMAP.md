@@ -187,3 +187,26 @@ Not started. Ordered roughly by the risk they retire.
 
 ## Rule
 Do not skip a phase simply because a UI can be made to appear functional. A visible UI without proven backend contracts is not considered implementation complete. Equally, do not report a phase as verified when only unit tests cover it.
+
+
+## Runtime migration — in progress
+
+The production runtime is being moved from the old Node/Fastify server to a native Cloudflare Worker.
+
+Completed in the migration branch:
+
+1. Native Worker API entrypoint and routing.
+2. Neon-backed Worker session/database integration.
+3. Worker-native SSE run lifecycle.
+4. Removal of terminal execution from the Worker design.
+5. Documentation updates for deployment, architecture, API contracts and handoff.
+
+Next migration steps:
+
+6. Verify the Worker locally and in deployment.
+7. Verify GitHub App OAuth and Neon-backed sessions against the deployed Worker.
+8. Verify deterministic and real-provider runs through SSE.
+9. Remove the legacy Fastify/terminal source and dependencies after route parity is proven.
+10. Decide the future execution adapter independently of the API Worker.
+
+The D1 database migration is intentionally not part of this work.

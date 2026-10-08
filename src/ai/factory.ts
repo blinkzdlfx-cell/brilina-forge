@@ -16,17 +16,16 @@ export function createProviderRuntime(): ProviderRuntime {
   let activeProviderId: AiProviderId = "deterministic-development";
   let activeModel = "forge-deterministic";
 
-  const apiKey = process.env.AI_PROVIDER_API_KEY?.trim();
+  const apiKey = config.aiProviderApiKey;
   if (apiKey) {
-    const model = process.env.AI_PROVIDER_MODEL?.trim() || "gpt-4o-mini";
     providers.push(new OpenAiCompatibleProvider({
       apiKey,
-      baseUrl: process.env.AI_PROVIDER_BASE_URL?.trim() || undefined,
-      defaultModel: model,
+      baseUrl: config.aiProviderBaseUrl,
+      defaultModel: config.aiProviderModel,
       timeoutMs: config.aiProviderTimeoutMs
     }));
     activeProviderId = "openai-compatible";
-    activeModel = model;
+    activeModel = config.aiProviderModel;
   }
 
   return {
