@@ -75,25 +75,3 @@ export type ForgeDiff = {
   total_commits: number;
   files: ForgeDiffFile[];
 };
-
-export type TerminalSession = {
-  id: string;
-  conversationId: string;
-  workspaceId: string;
-  shell: string;
-  cwd: string;
-  state: "starting" | "running" | "exited" | "failed" | "killed";
-  createdAt: number;
-  exitCode: number | null;
-  logBytes: number;
-};
-
-export type TerminalExecResult = {
-  sessionId: string;
-  command: string;
-  classification: "safe" | "approval-required";
-  exitCode: number | null;
-  output: string;
-  durationMs: number;
-  truncated: boolean;
-};

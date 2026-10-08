@@ -167,15 +167,23 @@ After deployment, verify:
 
 ## Current migration status
 
-The first native Worker API implementation is now on the migration branch.
+The native Worker API is deployed and serving the production Worker URL.
 
-Still required before calling the migration complete:
+Verified against the deployed Worker:
 
-- remove unused Fastify/terminal source and dependencies after route parity is verified
-- add full Worker-focused integration tests
-- verify a real GitHub App OAuth flow
-- verify a real Neon-backed browser session
-- verify a real AI provider
-- decide the future execution adapter
+- `/health` returns the native Worker runtime marker
+- the React SPA loads
+- `/api/session` returns `authenticated: false` without a session
 
-Do not describe those items as verified until they have been exercised against the deployed Worker.
+Not yet verified against the deployed Worker:
+
+- GitHub App OAuth
+- authenticated Neon browser session
+- repository sync/conversation creation
+- deterministic and real-provider runs
+- SSE completion/cancellation
+- full browser acceptance
+
+Migration-era Fastify/terminal source remains in the repository for test/compatibility coverage. It is not used by the Worker runtime and should be removed only after native route parity and the remaining live checks are complete.
+
+Do not describe the unverified items above as end-to-end verified.

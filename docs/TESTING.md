@@ -22,12 +22,7 @@ npm --prefix web install
 npm --prefix web run build
 ```
 
-CI (`.github/workflows/ci.yml`) runs two jobs on push and pull request:
-
-| Job | Steps |
-|---|---|
-| `verify` | `npm ci`, `npm run build`, `npm test`, then `npm ci` and `npm run build` in `web/` |
-| `security-audit` | `npm audit --audit-level=high` for the backend and for `web/` |
+CI (`.github/workflows/ci.yml`) runs build, Worker tests, Wrangler dry-run validation, and dependency audits on push and pull request.
 
 There is no separate lint script and no end-to-end browser test runner.
 
@@ -183,7 +178,7 @@ The production API runtime is now the native Cloudflare Worker in `worker/`.
 Worker-specific automated checks currently include:
 
 - `worker/api.test.ts` health-route behavior
-- unknown API routes falling through to Static Assets
+- unknown non-API routes falling through to Static Assets
 - CI Worker bundle validation through `wrangler deploy --dry-run`
 
 Run locally with:
@@ -193,16 +188,19 @@ npm run test:worker
 npx wrangler@4.68.0 deploy --dry-run
 ```
 
-The following live Worker checks remain required:
+Live Worker checks performed so far:
 
-1. deployed health endpoint
-2. GitHub App OAuth
-3. Neon-backed session
-4. repository sync
-5. conversation creation
-6. deterministic run
-7. real AI-provider run
-8. SSE completion
+1. deployed health endpoint — verified
+2. deployed React shell — verified
+3. unauthenticated `/api/session` — verified
+
+Still required:
+
+4. GitHub App OAuth
+5. Neon-backed authenticated browser session
+6. repository sync and conversation creation
+7. deterministic run and SSE completion
+8. real AI-provider run
 9. request-disconnect cancellation
 
 The old Fastify/terminal tests remain migration-era coverage until the legacy runtime is removed. They must not be used as evidence that the native Worker runtime is verified.

@@ -26,6 +26,8 @@ Neon Postgres
 
 GitHub remains the source of truth for repository code. Neon stores Forge application state.
 
+Unknown `/api/*`, `/auth/*`, and `/health` paths return JSON 404 responses instead of falling through to the SPA shell.
+
 The Worker does **not** run a local shell. Terminal/execution is a separate future adapter and may use Codespaces or a local Brilina Agent.
 
 ## Important migration decision
