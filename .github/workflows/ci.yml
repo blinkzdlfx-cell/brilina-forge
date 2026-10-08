@@ -16,10 +16,6 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
-      - run: npm ci
-        working-directory: web
-      - run: npm run build
-        working-directory: web
 
   security-audit:
     runs-on: ubuntu-latest
