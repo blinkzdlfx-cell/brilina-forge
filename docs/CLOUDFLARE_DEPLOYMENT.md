@@ -33,7 +33,7 @@ The Worker entrypoint is `worker/index.ts`.
 - The SSE connection owns the active agent run while it is executing.
 - The old local shell/terminal worker is **not** part of the Worker runtime.
 
-Cloudflare Workers is built around standard Fetch APIs and Web Streams, so the new API uses `Request`, `Response`, `ReadableStream` and URL routing instead of Fastify's Node HTTP server model. citeturn4search2turn2search0
+Cloudflare Workers is built around standard Fetch APIs and Web Streams, so the HTTP layer uses `Request`, `Response`, `ReadableStream` and URL routing instead of Fastify's Node HTTP server model. The Worker currently enables `nodejs_compat` because shared token-encryption/config modules still use Node built-ins; this is compatibility support, not a Fastify server. citeturn4search2turn2search0
 
 ## Database
 
