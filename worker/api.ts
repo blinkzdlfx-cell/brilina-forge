@@ -4,7 +4,8 @@ import {
   exchangeGithubCode,
   refreshGithubAccessToken,
   OAUTH_STATE_COOKIE,
-  verifyStateBinding
+  verifyStateBinding,
+  verifierFromStateCookie
 } from "../src/auth/github.js";
 import {
   configureSessionStore,
