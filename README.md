@@ -28,7 +28,11 @@ GitHub remains the source of truth for repository code. Neon stores Forge applic
 
 Unknown `/api/*`, `/auth/*`, and `/health` paths return JSON 404 responses instead of falling through to the SPA shell.
 
-The Worker does **not** run a local shell. Terminal/execution is a separate future adapter and may use Codespaces or a local Brilina Agent.
+The Worker does **not** run a shell itself. Commands run on the user's own machine through a small local Node companion that starts only when a command needs to execute. See [Local execution](PLAN_LOCAL_EXECUTION.md).
+
+## Command acceptance
+
+The AI proposes commands. Light read-only commands run automatically on a verified machine. Risky commands (writes, installs, network, git commit/push, anything destructive) require the user's consent. Some commands are blocked outright. See [Plan — Local execution](PLAN_LOCAL_EXECUTION.md).
 
 ## Important migration decision
 

@@ -15,7 +15,7 @@ function createPkcePair(): { verifier: string; challenge: string } {
 }
 
 /**
- * The PKCE verifier is returned to the Worker so it can be stored in the
+ * The PKCE verifier is returned to the caller so it can be stored in the
  * browser-bound HttpOnly OAuth cookie. This avoids process-local OAuth state
  * that would be lost when a request lands on another Worker isolate.
  */
@@ -62,7 +62,6 @@ export async function exchangeGithubCode(code: string, state: string, verifier: 
   refreshTokenExpiresAt?: number;
   user: GithubUser;
 }> {
-
   const response = await fetch("https://github.com/login/oauth/access_token", {
     method: "POST",
     headers: { Accept: "application/json", "Content-Type": "application/json" },

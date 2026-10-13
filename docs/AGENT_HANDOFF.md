@@ -10,9 +10,9 @@ Brilina Forge is a private, GitHub-centered AI-assisted software development wor
 - **Neon Postgres:** durable Forge application state, users, workspaces, sessions, conversations, messages, runs, tool audit, and usage records.
 - **Forge backend:** authentication boundary, API, Agent Controller, policy, provider adapters, execution policy, and coordination.
 - **Browser:** React client that calls Forge APIs only.
-- **Execution worker:** disposable. Currently a **local** worker (`local-disposable`) running on the Forge host. Google Cloud E2 is future work.
+- **Execution:** runs on the user's own machine through a small local Node companion. The companion is disposable and holds only temporary execution state and the per-machine approval store. There is no server-side shell, no VPS cost, and no browser terminal.
 
-Never make the execution worker the only copy of source. Do not install OpenCode or Kilo Code on it in the current architecture.
+Never run commands on the Forge server. Do not install OpenCode or Kilo Code on the companion in the current architecture.
 
 ## Status at handoff
 The working tree contains uncommitted Phase 4–7 work on top of `main` (last commit `1676d1c`). Pull, inspect `git status`, and confirm what is actually present before relying on commit references.
@@ -25,7 +25,7 @@ The working tree contains uncommitted Phase 4–7 work on top of `main` (last co
 | 3 | Agent Controller | Complete |
 | 4 | Chat UI | Complete in code; browser acceptance not performed |
 | 5 | AI provider abstraction | Complete in code; adapter unit-tested only, no live provider key used |
-| 6 | Execution | Complete against the local worker; GCP E2 adapter not implemented |
+| 6 | Local execution (companion) | **not started** |
 | 7 | Verification and hardening | Controls implemented and tested; live end-to-end verification outstanding |
 
 ## What the previous agent completed
@@ -52,38 +52,64 @@ The working tree contains uncommitted Phase 4–7 work on top of `main` (last co
 - `src/ai/provider-model.ts`: `ProviderAgentModel` and `toAiMessages`.
 - `runs.provider` / `runs.model` are written by `updateRunProvider`; `usage_records` are written per run through `src/db/usage-repositories.ts`.
 
-### Phase 6 — Execution
+### Phase 6 — Local execution via the user's machine
 
-- `src/execution/types.ts`: `ExecutionService` contract, `TerminalSession`, `TerminalLogEntry`, `ExecResult`, `TerminalCommandClass`.
-- `src/execution/command-policy.ts`: allow-list plus block-list plus approval list; chaining, substitution and redirection rejected; Windows command set included.
-- `src/execution/local-worker.ts`: `LocalExecutionWorker`, disposable local shell-backed sessions, `buildWorkerEnv` allow-list, log and output caps, session cap with LRU eviction, `dispose()`.
-- `src/execution/socket.ts`: WebSocket transport with backlog replay, live streaming, heartbeat, and **no raw-stdin write path by design**.
-- `src/agent/tools/terminal.ts`: four terminal tools.
-- HTTP and WebSocket terminal routes in `src/server.ts`.
-- New dependencies: `@fastify/websocket`, `ws`, `@types/ws`. Frontend `web/src/TerminalPanel.tsx`.
+**Not started.** The previous Phase 6 scope (a server-side execution worker with a
+browser terminal) was superseded. Execution now runs on the user's own machine
+through a small local Node companion. See [Plan — Local execution](PLAN_LOCAL_EXECUTION.md).
+
+The companion:
+- starts only when a command actually needs to execute, never when the AI is
+  just planning
+- verifies the machine on first use (one background call, no pairing ceremony)
+- runs light read-only commands automatically and asks the user before risky
+  commands
+- streams output back to the browser over SSE
 
 ### Phase 7 — Hardening
 
-- Security fixes, observability and recovery, and CI changes are listed in [Phase 7 Hardening](PHASE_7_HARDENING.md). The summary:
-  - Removed the WebSocket raw-stdin `input` path (it bypassed command policy).
-  - Worker environment allow-list so `DATABASE_URL` and Forge secrets are unreachable from a terminal.
-  - Origin validation on state-changing routes, SSE, and the WebSocket.
-  - OAuth state bound to an HttpOnly browser cookie (login CSRF fix); session cookie `SameSite=Strict`; logout is `POST` with `GET` retained for older clients.
-  - `@fastify/helmet` (CSP `frame-ancestors 'none'`, framing `DENY`, `nosniff`, referrer policy) and `@fastify/rate-limit` (120/min keyed by session cookie then IP, `/health` allow-listed).
-  - UUID validation on conversation and run ids; generic `internal_error` instead of leaking database or provider messages.
-  - `redactSecrets` / `redactValue` applied to persisted `tool_calls` arguments, results and errors and to run error messages.
-  - Workspace slug keyed on the immutable GitHub user id; `workspace_members` grant cross-join fixed.
-  - Branch name and conversation title validated to prevent prompt injection into the system context.
-  - Conversation `UPDATE` scoped by user and workspace; terminal sessions scoped to `userId`.
-  - `web-serving` decodes the path, rejects backslashes, and verifies `realpath` containment.
-  - Detached run closure captures session and service before replying.
-  - Run message length capped at 8000; one active run per conversation.
-  - `POST /api/runs/:runId/cancel` (cooperative cancellation through `AgentRunLifecycle.shouldStop` and an `AbortController` passed to the provider), `GET /api/runs/:runId/audit` (ownership-checked via `getOwnedRunConversation`), `GET /api/conversations/:conversationId/runs`, `runEventBus.release` on completion plus a 5-minute sweep interval, and SIGINT/SIGTERM graceful shutdown in `start.ts`.
-  - CI (`.github/workflows/ci.yml`) runs `verify` and `security-audit` (`npm audit --audit-level=high` for backend and web).
+Security, observability and recovery, and CI changes are listed in
+[Phase 7 Hardening](PHASE_7_HARDENING.md). The summary:
+
+- Origin validation on state-changing routes and the SSE stream.
+- OAuth state bound to an HttpOnly browser cookie (login CSRF fix); session
+  cookie `SameSite=Strict`; logout is `POST` with `GET` retained for older
+  clients.
+- `@fastify/helmet` (CSP `frame-ancestors 'none'`, framing `DENY`, `nosniff`,
+  referrer policy) and `@fastify/rate-limit` (120/min keyed by session cookie
+  then IP, `/health` allow-listed).
+- UUID validation on conversation and run ids; generic `internal_error` instead
+  of leaking database or provider messages.
+- `redactSecrets` / `redactValue` applied to persisted `tool_calls.arguments`,
+  `tool_calls.result`, `tool_calls.error_message` and `runs.error_message`.
+- Workspace slug keyed on the immutable GitHub user id; `workspace_members`
+  grant cross-join fixed.
+- GitHub read tools deny when no repository is bound to the conversation.
+- Branch name and conversation title validated to prevent prompt injection into
+  the system context.
+- Conversation `UPDATE` scoped by user and workspace.
+- `web-serving` decodes the path, rejects backslashes, and verifies `realpath`
+  containment.
+- Detached run closure captures session and service before replying.
+- Run message length capped at 8000; one active run per conversation.
+- `POST /api/runs/:runId/cancel` (cooperative cancellation through
+  `AgentRunLifecycle.shouldStop` and an `AbortController` passed to the
+  provider), `GET /api/runs/:runId/audit` (ownership-checked via
+  `getOwnedRunConversation`), `GET /api/conversations/:conversationId/runs`,
+  `runEventBus.release` on completion plus a 5-minute sweep interval, and
+  SIGINT/SIGTERM graceful shutdown in `start.ts`.
+- CI (`.github/workflows/ci.yml`) runs `verify` and `security-audit`
+  (`npm audit --audit-level=high` for backend and web).
+
+The protections that were built around server-side execution — the WebSocket
+raw-stdin removal, the worker environment allow-list, and origin validation on
+a terminal socket — are no longer relevant once execution leaves the server.
+They are recorded in [Phase 7 Hardening](PHASE_7_HARDENING.md) as history.
 
 ## Live verification results
 
-The test suite reports **95 passing tests** (`npm test`, Node's built-in runner via `tsx`). New test files added since the last handoff:
+The test suite reports **103 passing tests** (`npm test`, Node's built-in runner
+via `tsx`). New test files added since the last handoff:
 
 - `src/agent/controller.observer.test.ts`
 - `src/agent/controller.cancellation.test.ts`
@@ -97,42 +123,45 @@ The test suite reports **95 passing tests** (`npm test`, Node's built-in runner 
 - `src/security/redact.test.ts`
 - `src/security/http.test.ts`
 
+The `src/execution/*` tests cover the server-side execution layer that has since
+been superseded by the companion. They remain in the suite for now.
+
 **Limits of that verification — state these plainly:**
 
 - No live AI provider key was configured. The OpenAI-compatible adapter is exercised against recorded/faked response shapes only.
 - No GitHub OAuth application was registered for this work. OAuth callback, cookie state binding, and session persistence are tested with stubbed GitHub endpoints.
-- The terminal WebSocket was not driven from a real authenticated browser against a live terminal session.
 - No Neon-backed path was exercised end to end.
-- A successful build and passing tests do not prove OAuth, Neon connectivity, live provider responses, SSE behavior in a browser, or terminal behavior in a browser.
+- A successful build and passing tests do not prove OAuth, Neon connectivity, live provider responses, or SSE behavior in a browser.
+- The companion, device verification, and the approval UI have not been built.
 
 ## Remaining gaps
 
 Do not claim these are done.
 
-- **No Google Cloud E2 adapter.** The local worker runs on the Forge host and has no isolation boundary beyond the command-policy layer.
+- **No companion.** Local execution via the user's machine has not been built.
 - **No interactive approval flow.** Approval-required tools are permanently rejected; there is no approve/resume.
 - **RunEventBus history is in-memory only** and is not persisted across restarts. `release()` and `sweep()` bound memory, they do not persist it.
 - **OAuth state store is process-local in-memory.** A multi-instance deployment needs a DB-backed state store.
-- **Terminal sessions are in-memory only.** A restart loses all sessions and their logs.
 - **No pagination on `listConversationMessages`** (hard `LIMIT 1000`).
 - **`GET /health` still reports `phase: 4`.** The field is stale.
 
 ## Accepted decisions
 See docs/DECISIONS.md for full ADRs. Do not silently replace these:
-- GitHub is canonical; the execution worker is disposable (ADR-001).
-- Backend owns orchestration; no coding-agent framework on the worker (ADR-002).
+- GitHub is canonical; execution is on the user's machine and the companion is
+  disposable (ADR-001).
+- Backend owns orchestration; no coding-agent framework on the companion (ADR-002).
 - GitHub REST + GraphQL are hidden behind one GitHubService (ADR-003).
 - Progressive task-relevant context; no complete repo dump by default (ADR-004).
 - Small typed controller, not a large agent framework without a concrete need (ADR-006, ADR-010).
 - No Git CLI requirement initially; GitHub APIs are primary (ADR-007).
 - GitHub App user authorization, not legacy OAuth App (ADR-008).
 - Neon stores durable state; Neon serverless driver + raw SQL, no ORM without justification (ADR-009).
-- Current order is Phase 4 UI → Phase 5 AI → Phase 6 execution → Phase 7 verification (ADR-011).
+- Current order is Phase 4 UI → Phase 5 AI → Phase 6 local execution → Phase 7 verification (ADR-011).
 - Frontend is React + Vite + TypeScript in web/ (ADR-012).
-- SSE for chat/run events; WebSocket reserved for the interactive terminal (ADR-013).
+- SSE for chat/run events. There is no WebSocket (ADR-013, superseded).
 - OpenAI-compatible adapter as the first provider, activated only when an API key is present (ADR-014).
-- Allow-list command policy with no raw-stdin transport path (ADR-015).
-- Local disposable worker as the Phase 6 stand-in for GCP E2 (ADR-016).
+- Allow-list command policy; light commands run automatically, risky commands ask
+  for consent, and some are blocked outright (ADR-018).
 - OAuth state bound to a browser cookie (ADR-017).
 - High-impact operations require policy checks and human control.
 
@@ -142,17 +171,19 @@ Backend is TypeScript ESM, Fastify 5, Node.js >=20, with @neondatabase/serverles
 - `src/auth/`: GitHub authorization (PKCE, state binding) and the session store boundary.
 - `src/github/`: API client and semantic GitHub service.
 - `src/db/`: Neon client, AES-GCM token crypto, persistence repositories, audit and usage repositories.
-- `src/agent/`: model-neutral types, tool registry, context, policy, run state, controller, GitHub read tools, terminal tools.
+- `src/agent/`: model-neutral types, tool registry, context, policy, run state, controller, GitHub read tools.
 - `src/ai/`: provider-neutral AI contracts, OpenAI-compatible adapter, registry, retry, deterministic adapter, runtime factory, `ProviderAgentModel`.
-- `src/execution/`: `ExecutionService` types, command policy, local worker, terminal WebSocket transport.
 - `src/security/`: secret redaction.
 - `src/phase4/`: deterministic model and the in-memory run event bus.
-- `src/server.ts`: Fastify routes, auth, run orchestration, SSE, terminal HTTP routes, plugins.
+- `src/server.ts`: Fastify routes, auth, run orchestration, SSE, plugins (local dev only).
 - `src/start.ts`: configures the Neon session store, installs graceful shutdown, starts the server.
 - `src/web-serving.ts`: built frontend static files and SPA fallback.
-- `web/src/`: React application, API client, terminal panel, frontend types and styles.
+- `web/src/`: React application, API client, frontend types and styles.
 - `db/migrations/`: ordered schema migrations.
 - `docs/`: specifications, decisions, security, testing, roadmap and phase details.
+
+Execution is not in this tree. It lives in the companion, which is built as a
+separate small Node service. See [Plan — Local execution](PLAN_LOCAL_EXECUTION.md).
 
 Inspect the actual tree and relevant source on the checked-out branch before coding.
 
@@ -161,7 +192,7 @@ The authoritative route inventory lives in `docs/DATABASE_AND_API_REFERENCE.md`.
 
 SSE event names: `run.started`, `assistant.delta`, `tool.requested`, `tool.started`, `tool.completed`, `approval.required`, `tool.rejected`, `assistant.completed`, `run.completed`, `run.failed`. Frontend wrappers are in `web/src/api.ts`; shared browser types are in `web/src/types.ts`. Browser requests use same-origin relative API paths and `credentials`.
 
-Terminal WebSocket events (`web/src/api.ts`): `session.ready`, `output`, `exec.completed`, `error`. The only accepted client message is `{ type: "exec", command }`.
+There is no WebSocket. The browser never holds a shell; command output comes back over SSE from the companion.
 
 ## Agent Controller
 The controller calls a provider-neutral `AgentModel.next` contract, exposes registered typed tools, validates object/required arguments, checks policy and authorization, audits tool lifecycle, adds structured tool results to context, records the assistant tool-call turn, emits observer events, honors cooperative cancellation at step boundaries, and limits model steps (default 8). It does not call provider SDKs, execute arbitrary shell, or bypass GitHubService. Approval-required behavior is rejection with an approval message, not a pause/resume workflow.

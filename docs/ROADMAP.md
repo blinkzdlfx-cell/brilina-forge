@@ -99,27 +99,31 @@ Honest caveats:
 - There is no cost estimation: `usage_records.estimated_cost_usd` is left null.
 - Token accounting falls back to message-length heuristics when the provider does not return usage.
 
-## Phase 6 — E2 execution
-Status: **complete against a local worker; Google Cloud E2 adapter not implemented**
+## Phase 6 — Local execution via the user's machine
+Status: **not started**
 
-Detail: [Phase 6 Execution](PHASE_6_EXECUTION.md).
+Detail: [Plan — Local execution](PLAN_LOCAL_EXECUTION.md).
 
-Completed:
-- `ExecutionService` contract with terminal session, log and exec types
-- command policy: allow-list, block-list, approval list, chaining/substitution/redirection rejection, Windows command set
-- disposable local execution worker with session lifecycle, LRU eviction, log cap, output cap, execution-root containment
-- worker environment allow-list
-- `exec` completion-marker protocol with drain window and output truncation
-- terminal HTTP routes and a WebSocket transport with backlog replay, live streaming and heartbeat
-- no raw-stdin write path on any transport
-- four terminal tools registered in the Agent Controller
-- frontend `TerminalPanel.tsx`
+The previous Phase 6 scope (a server-side execution worker with a browser
+terminal) was superseded. Execution now runs on the user's own machine
+through a small local Node companion. There is no server-side shell, no VPS
+cost, and no browser terminal.
+
+Completed in this phase:
+
+- the companion service itself
+- command classification reused from the existing policy module
+- device verification on first use (no pairing ceremony)
+- per-machine approval store for light commands
+- per-command consent prompts for risky commands
+- output streamed back to the browser over SSE
 
 Honest caveats:
-- The worker is `local-disposable`: it runs on the Forge host with **no isolation boundary** beyond the command-policy layer. It is not Google Cloud E2 and must not be treated as an E2 substitute in production.
-- Worker processes are shell-backed per session, not true PTYs on Windows.
-- Terminal sessions and their logs are in-memory only and are lost on restart.
-- Approval-required commands are classified but cannot be approved interactively; the model-facing terminal tools are `approval-required` and therefore rejected by the controller.
+
+- The companion has not been built yet.
+- No live verification has been performed.
+- The companion runs as the user with no sandbox boundary; the command
+  policy layer is the only control (see [Security](SECURITY.md)).
 
 ## Phase 7 — Verification and hardening
 Status: **controls implemented and tested; live end-to-end verification outstanding**
@@ -155,43 +159,53 @@ Honest caveats:
 - No live verification was performed: no provider key, no GitHub OAuth application, no browser-driven terminal session, no Neon-backed end-to-end run.
 - Security testing is unit/integration level. There is no penetration test and no multi-instance deployment test.
 - The OAuth state store, run event history and terminal sessions remain process-local.
-
 ## Forward-looking work
 
 Not started. Ordered roughly by the risk they retire.
 
-### Execution isolation
-1. Google Cloud E2 adapter implementing `ExecutionService`, with provisioning, teardown, workspace hydration and a real PTY.
-2. Decide whether the local worker is development-only behind a flag, or is removed entirely.
-3. Move execution logs to durable storage if audit requires them.
+### Local execution (Phase 6)
+
+1. Build the companion service and its device-verification flow.
+2. Wire command execution into the Agent Controller so the model's tool calls run locally.
+3. Stream output back to the browser over SSE.
+4. Build the per-command consent UI for risky commands.
+5. Decide persistence for the per-machine approval store.
 
 ### Human control
-4. Interactive approval/resume flow: persist a pending tool call, expose an approve/reject API, and let the controller resume rather than reject.
-5. Approval decisions with an audit record of who approved what.
+
+6. Interactive approval/resume flow: persist a pending tool call, expose an
+   approve/reject API, and let the controller resume rather than reject.
+7. Approval decisions with an audit record of who approved what.
 
 ### Durability and multi-instance
-6. Persist run event history, or replace SSE replay with a durable log.
-7. Move the OAuth state store to Neon so several instances can serve authorization.
-8. Persist or explicitly discard terminal sessions across restarts.
+
+8. Persist run event history, or replace SSE replay with a durable log.
+9. Move the OAuth state store to Neon so several instances can serve authorization.
 
 ### AI provider work
-9. Live verification of the OpenAI-compatible adapter against a real endpoint, including streaming tool calls and rate-limit headers.
-10. Streaming assistant text to SSE from the provider stream instead of chunking a completed response.
-11. Cost estimation for `usage_records.estimated_cost_usd`.
-12. Additional providers registered in `createProviderRuntime`; per-model capability checks against `AiModelDescriptor`.
+
+10. Live verification of the OpenAI-compatible adapter against a real endpoint, including streaming tool calls and rate-limit headers.
+11. Streaming assistant text to SSE from the provider stream instead of chunking a completed response.
+12. Cost estimation for `usage_records.estimated_cost_usd`.
+13. Additional providers registered in `createProviderRuntime`; per-model capability checks against `AiModelDescriptor`.
 
 ### Scale and correctness
-13. Pagination on `listConversationMessages` and conversation listing.
-14. Update the stale `phase: 4` value reported by `GET /health`.
-15. Automated UI acceptance tests against the built frontend.
+
+14. Pagination on `listConversationMessages` and conversation listing.
+15. Update the stale `phase: 4` value reported by `GET /health`.
+16. Automated UI acceptance tests against the built frontend.
 
 ## Rule
-Do not skip a phase simply because a UI can be made to appear functional. A visible UI without proven backend contracts is not considered implementation complete. Equally, do not report a phase as verified when only unit tests cover it.
+
+Do not skip a phase simply because a UI can be made to appear functional. A
+visible UI without proven backend contracts is not considered implementation
+complete. Equally, do not report a phase as verified when only unit tests cover it.
 
 
 ## Runtime migration — in progress
 
-The production runtime is being moved from the old Node/Fastify server to a native Cloudflare Worker.
+The production runtime is being moved from the old Node/Fastify server to a
+native Cloudflare Worker.
 
 Completed in the migration branch:
 
@@ -207,6 +221,6 @@ Next migration steps:
 7. Verify GitHub App OAuth and Neon-backed sessions against the deployed Worker.
 8. Verify deterministic and real-provider runs through SSE.
 9. Remove the legacy Fastify/terminal source and dependencies after route parity is proven.
-10. Decide the future execution adapter independently of the API Worker.
+10. Build the companion and wire local execution independently of the API Worker.
 
 The D1 database migration is intentionally not part of this work.

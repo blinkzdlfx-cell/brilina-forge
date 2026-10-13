@@ -3,7 +3,7 @@ import websocket from "@fastify/websocket";
 import rateLimit from "@fastify/rate-limit";
 import helmet from "@fastify/helmet";
 import { config } from "./config.js";
-import { createGithubAuthorizationUrl, exchangeGithubCode, refreshGithubAccessToken, OAUTH_STATE_COOKIE, verifyStateBinding } from "./auth/github.js";
+import { createGithubAuthorization, exchangeGithubCode, refreshGithubAccessToken, OAUTH_STATE_COOKIE, verifyStateBinding, verifierFromStateCookie } from "./auth/github.js";
 import { createSession, deleteSession, getSession, parseSessionCookie, updateSessionCredentials, type Session } from "./auth/session.js";
 import { GithubApiError, GithubClient } from "./github/client.js";
 import { GithubService } from "./github/service.js";
@@ -178,6 +178,10 @@ function clearSessionCookie(reply: { header(name: string, value: string): void }
   reply.header("Set-Cookie", "brilina_session=; HttpOnly; Path=/; SameSite=Strict; Max-Age=0;");
 }
 
+function setOAuthStateCookie(reply: { header(name: string, value: string): void }, value: string) {
+  reply.header("Set-Cookie", `${OAUTH_STATE_COOKIE}=${value}; HttpOnly; Path=/; SameSite=Lax; Max-Age=600;`);
+}
+
 function parseOAuthStateCookie(header: string | undefined): string | undefined {
   if (!header) return undefined;
   const pair = header.split(";").map(value => value.trim()).find(value => value.startsWith(OAUTH_STATE_COOKIE + "="));
@@ -229,13 +233,9 @@ async function forgeContextForRequest(request: { headers: Record<string, string 
 app.get("/health", async () => ({ ok: true, service: "brilina-forge", phase: 4 }));
 
 app.get("/auth/github/start", async (_request, reply) => {
-  const authorizationUrl = createGithubAuthorizationUrl();
-  const state = new URL(authorizationUrl).searchParams.get("state") ?? "";
-  reply.header(
-    "Set-Cookie",
-    `${OAUTH_STATE_COOKIE}=${state}; HttpOnly; Path=/; SameSite=Lax; Max-Age=600;${config.cookieSecure ? " Secure;" : ""}`
-  );
-  reply.redirect(authorizationUrl);
+  const authorization = createGithubAuthorization();
+  setOAuthStateCookie(reply, authorization.stateCookieValue);
+  reply.redirect(authorization.url);
 });
 
 app.get("/auth/github/callback", async (request, reply) => {
@@ -248,10 +248,15 @@ app.get("/auth/github/callback", async (request, reply) => {
     clearOAuthStateCookie(reply);
     return reply.code(400).send({ error: "oauth_state_binding_mismatch" });
   }
+  const verifier = verifierFromStateCookie(boundState);
+  if (!verifier) {
+    clearOAuthStateCookie(reply);
+    return reply.code(400).send({ error: "oauth_verifier_missing" });
+  }
   clearOAuthStateCookie(reply);
 
   try {
-    const result = await exchangeGithubCode(query.code, query.state);
+    const result = await exchangeGithubCode(query.code, query.state, verifier);
     const session = await createSession(result.accessToken, result.user, {
       refreshToken: result.refreshToken,
       expiresAt: result.expiresAt,

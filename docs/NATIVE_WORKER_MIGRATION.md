@@ -1,170 +1,89 @@
-# Native Worker migration
+# Brilina Forge — Native Worker migration
 
-## Purpose
+## Current implementation direction
 
-This document records the implementation work that replaces the old Node/Fastify runtime with a native Cloudflare Worker.
+The accepted production runtime is now a native Cloudflare Worker.
 
-## Target architecture
+Do not extend the old Fastify server with new application behavior.
 
-```
-React browser
-     |
-     v
-Cloudflare Worker
-     |
-     +-- Auth / sessions
-     +-- GitHubService
-     +-- Conversations
-     +-- Agent Controller
-     +-- AI provider
-     +-- SSE
-     |
-     v
-Neon Postgres
-```
+Primary Worker files:
 
-GitHub remains the source of truth for repository code.
-
-Execution is outside the Worker. A future execution adapter may connect the Worker to Codespaces or a local Brilina Agent.
-
-## Implemented on this branch
-
-### 1. Worker-native API
-
-Added:
-
+- `worker/index.ts`
 - `worker/api.ts`
-- native Fetch routing
-- native JSON responses
-- cookie handling
-- same-origin checks
-- GitHub authentication
-- GitHub repository routes
-- conversation routes
-- run creation
-- run audit
-- cancellation
-- SSE run streaming
-- Agent Controller execution
 
-### 2. Worker entrypoint
+The Worker directly handles the API and serves the React application through
+Workers Static Assets.
 
-`worker/index.ts` now:
+## Database decision
 
-1. sends application API requests to `worker/api.ts`
-2. adds security headers
-3. serves all other requests through the Workers Static Assets binding
+Keep Neon Postgres.
 
-There is no API-origin proxy.
+Do not migrate to D1 as part of this runtime migration. The existing Neon
+serverless driver and repository layer already work with the Worker model.
 
-### 3. Runtime configuration
+## Run execution model
 
-`src/config.ts` now supports Worker bindings through `configureRuntimeEnv()`.
+A run is created in Neon as `queued`.
 
-AI provider configuration also comes through the shared config instead of direct `process.env` access.
+The browser then opens:
 
-### 4. Run lifecycle
+```
+GET /api/runs/:runId/events
+```
 
-The old runtime used process-local state:
+The first stream atomically claims the run and executes the Agent Controller
+while the SSE response remains open.
 
-- active run sets
-- controller maps
-- in-memory event bus
-- detached promises
+This replaces:
 
-The Worker implementation instead uses:
+- process-local `activeRuns`
+- process-local controller maps
+- the in-memory run event bus as the production coordination mechanism
+- detached background promises
 
-- Neon run records
-- an atomic queued-to-running claim
-- an SSE stream as the execution lifetime
-- the request abort signal for cooperative cancellation
+The Worker uses the request abort signal for cooperative cancellation.
 
-Cloudflare's `waitUntil()` is not used as the agent job system because it only extends background work for up to 30 seconds after a response/disconnect. A streamed HTTP request can remain active while its response body is streaming. citeturn2search1turn2search2turn2search9
+## Execution boundary
 
-## Routes currently implemented
+Do not reintroduce:
 
-### Authentication
-
-- GET `/auth/github/start`
-- GET `/auth/github/callback`
-- GET/POST `/auth/github/logout`
-- GET `/api/session`
-
-### GitHub
-
-- GET `/api/github/me`
-- GET `/api/github/repos`
-- GET `/api/github/repos/:owner/:repo`
-- GET `/api/github/repos/:owner/:repo/rest`
-- GET `/api/github/repos/:owner/:repo/context`
-- GET `/api/github/repos/:owner/:repo/branches`
-- GET `/api/github/repos/:owner/:repo/tree`
-- GET `/api/github/repos/:owner/:repo/file/*`
-- GET `/api/github/repos/:owner/:repo/compare`
-- GET `/api/github/repos/:owner/:repo/commits`
-- POST `/api/github/repositories/sync`
-
-### Conversations
-
-- GET/POST `/api/conversations`
-- PATCH `/api/conversations/:conversationId`
-- GET `/api/conversations/:conversationId/messages`
-- GET/POST `/api/conversations/:conversationId/runs`
-
-### Runs
-
-- GET `/api/runs/:runId/events`
-- GET `/api/runs/:runId/audit`
-- POST `/api/runs/:runId/cancel`
-
-## Intentionally removed from the Worker design
-
-These are not part of the target runtime:
-
-- Fastify
-- `@fastify/websocket`
-- `@fastify/helmet`
-- `@fastify/rate-limit`
-- local shell execution
 - `child_process`
+- local shell execution
 - local execution filesystem
 - terminal WebSocket
-- permanent Node API server
-- `FORGE_API_ORIGIN`
+- Fastify
 
-The old files are being removed only after route parity and Worker deployment are verified so that functionality is not silently lost during the migration.
+Execution runs on the user's own machine through the companion, which is built
+as a separate small Node service. See [Plan — Local execution](PLAN_LOCAL_EXECUTION.md).
 
-## Neon decision
+## Verification requirements
 
-Neon remains in place.
+Before the migration is declared complete, verify:
 
-The existing Neon serverless driver is suitable for Cloudflare Workers, and the existing PostgreSQL schema/repository layer already matches Forge's durable state model. citeturn3search0turn3search6
+1. Worker local startup
+2. Worker build/deploy
+3. `/health`
+4. React shell
+5. GitHub App OAuth
+6. Neon-backed session
+7. repository sync
+8. conversation creation
+9. deterministic run
+10. real AI-provider run
+11. SSE completion
+12. request-disconnect cancellation
 
-D1 migration is intentionally outside this migration.
+Do not report any of these as verified until the actual environment has been
+exercised.
 
-## Verification still required
+## Status
 
-The implementation is not considered production-complete until these are tested:
+The migration is in progress. The Worker covers authentication, GitHub,
+conversations, runs, audit and SSE. The companion and local execution are not
+built.
 
-1. `npm run build`
-2. `npm run test:worker`
-3. Wrangler local Worker startup
-4. deployed `/health`
-5. deployed React shell
-6. real GitHub App sign-in
-7. real Neon session creation
-8. repository sync
-9. conversation creation
-10. deterministic run
-11. real AI-provider run
-12. SSE completion
-13. cancellation after browser disconnect
+See:
 
-No live OAuth, Neon or AI result should be claimed from code inspection alone.
-
-
-## Latest hardening
-
-OAuth no longer keeps the PKCE verifier in a process-local map. The Worker stores the state and verifier in the browser-bound HttpOnly OAuth cookie and validates the state during callback. This makes the OAuth flow independent of Worker isolate affinity.
-
-Worker runtime configuration and the Neon session store are also configured from the current request environment rather than retained from an earlier request.
+- [Native Worker migration](NATIVE_WORKER_MIGRATION.md)
+- [Cloudflare deployment](CLOUDFLARE_DEPLOYMENT.md)
+- [Architecture decisions](DECISIONS.md)

@@ -3,7 +3,7 @@
 This reference describes the schema migrations and HTTP contracts currently present. Inspect current source for exact validation, response bodies, and status codes before modifying a contract.
 
 ## Data ownership
-GitHub is canonical for repository source, branches, commits and pull requests. Neon Postgres stores Forge application state. The execution worker is disposable infrastructure; the currently implemented worker is a **local** worker, not Google Cloud E2. The backend uses @neondatabase/serverless and a small raw-SQL repository layer; an ORM is not currently used.
+GitHub is canonical for repository source, branches, commits and pull requests. Neon Postgres stores Forge application state. Execution runs on the user's own machine through a small local Node companion; the companion is disposable and holds only temporary execution state and the per-machine approval store. There is no server-side shell. The backend uses @neondatabase/serverless and a small raw-SQL repository layer; an ORM is not currently used.
 
 ## Migrations
 Apply SQL in order to the intended Neon branch. Confirm the branch before any migration.
@@ -94,18 +94,6 @@ Protected routes require the Forge session cookie. Identity is derived server-si
 | GET | /api/runs/:runId/audit | Run record plus its tool-call audit trail; ownership checked via `getOwnedRunConversation` |
 | POST | /api/runs/:runId/cancel | Cooperative cancellation; 404 if not owned, 409 if not cancellable |
 
-### Terminal
-
-| Method | Path | Purpose |
-|---|---|---|
-| GET | /api/terminal/sessions?conversationId= | List sessions in the caller's workspace |
-| POST | /api/terminal/sessions | Open a session for a conversation the caller owns; returns 201 |
-| GET | /api/terminal/sessions/:sessionId | Session state; scoped by workspace and user |
-| GET | /api/terminal/sessions/:sessionId/output?since=&limit= | Buffered output (`limit` 1–2000, default 500) |
-| POST | /api/terminal/sessions/:sessionId/exec | Classify and run one command; `timeoutMs` 1000–600000 |
-| DELETE | /api/terminal/sessions/:sessionId | Kill the session |
-| GET | /api/terminal/sessions/:sessionId/socket | WebSocket transport for live output and `exec` |
-
 ### Static frontend
 
 | Method | Path | Purpose |
@@ -116,8 +104,8 @@ Exact API behavior lives in src/server.ts; client wrappers and UI types live in 
 
 ### Cross-cutting request rules
 
-- State-changing routes (`POST`, `PATCH`, `DELETE`), the SSE stream and the WebSocket handshake are origin-checked against `PUBLIC_BASE_URL` and the callback origin. A disallowed `Origin` is a 403 (HTTP) or close code 4403 (socket).
-- `conversationId` and `runId` must be UUIDs; terminal session ids must match `[A-Za-z0-9-]{8,64}`. Invalid identifiers are 400 before any database access.
+- State-changing routes (`POST`, `PATCH`, `DELETE`) and the SSE stream are origin-checked against `PUBLIC_BASE_URL` and the callback origin. A disallowed `Origin` is a 403.
+- `conversationId` and `runId` must be UUIDs. Invalid identifiers are 400 before any database access.
 - Authentication is checked before request-parameter validation.
 - Errors raised by Forge's own validation and policy layers carry a `statusCode` and their message is returned. Anything else returns `500 { "error": "internal_error" }` and is logged server-side only.
 
@@ -140,9 +128,7 @@ run.completed         { runId, status }
 run.failed            { runId, message }
 ```
 
-SSE is server-to-browser: the browser cannot write to it. WebSocket is used only for the terminal. The event bus is in-memory, caps history at 500 events per run, is released when a run finishes, and is swept on a TTL (default 15 minutes, swept every 5 minutes). History is **not** persisted across restarts.
-
-Terminal socket events: `session.ready`, `output`, `exec.completed`, `error`. The only accepted client message is `{ "type": "exec", "command": "..." }`. There is no raw-stdin message.
+SSE is server-to-browser: the browser cannot write to it. There is no WebSocket; the browser never holds a shell. The event bus is in-memory, caps history at 500 events per run, is released when a run finishes, and is swept on a TTL (default 15 minutes, swept every 5 minutes). History is **not** persisted across restarts.
 
 The controller exposes registered typed tools, validates basic object/required fields, applies policy and authorization, audits tool states/results, appends tool results and the assistant tool-call turn to context, checks cancellation at each step boundary, and uses a bounded loop (default maximum 8 steps). Current approval-required actions are rejected; interactive approval/resume is not implemented.
 
@@ -156,18 +142,12 @@ The controller exposes registered typed tools, validates basic object/required f
 | github.get_tree | allowed | same |
 | github.read_file | allowed | same |
 | github.get_diff | allowed | same |
-| terminal.create_session | approval-required | Workspace present; conversation id format valid |
-| terminal.exec | approval-required | Session belongs to the caller's workspace and user |
-| terminal.read | allowed | Session belongs to the caller's workspace and user |
-| terminal.kill | approval-required | Session belongs to the caller's workspace and user |
-
-Because approval-required tools are rejected by the controller, the three approval-required terminal tools cannot currently be used by a model.
 
 ## Current limitations
 - The AI provider adapter is unit-tested only; no live provider key has been exercised.
-- The execution worker is a local worker with no isolation boundary. There is no Google Cloud E2 adapter.
+- The companion has not been built.
 - Approval-required commands and tools are rejected rather than approved interactively.
-- Run event history, OAuth state and terminal sessions are process-local and in-memory.
+- Run event history and OAuth state are process-local and in-memory.
 - `listConversationMessages` has a hard `LIMIT 1000` and no pagination.
 - Terminal output returned to the model is truncated to 8000 characters; persisted tool output is redacted and length-bounded.
 - `estimated_cost_usd` is never populated.
@@ -179,15 +159,7 @@ The route inventory above describes the application contract. The production HTT
 
 The current Worker implementation covers authentication, GitHub, conversations, runs, audit and SSE.
 
-The following legacy terminal routes are **not** implemented by the native Worker:
-
-- `/api/terminal/sessions`
-- `/api/terminal/sessions/:sessionId`
-- `/api/terminal/sessions/:sessionId/output`
-- `/api/terminal/sessions/:sessionId/exec`
-- `/api/terminal/sessions/:sessionId/socket`
-
-They depended on the local shell execution service and are intentionally outside the Worker runtime. Future execution adapters will expose a separate controlled execution contract.
+The terminal routes that depended on the local shell execution service are intentionally outside the Worker runtime. Future execution adapters will expose a separate controlled execution contract through the companion.
 
 The run SSE implementation also changed: run state is durable in Neon, and the first SSE connection claims a queued run and executes it while the stream remains open. The old in-memory `runEventBus` is not part of the target Worker runtime.
 
