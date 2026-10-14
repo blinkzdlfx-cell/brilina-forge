@@ -147,7 +147,7 @@ export function createGithubWriteTool(service: GithubService): ForgeTool<FileArg
     },
     async execute(_context, args) {
       const result = await service.writeFile(args.owner, args.repo, args.path, args.content, args.message ?? `Update ${args.path}`, args.branch);
-      return normalizedWriteResult(result, args.branch, result.content ? "written" : "written");
+      return normalizedWriteResult(result, args.branch, "written");
     }
   };
 }
