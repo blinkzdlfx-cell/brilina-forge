@@ -14,7 +14,7 @@ const context: ToolExecutionContext = {
 };
 
 test("write tool factory exposes branch creation and create/update/upsert operations", () => {
-  const service = {} as GithubService;
+  const service = {} as unknown as GithubService;
   const names = createGithubWriteTools(service).map(tool => tool.name);
   assert.deepEqual(names, [
     "github.create_work_branch",
@@ -25,7 +25,7 @@ test("write tool factory exposes branch creation and create/update/upsert operat
 });
 
 test("write tools are scoped to the repository selected for the conversation", async () => {
-  const service = {} as GithubService;
+  const service = {} as unknown as GithubService;
   const tools = createGithubWriteTools(service);
   const write = tools.find(tool => tool.name === "github.write_file");
   assert.ok(write);
@@ -78,7 +78,7 @@ test("write_file delegates the full file update and returns a reviewable commit 
 });
 
 test("branch creation tool is scoped to the selected repository", async () => {
-  const service = {} as GithubService;
+  const service = {} as unknown as GithubService;
   const branch = createGithubWriteTools(service).find(tool => tool.name === "github.create_work_branch");
   assert.ok(branch);
 
