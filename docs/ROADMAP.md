@@ -1,226 +1,96 @@
 # Brilina Forge Roadmap
 
-## Phase 0 — Documentation
-Status: **complete**
+The evidence-based current status and continuation plan lives in [Current State and Continuation Plan](CURRENT_STATE_AND_CONTINUATION.md). This roadmap is ordered by dependency and risk. Historic phase completion notes must not be treated as live verification.
 
-## Phase 1 — GitHub foundation
-Status: **complete**
+## Stage A — Baseline and documentation
 
-Acceptance completed on 2026-09-22. Forge can authenticate, identify the account, discover repositories, inspect branches, retrieve repository context and read files while handling expiring authorization and malformed requests safely.
+**Status: documentation reconciliation in progress; current runtime checks not independently rerun in this checkpoint.**
 
-## Phase 2 — Neon persistence
-Status: **complete**
+- [x] Native Cloudflare Worker identified as the production runtime.
+- [x] Neon retained as the database; D1 migration excluded.
+- [x] Reusable Kilo inspection prompt added.
+- [x] Known gaps recorded in the current-state document.
+- [ ] Pull the current branch on the development machine and preserve `git status`.
+- [ ] Run the exact build and test scripts in `package.json`; record commands and results.
+- [ ] Fix only reproducible build/type/test failures in isolated commits.
 
-Completed:
-- Neon development and production branches established
-- Forge persistence schema applied and verified
-- Durable session store implemented
-- GitHub credentials encrypted at rest
-- Persistent authentication survives server restart
-- Automatic GitHub token refresh is persisted to Neon
-- Persistence and refresh acceptance passed
-- Accepted schema migration applied to the Neon production branch
+## Stage B — Reliable Worker run lifecycle
 
-Acceptance completed on 2026-09-22:
+**Status: partial implementation; recovery guarantees not yet established.**
 
-> Application state survives restarts, GitHub credentials are protected at rest, and workspace/repository ownership constraints are enforced.
+Current code creates a queued run and uses the SSE GET request to claim/execute it. Neon stores run records, but request-bound execution is not sufficient proof of recovery or replay.
 
-## Phase 3 — Agent Controller
-Status: **complete**
+Acceptance criteria:
+- queued run is created exactly once for the accepted request;
+- atomic claim prevents duplicate execution under concurrent stream connections;
+- reconnect does not start duplicate work;
+- disconnect behavior is explicitly defined and tested;
+- cancellation, timeouts, failures and cleanup produce consistent terminal state;
+- result messages and tool audit are durable;
+- event replay/reconnect behavior is documented and tested;
+- abandoned claimed runs have a recovery strategy.
 
-Completed:
-- typed tool contract
-- tool registry
-- schema validation boundary
-- tool policy/authorization boundary
-- run state machine
-- bounded model context assembly
-- deterministic controller loop
-- deterministic fake model and in-memory audit store for controller tests
-- Neon audit-store adapter
-- real read-only GitHub repository tool adapter
-- Phase 3 architecture and ADR documentation
-- CI build and test verification
+Do not make a large lifecycle redesign without presenting the smallest safe proposal and any schema changes for owner approval.
 
-Acceptance completed on 2026-09-22:
+## Stage C — Persistence and isolate correctness
 
-> The controller can accept a provider-neutral model decision, validate and authorize a registered read-only tool, execute the typed tool, append its structured result to model context, and audit the run/tool lifecycle. Automated CI verified the build and 10 tests.
+**Status: partial; requires focused verification.**
 
-## Phase 4 — Chat UI
-Status: **complete in code; browser acceptance not performed**
+- [ ] Verify Neon query result contracts, especially stale-work timeout counts.
+- [ ] Replace in-memory device assignment with durable, ownership-checked assignment before relying on device IDs.
+- [ ] Test session and OAuth state behavior under multiple Worker isolates where applicable.
+- [ ] Ensure any data needed after a request is stored durably or held in a deliberately selected durable coordination primitive.
 
-Detail: [Phase 4 Chat UI](PHASE_4_CHAT_UI.md).
+## Stage D — Interactive approval
 
-Completed:
-- branded Brilina Forge application shell
-- responsive expandable/collapsible sidebar
-- sign-in gate driven by `GET /api/session`, sign-out via `POST /auth/github/logout`
-- conversation list and creation
-- persistent conversation message history backed by Neon
-- conversation history loading when reopening a chat
-- chat composer with streaming cursor
-- tool activity cards keyed by the provider `callId`, covering requested / running / completed / approval-required / rejected
-- approval-required and tool-rejected presentation
-- repository selector backed by the authenticated GitHub repository API
-- branch selector backed by the selected repository's GitHub branches
-- repository context synchronization into Forge's repository table
-- conversation context update API for repository/branch selection
-- branch comparison diff panel (`GET /api/github/repos/:owner/:repo/compare`)
-- backend conversation, run-start and SSE run-event APIs
-- deterministic Phase 4 model adapter that issues a real tool call for inspection intent
-- Agent Controller tool-lifecycle observer wired to the SSE `RunEventBus`
+**Status: not implemented end to end.**
 
-Honest caveats:
-- No automated UI acceptance test exists and no browser session has driven the built frontend through sign-in, run, tool activity, diff and terminal flows.
-- The UI still labels the composer "Provider-neutral development mode" regardless of whether a live provider is active.
+- [ ] Persist a pending tool call and its arguments safely.
+- [ ] Expose authenticated approve/reject actions scoped to the owning user and run.
+- [ ] Record who approved/rejected what and when.
+- [ ] Resume the same pending tool call after approval, exactly once; do not ask the model to recreate it.
+- [ ] On rejection, return a structured tool result and continue/stop according to the defined controller contract.
+- [ ] Test concurrent decisions, duplicate submissions, expiry and run cancellation.
 
-## Phase 5 — AI provider abstraction
-Status: **complete in code; adapter unit-tested only, no live provider key used**
+## Stage E — Local Node.js companion
 
-Detail: [Phase 5 AI Provider](PHASE_5_AI_PROVIDER.md).
+**Status: partial Worker/database scaffolding; no complete companion verified.**
 
-Completed:
-- `AiProvider` / `AiModelResult` / `AiStreamEvent` / `AiProviderError` contracts
-- OpenAI-compatible `chat/completions` adapter with SSE streaming and tool-call reassembly across chunk indices
-- usage normalization
-- HTTP status classification into retryable and terminal kinds
-- `Retry-After` and `x-ratelimit-*` parsing (seconds, HTTP-date, durations, epochs)
-- cooldown retry honoring provider-supplied retry-after with exponential fallback and a cap
-- `ProviderModelRegistry`
-- `ProviderAgentModel` adapter onto the controller's `AgentModel` contract
-- `DeterministicDevelopmentProvider` retained as the keyless development adapter
-- `createProviderRuntime` with key-gated activation
-- `runs.provider` / `runs.model` recorded per run
-- `usage_records` written per run
+- [ ] Specify and approve the device identity, work-delivery, result-submission and revocation contract.
+- [ ] Build a separate Node.js companion application that runs only when needed.
+- [ ] Authenticate each device and scope work to its user/workspace/run.
+- [ ] Implement safe process spawning, command classification, timeout, output limits, cancellation and cleanup.
+- [ ] Block prohibited commands; require fresh explicit consent for risky commands.
+- [ ] Ensure device unavailability never silently changes execution location.
+- [ ] Correct the tool execution context so run ID and conversation ID cannot be confused.
+- [ ] Add unit/integration tests for dispatch, result persistence, failures and duplicate delivery.
 
-Honest caveats:
-- The adapter has never been run against a real provider endpoint. All evidence is unit tests against recorded/faked response shapes.
-- The deterministic adapter remains the active model unless `AI_PROVIDER_API_KEY` is set. That is intentional, not a defect.
-- There is no cost estimation: `usage_records.estimated_cost_usd` is left null.
-- Token accounting falls back to message-length heuristics when the provider does not return usage.
+## Stage F — End-to-end verification
 
-## Phase 6 — Local execution via the user's machine
-Status: **not started**
+**Status: not verified.**
 
-Detail: [Plan — Local execution](PLAN_LOCAL_EXECUTION.md).
+In order:
+1. Local Worker startup and production build.
+2. `/health` and React static shell.
+3. Real GitHub App OAuth and Neon-backed session.
+4. Repository selection and conversation creation.
+5. Deterministic run through SSE.
+6. Run reconnect, cancellation, duplicate subscriber and recovery cases.
+7. Real AI provider request and streaming/tool-call behavior.
+8. Companion device registration, work delivery, consent, result and failure handling.
+9. Browser acceptance of the user-facing flow.
+10. Security review and legacy source removal only after route parity is proven.
 
-The previous Phase 6 scope (a server-side execution worker with a browser
-terminal) was superseded. Execution now runs on the user's own machine
-through a small local Node companion. There is no server-side shell, no VPS
-cost, and no browser terminal.
+## Stage G — Cleanup and enhancements
 
-Completed in this phase:
+After the reliability gates pass:
+- remove obsolete Fastify/terminal code and dependencies;
+- add UI acceptance automation;
+- add pagination for conversation/message history;
+- improve provider/model capability reporting and streaming;
+- estimate cost only when pricing data is well-defined;
+- consider additional providers without coupling the controller to a vendor.
 
-- the companion service itself
-- command classification reused from the existing policy module
-- device verification on first use (no pairing ceremony)
-- per-machine approval store for light commands
-- per-command consent prompts for risky commands
-- output streamed back to the browser over SSE
+## Checkpoint rule
 
-Honest caveats:
-
-- The companion has not been built yet.
-- No live verification has been performed.
-- The companion runs as the user with no sandbox boundary; the command
-  policy layer is the only control (see [Security](SECURITY.md)).
-
-## Phase 7 — Verification and hardening
-Status: **controls implemented and tested; live end-to-end verification outstanding**
-
-Detail: [Phase 7 Hardening](PHASE_7_HARDENING.md).
-
-Completed:
-- removal of the WebSocket raw-stdin path
-- worker environment allow-list
-- origin validation on state-changing routes, SSE and the WebSocket
-- OAuth state bound to an HttpOnly browser cookie
-- `SameSite=Strict` session cookie; logout is `POST`
-- `@fastify/helmet` with CSP, framing `DENY`, `nosniff`, referrer policy
-- `@fastify/rate-limit` at 120/min keyed by session cookie then IP
-- UUID validation for conversation and run ids
-- generic `internal_error` for unexpected failures
-- secret redaction of persisted tool arguments, results, errors and run error messages
-- workspace slug keyed on immutable GitHub user id; `workspace_members` cross-join fixed
-- GitHub read tools deny when no repository is bound
-- terminal sessions scoped to `userId`
-- branch name and conversation title validation against prompt injection into system context
-- conversation `UPDATE` scoped by user and workspace
-- static serving path decode, backslash rejection and `realpath` containment
-- detached run closure capture before reply; 8000-character run message cap; one active run per conversation
-- `POST /api/runs/:runId/cancel` with cooperative cancellation
-- `GET /api/runs/:runId/audit` and `GET /api/conversations/:conversationId/runs`
-- `runEventBus.release` on completion plus a 5-minute sweep interval
-- SIGINT/SIGTERM graceful shutdown
-- CI `verify` and `security-audit` jobs
-- test suite grew from 17 to 95 passing tests
-
-Honest caveats:
-- No live verification was performed: no provider key, no GitHub OAuth application, no browser-driven terminal session, no Neon-backed end-to-end run.
-- Security testing is unit/integration level. There is no penetration test and no multi-instance deployment test.
-- The OAuth state store, run event history and terminal sessions remain process-local.
-## Forward-looking work
-
-Not started. Ordered roughly by the risk they retire.
-
-### Local execution (Phase 6)
-
-1. Build the companion service and its device-verification flow.
-2. Wire command execution into the Agent Controller so the model's tool calls run locally.
-3. Stream output back to the browser over SSE.
-4. Build the per-command consent UI for risky commands.
-5. Decide persistence for the per-machine approval store.
-
-### Human control
-
-6. Interactive approval/resume flow: persist a pending tool call, expose an
-   approve/reject API, and let the controller resume rather than reject.
-7. Approval decisions with an audit record of who approved what.
-
-### Durability and multi-instance
-
-8. Persist run event history, or replace SSE replay with a durable log.
-9. Move the OAuth state store to Neon so several instances can serve authorization.
-
-### AI provider work
-
-10. Live verification of the OpenAI-compatible adapter against a real endpoint, including streaming tool calls and rate-limit headers.
-11. Streaming assistant text to SSE from the provider stream instead of chunking a completed response.
-12. Cost estimation for `usage_records.estimated_cost_usd`.
-13. Additional providers registered in `createProviderRuntime`; per-model capability checks against `AiModelDescriptor`.
-
-### Scale and correctness
-
-14. Pagination on `listConversationMessages` and conversation listing.
-15. Update the stale `phase: 4` value reported by `GET /health`.
-16. Automated UI acceptance tests against the built frontend.
-
-## Rule
-
-Do not skip a phase simply because a UI can be made to appear functional. A
-visible UI without proven backend contracts is not considered implementation
-complete. Equally, do not report a phase as verified when only unit tests cover it.
-
-
-## Runtime migration — in progress
-
-The production runtime is being moved from the old Node/Fastify server to a
-native Cloudflare Worker.
-
-Completed in the migration branch:
-
-1. Native Worker API entrypoint and routing.
-2. Neon-backed Worker session/database integration.
-3. Worker-native SSE run lifecycle.
-4. Removal of terminal execution from the Worker design.
-5. Documentation updates for deployment, architecture, API contracts and handoff.
-
-Next migration steps:
-
-6. Verify the Worker locally and in deployment.
-7. Verify GitHub App OAuth and Neon-backed sessions against the deployed Worker.
-8. Verify deterministic and real-provider runs through SSE.
-9. Remove the legacy Fastify/terminal source and dependencies after route parity is proven.
-10. Build the companion and wire local execution independently of the API Worker.
-
-The D1 database migration is intentionally not part of this work.
+Each increment has one goal, explicit files, acceptance criteria and tests. Run tests before committing where possible. Push the small checkpoint, report branch/SHA/exact test output/known gaps, and pause for review. Never label a feature verified based only on source inspection or an old test count.
