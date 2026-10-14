@@ -1,89 +1,44 @@
-# Brilina Forge — Native Worker migration
+# Brilina Forge — Native Worker Migration
 
 ## Current implementation direction
 
-The accepted production runtime is now a native Cloudflare Worker.
-
-Do not extend the old Fastify server with new application behavior.
+The accepted production runtime is a native Cloudflare Worker. Do not extend the old Fastify server with new application behavior.
 
 Primary Worker files:
-
 - `worker/index.ts`
 - `worker/api.ts`
 
-The Worker directly handles the API and serves the React application through
-Workers Static Assets.
+The Worker handles the API and serves the React application through Workers Static Assets.
 
 ## Database decision
 
-Keep Neon Postgres.
+Keep Neon Postgres. Do not migrate to D1 as part of this runtime migration. The existing Neon serverless driver and repository layer are intended to fit the Worker model.
 
-Do not migrate to D1 as part of this runtime migration. The existing Neon
-serverless driver and repository layer already work with the Worker model.
+## Current run execution model
 
-## Run execution model
+A run is created in Neon as `queued`. The browser opens `GET /api/runs/:runId/events`; the Worker attempts to claim and execute the Agent Controller while the SSE response remains open.
 
-A run is created in Neon as `queued`.
-
-The browser then opens:
-
-```
-GET /api/runs/:runId/events
-```
-
-The first stream atomically claims the run and executes the Agent Controller
-while the SSE response remains open.
-
-This replaces:
-
-- process-local `activeRuns`
-- process-local controller maps
-- the in-memory run event bus as the production coordination mechanism
-- detached background promises
-
-The Worker uses the request abort signal for cooperative cancellation.
+This pattern must not be treated as fully reliable until reconnect, duplicate subscribers, disconnect, cancellation, timeout, durable results, event replay and abandoned-run recovery are verified. See [Architecture](ARCHITECTURE.md) and [Testing](TESTING.md).
 
 ## Execution boundary
 
 Do not reintroduce:
+- `child_process` or shell execution in the Worker;
+- a local execution filesystem in the Worker;
+- a terminal WebSocket;
+- new product behavior in legacy Fastify.
 
-- `child_process`
-- local shell execution
-- local execution filesystem
-- terminal WebSocket
-- Fastify
+Local execution is a **future Phase 3** capability delivered through a separate Node.js companion on the user's computer. Partial Worker routes and database scaffolding do not mean the companion is implemented. See [Plan — Local execution](PLAN_LOCAL_EXECUTION.md).
 
-Execution runs on the user's own machine through the companion, which is built
-as a separate small Node service. See [Plan — Local execution](PLAN_LOCAL_EXECUTION.md).
+## Migration verification checklist
 
-## Verification requirements
+Verify the following in the actual environment before marking the runtime fully verified:
+1. Worker local startup and production build;
+2. `/health` and React static shell;
+3. GitHub App OAuth and Neon-backed session;
+4. repository/branch selection and conversation creation;
+5. deterministic run and real AI-provider run;
+6. SSE completion, reconnect, and cancellation;
+7. deployed route behavior and browser acceptance.
 
-Before the migration is declared complete, verify:
-
-1. Worker local startup
-2. Worker build/deploy
-3. `/health`
-4. React shell
-5. GitHub App OAuth
-6. Neon-backed session
-7. repository sync
-8. conversation creation
-9. deterministic run
-10. real AI-provider run
-11. SSE completion
-12. request-disconnect cancellation
-
-Do not report any of these as verified until the actual environment has been
-exercised.
-
-## Status
-
-The migration is in progress. The Worker covers authentication, GitHub,
-conversations, runs, audit and SSE. The companion and local execution are not
-built.
-
-See:
-
-- [Native Worker migration](NATIVE_WORKER_MIGRATION.md)
-- [Cloudflare deployment](CLOUDFLARE_DEPLOYMENT.md)
-- [Architecture decisions](DECISIONS.md)
+The current product delivery priority is Phase 1 in [Roadmap](ROADMAP.md): usable AI coding through GitHub. Migration verification is a prerequisite checkpoint, not a reason to implement every later phase at once.
