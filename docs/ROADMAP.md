@@ -20,6 +20,12 @@ Brilina Forge is a private, browser-based AI coding workspace. GitHub is the sou
 - Keep existing UI and infrastructure unless inspection proves a change is necessary.
 - No new branch for routine project work unless the owner explicitly asks. Work directly on the agreed branch and preserve any local uncommitted changes.
 
+## Mandatory verification and phase-transition policy
+
+Apply this policy whenever verifying any feature or deciding whether to advance a phase. Verify both **source code/behavior and documentation**; neither can substitute for the other. Inspect the real implementation and registered runtime path, run focused tests/build/type checks, and execute the relevant end-to-end or live integration check when required and possible. Confirm external side effects in the actual service. Only then update roadmap/current-state statuses with the commit SHA, inspected files, exact commands/results, and live-check evidence. If a required check fails or cannot be run, keep the item open and mark it partial, blocked, or unverified. Never infer completion from documentation, comments, type definitions, tool schemas, mock responses, generated code, or the AI's own claim.
+
+**Phase gate enforcement:** do not begin a later phase until the previous phase's acceptance gate has passed with evidence. In particular, Phase 1 stays open while GitHub file writes fail or remain unverified. Reading files or issues does not demonstrate write capability. Phase 1 requires an actual AI-triggered file create/update on an authorized non-default work branch, confirmation in GitHub, read-back, and a reviewable diff/commit visible in the UI. If any part fails, stay on Phase 1 and debug it.
+
 ## Before Phase 1 — establish a truthful baseline
 
 This is a checkpoint, not a separate product phase.
