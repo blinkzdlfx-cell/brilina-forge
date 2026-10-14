@@ -34,7 +34,11 @@ Brilina Forge is a private browser-based AI coding workspace. The user connects 
 | Cloudflare diagnostics | No verified end-to-end log-to-source-fix flow | Phase 4 |
 | Teams/multiple providers | Architecture can accommodate them; complete team workflow not verified | Phase 5 |
 
-## Automated verification snapshot (2026-10-14)\n\nGitHub Actions run 192 passed on commit `d562dfa0ddf29bedb0e0855a1571aa1eefe5cbd5`: frontend build, focused Phase 1 TypeScript check, focused Phase 1 tests, Worker tests, Wrangler dry-run, and dependency audits. The broad recursive `npm test` suite was also attempted and failed on unrelated legacy issues: `src/server.ts` has an existing parse/type-check problem near line 660, and several local-companion tests ended with unresolved promises. Those failures are not evidence that the new GitHub write tests failed; the focused Phase 1 suite passed.\n\n## Mandatory completion and phase-transition rule
+## Automated verification snapshot (2026-10-14)
+
+GitHub Actions run 192 passed on commit `d562dfa0ddf29bedb0e0855a1571aa1eefe5cbd5`: frontend build, focused Phase 1 TypeScript check, focused Phase 1 tests, Worker tests, Wrangler dry-run, and dependency audits. The broad recursive `npm test` suite was also attempted and failed on unrelated legacy issues: `src/server.ts` has an existing parse/type-check problem near line 660, and several local-companion tests ended with unresolved promises. Those failures are not evidence that the new GitHub write tests failed; the focused Phase 1 suite passed.
+
+## Mandatory completion and phase-transition rule
 
 This ledger must be based on implementation evidence, not documentation alone. Whenever checking a feature, inspect the relevant source code and runtime/tool registration, run the focused automated tests and build/type checks, and perform an end-to-end/live check when required and possible. Then update this ledger and the roadmap to match the evidence. A documentation checkbox, prompt, comment, type, mock, successful file read, or AI statement is not proof that an operation works. Record the checked commit SHA, relevant source/test files, exact commands and results, and live verification. Missing or failed evidence means the status stays partial, blocked, not implemented, or unverified.
 
@@ -44,7 +48,13 @@ This ledger must be based on implementation evidence, not documentation alone. W
 
 When a check requires the owner to interact with the deployed/local app, use their GitHub account, test a real permission boundary, or inspect behavior unavailable to the agent, first run all safe automated checks. Then provide a concise manual test card: **reason**, **starting URL/screen and safe test branch**, **numbered steps**, **expected result**, **what to report (PASS/FAIL and exact error)**, and **how to stop safely if it fails**. Ask for sanitized evidence only; never request passwords, tokens, or secrets. Wait for the response before recording the check as owner-reported manual evidence. Do not convert an owner request into a verified result without their response. If it cannot be performed, mark it blocked/unverified and keep any dependent acceptance gate open. Prefer one grouped checklist over repeated interruptions.
 
-## Setup and configuration status (2026-10-14)\n\nThe existing Neon project is `Brilina Forge` (`nameless-haze-58360399`), default branch `production` (`br-sparkling-boat-zakcaiqb`), database `neondb`, region `aws-eu-west-2`. A read-only query succeeded through Neon management tooling; no schema changes were made. This does not confirm that Cloudflare's deployed `DATABASE_URL` secret matches the project.\n\nA step-by-step guide covering GitHub App setup, Neon, Cloudflare Workers AI, Worker variables/secrets, local development, and first-time use is available in [Phase 1 Setup and User Guide](PHASE_1_SETUP_AND_USER_GUIDE.md). The Cloudflare Worker secret values themselves were not inspected in this review.\n\n## Immediate priority
+## Setup and configuration status (2026-10-14)
+
+The existing Neon project is `Brilina Forge` (`nameless-haze-58360399`), default branch `production` (`br-sparkling-boat-zakcaiqb`), database `neondb`, region `aws-eu-west-2`. A read-only query succeeded through Neon management tooling; no schema changes were made. This does not confirm that Cloudflare's deployed `DATABASE_URL` secret matches the project.
+
+A step-by-step guide covering GitHub App setup, Neon, Cloudflare Workers AI, Worker variables/secrets, local development, and first-time use is available in [Phase 1 Setup and User Guide](PHASE_1_SETUP_AND_USER_GUIDE.md). The Cloudflare Worker secret values themselves were not inspected in this review.
+
+## Immediate priority
 
 **Phase 1: enable real AI coding through GitHub.** Do not continue expanding the companion until a real model can read relevant files, make controlled edits through GitHub, return a reviewable diff/commit, and persist the result.
 
