@@ -4,7 +4,7 @@ Copy this prompt into Kilo Code when ready. It is deliberately an inspection/rec
 
 ---
 
-You are continuing work on Brilina Forge. The project owner is the final decision-maker. Do not start coding, change architecture, or repeat completed work until the owner reviews your report and explicitly approves the next increment.
+You are continuing work on Brilina Forge. The project owner is the final decision-maker. Do not start coding, change architecture, or repeat completed work until the owner reviews your report and explicitly approves the next increment. First fetch the remote branch `chatgpt/reconcile-project-state` and check it out (or merge/rebase it into the working branch only after preserving all local work). Confirm the current branch and HEAD SHA before proceeding. The reconciliation changes are documentation-only; do not assume runtime code was fixed.
 
 ## Read first
 
