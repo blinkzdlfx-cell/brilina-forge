@@ -24,7 +24,7 @@ Brilina Forge is a private browser-based AI coding workspace. The user connects 
 | Agent Controller | Typed tool registry, authorization, policy and audit code exist | Implemented in code; complete user workflow not verified |
 | AI provider | Deterministic model and OpenAI-compatible adapter exist | Adapter code exists; live provider call and tool-calling behavior not verified |
 | GitHub read tools | Repository metadata/context, branches, tree, file read, diff | Implemented in code |
-| GitHub write tools | No complete registered create/update/commit coding workflow was found in the inspected tool set | **Phase 1 blocker; implement and test** |
+| GitHub write tools | Draft PR #7 implements work-branch creation plus file create/update/upsert operations and includes them in the Worker tool registry path. Writes use current blob SHAs and reject the repository default branch. | **Focused CI passed on `b77ed1750f9ce72e8536ad5007b0fb329df8deef` (run 201); merge/deploy and live acceptance pending** |
 | UI-to-agent code change | No verified end-to-end change from chat to GitHub commit | **Not verified; primary Phase 1 target** |
 | GitHub Actions repair loop | APIs/workflows may provide a foundation; complete AI-driven diagnose/fix/retest loop not verified | Phase 2 |
 | Local companion | Partial Worker/database dispatch scaffolding exists; no complete executable companion verified | Phase 3 |
@@ -33,6 +33,10 @@ Brilina Forge is a private browser-based AI coding workspace. The user connects 
 | Run lifecycle/SSE | A run can be claimed/executed while its SSE response is open | Recovery, disconnect, duplicate subscriber, cancellation and replay guarantees not established |
 | Cloudflare diagnostics | No verified end-to-end log-to-source-fix flow | Phase 4 |
 | Teams/multiple providers | Architecture can accommodate them; complete team workflow not verified | Phase 5 |
+
+## Automated verification snapshot (2026-10-14)
+
+GitHub Actions run 201 passed on commit `b77ed1750f9ce72e8536ad5007b0fb329df8deef`: frontend build, focused Phase 1 TypeScript check, focused Phase 1 tests, Worker tests, Wrangler dry-run, and dependency audits. The broad recursive `npm test` suite was also attempted and failed on unrelated legacy issues: `src/server.ts` has an existing parse/type-check problem near line 660, and several local-companion tests ended with unresolved promises. Those failures are not evidence that the new GitHub write tests failed; the focused Phase 1 suite passed.
 
 ## Mandatory completion and phase-transition rule
 
@@ -44,7 +48,13 @@ This ledger must be based on implementation evidence, not documentation alone. W
 
 When a check requires the owner to interact with the deployed/local app, use their GitHub account, test a real permission boundary, or inspect behavior unavailable to the agent, first run all safe automated checks. Then provide a concise manual test card: **reason**, **starting URL/screen and safe test branch**, **numbered steps**, **expected result**, **what to report (PASS/FAIL and exact error)**, and **how to stop safely if it fails**. Ask for sanitized evidence only; never request passwords, tokens, or secrets. Wait for the response before recording the check as owner-reported manual evidence. Do not convert an owner request into a verified result without their response. If it cannot be performed, mark it blocked/unverified and keep any dependent acceptance gate open. Prefer one grouped checklist over repeated interruptions.
 
-## Setup and configuration status (2026-10-14)\n\nThe existing Neon project is `Brilina Forge` (`nameless-haze-58360399`), default branch `production` (`br-sparkling-boat-zakcaiqb`), database `neondb`, region `aws-eu-west-2`. A read-only query succeeded through Neon management tooling; no schema changes were made. This does not confirm that Cloudflare's deployed `DATABASE_URL` secret matches the project.\n\nA step-by-step guide covering GitHub App setup, Neon, Cloudflare Workers AI, Worker variables/secrets, local development, and first-time use is available in [Phase 1 Setup and User Guide](PHASE_1_SETUP_AND_USER_GUIDE.md). The Cloudflare Worker secret values themselves were not inspected in this review.\n\n## Immediate priority
+## Setup and configuration status (2026-10-14)
+
+The existing Neon project is `Brilina Forge` (`nameless-haze-58360399`), default branch `production` (`br-sparkling-boat-zakcaiqb`), database `neondb`, region `aws-eu-west-2`. A read-only query succeeded through Neon management tooling; no schema changes were made. This does not confirm that Cloudflare's deployed `DATABASE_URL` secret matches the project.
+
+A step-by-step guide covering GitHub App setup, Neon, Cloudflare Workers AI, Worker variables/secrets, local development, and first-time use is available in [Phase 1 Setup and User Guide](PHASE_1_SETUP_AND_USER_GUIDE.md). The Cloudflare Worker secret values themselves were not inspected in this review.
+
+## Immediate priority
 
 **Phase 1: enable real AI coding through GitHub.** Do not continue expanding the companion until a real model can read relevant files, make controlled edits through GitHub, return a reviewable diff/commit, and persist the result.
 
@@ -54,10 +64,10 @@ When a check requires the owner to interact with the deployed/local app, use the
 - [ ] Run available build and test commands; record exact output.
 - [ ] Verify GitHub OAuth, repository selection, branch selection, conversation binding, and Neon persistence.
 - [ ] Configure one real AI provider and verify a real request with tool calls.
-- [ ] Add typed GitHub create/update file tools using current blob SHAs.
+- [ ] Merge and verify the typed GitHub branch/create/update/upsert tools added in draft PR #7; confirm current-blob-SHA updates and default-branch protection with tests.
 - [ ] Add scoped authorization so tools only modify the conversation's selected repository and an explicitly selected work branch.
 - [ ] Ensure writes are sequential for each path and handle conflicts safely.
-- [ ] Add branch/commit workflow, diff/read-back, audit events, output bounds, and clear error results.
+- [ ] Complete and verify the branch/commit workflow, diff/read-back, audit events, output bounds, and clear error results.
 - [ ] Add UI activity and diff/result presentation.
 - [ ] Test a small real repository change end to end.
 - [ ] Record exact branch, SHA, commands, test results, live verification, and known gaps.

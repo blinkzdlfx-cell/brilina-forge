@@ -23,7 +23,7 @@ The source code contains the foundation for these behaviors, but live OAuth, pro
 
 **Outcome:** From the existing web UI, the user can ask a real model to make a useful, reviewable code change in a selected GitHub repository without needing the local companion.
 
-Source inspection on 2026-10-14 found that `src/agent/tools/github-write-tools.ts` still contained placeholder write implementations and `worker/api.ts` registered the existing read tools but not the new write tools in the Agent Controller execution path. Therefore, the GitHub write workflow is **not ready for manual acceptance testing** until those gaps are fixed and retested.
+Source inspection on 2026-10-14 found placeholder write implementations and missing registration. Draft PR #7 now implements `github.create_work_branch`, `github.create_file`, `github.update_file`, and `github.write_file`, and includes them in the tool factory used by the Worker execution path. The focused Phase 1 type-check, Phase 1 tests, Worker tests, frontend build, Wrangler dry-run, and dependency audits passed on commit `b77ed1750f9ce72e8536ad5007b0fb329df8deef` (GitHub Actions run 201). The implementation is still **pending review, merge/deploy, and live acceptance**; do not treat it as production-verified. The broader legacy `npm test` suite currently fails on unrelated `src/server.ts` syntax and local-companion test issues.
 
 ### Required scope
 

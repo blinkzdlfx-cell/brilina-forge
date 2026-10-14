@@ -1,7 +1,7 @@
 # Brilina Forge — Phase 1 Setup and User Guide
 
 **Last reviewed:** 2026-10-14  
-**Current gate:** Phase 1 is still open. This guide explains setup; it does not certify that the AI-to-GitHub write workflow is implemented or working.
+**Current gate:** Phase 1 is still open. Draft PR #7 passed its focused CI checks and dependency audits on commit `b77ed1750f9ce72e8536ad5007b0fb329df8deef` (GitHub Actions run 201). Merge/deploy and live acceptance are still required.
 
 ## 1. What Brilina Forge needs
 
@@ -15,7 +15,7 @@ Brilina Forge is a browser-based AI coding workspace. Its intended first workflo
 
 The current production architecture is a Cloudflare Worker with a React frontend, Neon Postgres for app state, GitHub for source code, and an OpenAI-compatible AI provider adapter.
 
-**Important current limitation:** the source inspection on 2026-10-14 found placeholder implementations in `src/agent/tools/github-write-tools.ts`, and the Worker execution path in `worker/api.ts` was registering read tools rather than the new write tools. Setup alone cannot make GitHub writing work. Do not treat Phase 1 as passed until that implementation is completed and the real frontend-to-GitHub test succeeds.
+**Implementation status:** the initial source inspection found placeholder write tools and missing registration. Draft PR #7 now implements branch creation plus file create/update/upsert tools and registers them through the repository-tool factory used by the Worker. The focused Phase 1 type-check, tests, Worker tests, frontend build, Wrangler dry-run, and dependency audits passed on commit `b77ed1750f9ce72e8536ad5007b0fb329df8deef` (GitHub Actions run 201). This is not proof of a working production workflow: the change still needs review, merge/deploy, and a real frontend-to-GitHub acceptance test before Phase 1 can close. The broad legacy `npm test` suite also currently fails on pre-existing issues in `src/server.ts` and local-companion tests, so it is not being treated as a passing check.
 
 ## 2. Start with one AI provider: Cloudflare Workers AI
 
@@ -81,7 +81,7 @@ For the intended Phase 1 write flow, configure the minimum required repository p
 - **Contents: Read and write**
 - **Metadata: Read-only** (GitHub requires repository metadata access)
 
-Only add **Pull requests** permission if the implemented product actually needs to read or create pull requests. It is not a substitute for Contents write permission.
+Only add **Pull requests** permission if the implemented product actually needs to read or create pull requests. It is not a substitute for Contents write permission. If the agent is later allowed to modify files under `.github/workflows/`, GitHub also requires the corresponding **Workflows: Read and write** permission.
 
 Install the GitHub App on the account that owns or can access the test repository, and make sure the test repository is included in the installation's repository selection. If you change App permissions, follow GitHub's prompts to approve the permission change and reauthorize/reinstall where required. Never grant broader access than the test needs.
 
@@ -203,7 +203,7 @@ Once the implementation is ready:
 1. Open the deployed Brilina Forge URL.
 2. Choose **Continue to GitHub** and authorize the GitHub App.
 3. Select a repository that is included in the App installation and that you are authorized to modify.
-4. Select an explicitly designated **non-default work branch**. If branch creation is supported, create a test branch first; otherwise choose an existing work branch.
+4. Use the agent's `github.create_work_branch` operation to create a unique test branch, or select an existing non-default work branch.
 5. Start a conversation and describe one small, harmless change to a file.
 6. Allow the agent to inspect the relevant files before editing.
 7. Review any requested write/approval action shown by the actual UI.
@@ -212,7 +212,7 @@ Once the implementation is ready:
 
 Never use the default branch for the first test. Do not ask Forge to merge or deploy production changes during this test.
 
-**Do not perform this test yet if the GitHub write tools remain placeholders or are not registered in the Worker execution path.** The source inspection on 2026-10-14 found those gaps; they must be fixed and retested before manual acceptance.
+**Do not perform this production acceptance test until PR #7 has passed its checks, been merged and deployed, and the Worker configuration is verified.** The branch implementation is not the same as a live end-to-end acceptance result.
 
 ## 10. Troubleshooting
 

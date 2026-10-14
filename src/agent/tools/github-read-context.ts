@@ -1,15 +1,14 @@
 import type { GithubService } from "../../github/service.js";
 import type { ForgeTool } from "../types.js";
 import { createGithubGetRepositoryTool } from "./github-read-repository.js";
+import { createGithubWriteTools } from "./github-write-tools.js";
 
 /**
  * Repository-scoped authorization.
  *
- * A conversation must have a repository bound before any repository read tool
- * may run. An unbound conversation would otherwise let the model read anything
- * the user's GitHub token can reach, which breaks the
- * identity -> workspace -> repository chain. Comparison is case-insensitive
- * because GitHub owner/repo casing is not significant.
+ * A conversation must have a repository bound before any repository tool may
+ * run. This prevents a model from using the signed-in user's GitHub token to
+ * access a different repository from the one selected for the conversation.
  */
 export function scopedToConversation(
   context: { principal: { repositoryFullName?: string } },
@@ -23,11 +22,12 @@ export function scopedToConversation(
 export function createGithubListBranchesTool(service: GithubService): ForgeTool<{ owner: string; repo: string }> {
   return {
     name: "github.list_branches",
-    description: "List the branches of a GitHub repository.",
+    description: "List the branches of the conversation's selected GitHub repository.",
     inputSchema: {
       type: "object",
       required: ["owner", "repo"],
-      properties: { owner: { type: "string" }, repo: { type: "string" } }
+      properties: { owner: { type: "string" }, repo: { type: "string" } },
+      additionalProperties: false
     },
     policy: "allowed",
     async authorize(context, args) { return scopedToConversation(context, args); },
@@ -38,11 +38,12 @@ export function createGithubListBranchesTool(service: GithubService): ForgeTool<
 export function createGithubGetTreeTool(service: GithubService): ForgeTool<{ owner: string; repo: string; ref: string }> {
   return {
     name: "github.get_tree",
-    description: "Read the file tree of a GitHub repository at a ref.",
+    description: "Read the file tree of the selected GitHub repository at a branch, tag, or commit.",
     inputSchema: {
       type: "object",
       required: ["owner", "repo", "ref"],
-      properties: { owner: { type: "string" }, repo: { type: "string" }, ref: { type: "string" } }
+      properties: { owner: { type: "string" }, repo: { type: "string" }, ref: { type: "string" } },
+      additionalProperties: false
     },
     policy: "allowed",
     async authorize(context, args) { return scopedToConversation(context, args); },
@@ -53,7 +54,7 @@ export function createGithubGetTreeTool(service: GithubService): ForgeTool<{ own
 export function createGithubReadFileTool(service: GithubService): ForgeTool<{ owner: string; repo: string; path: string; ref?: string }> {
   return {
     name: "github.read_file",
-    description: "Read one file from a GitHub repository. Prefer progressive reads over reading the whole repository.",
+    description: "Read one file from the selected GitHub repository. Prefer targeted reads over reading the whole repository.",
     inputSchema: {
       type: "object",
       required: ["owner", "repo", "path"],
@@ -62,7 +63,8 @@ export function createGithubReadFileTool(service: GithubService): ForgeTool<{ ow
         repo: { type: "string" },
         path: { type: "string" },
         ref: { type: "string" }
-      }
+      },
+      additionalProperties: false
     },
     policy: "allowed",
     async authorize(context, args) { return scopedToConversation(context, args); },
@@ -73,11 +75,12 @@ export function createGithubReadFileTool(service: GithubService): ForgeTool<{ ow
 export function createGithubGetRepositoryContextTool(service: GithubService): ForgeTool<{ owner: string; repo: string }> {
   return {
     name: "github.get_repository_context",
-    description: "Read aggregated repository context: identity, default branch, branches and file tree.",
+    description: "Read aggregated context for the selected repository: metadata, default branch, branches, and file tree.",
     inputSchema: {
       type: "object",
       required: ["owner", "repo"],
-      properties: { owner: { type: "string" }, repo: { type: "string" } }
+      properties: { owner: { type: "string" }, repo: { type: "string" } },
+      additionalProperties: false
     },
     policy: "allowed",
     async authorize(context, args) { return scopedToConversation(context, args); },
@@ -88,11 +91,17 @@ export function createGithubGetRepositoryContextTool(service: GithubService): Fo
 export function createGithubGetDiffTool(service: GithubService): ForgeTool<{ owner: string; repo: string; base: string; head: string }> {
   return {
     name: "github.get_diff",
-    description: "Compare two refs in a GitHub repository and read the changed files.",
+    description: "Compare two refs in the selected GitHub repository and return changed-file details.",
     inputSchema: {
       type: "object",
       required: ["owner", "repo", "base", "head"],
-      properties: { owner: { type: "string" }, repo: { type: "string" }, base: { type: "string" }, head: { type: "string" } }
+      properties: {
+        owner: { type: "string" },
+        repo: { type: "string" },
+        base: { type: "string" },
+        head: { type: "string" }
+      },
+      additionalProperties: false
     },
     policy: "allowed",
     async authorize(context, args) { return scopedToConversation(context, args); },
@@ -100,6 +109,11 @@ export function createGithubGetDiffTool(service: GithubService): ForgeTool<{ own
   };
 }
 
+/**
+ * This factory is the registry entry point used by the Worker. It returns both
+ * read-only tools and the controlled branch/file write tools so all tools are
+ * registered in the same agent execution path.
+ */
 export function createGithubReadTools(service: GithubService): ForgeTool[] {
   return [
     createGithubGetRepositoryTool(service),
@@ -107,6 +121,7 @@ export function createGithubReadTools(service: GithubService): ForgeTool[] {
     createGithubListBranchesTool(service),
     createGithubGetTreeTool(service),
     createGithubReadFileTool(service),
-    createGithubGetDiffTool(service)
+    createGithubGetDiffTool(service),
+    ...createGithubWriteTools(service)
   ];
 }
