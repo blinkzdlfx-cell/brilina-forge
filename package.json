@@ -12,6 +12,7 @@
     "test": "node --import tsx --test src/**/*.test.ts worker/**/*.test.ts",
     "test:worker": "node --import tsx --test worker/*.test.ts",
     "build:backend": "tsc -p tsconfig.json",
+    "typecheck:phase1": "tsc -p tsconfig.phase1.json",
     "build:web": "npm --prefix web ci && npm --prefix web run build && node scripts/package-web.mjs",
     "build:cloudflare": "npm run build:web",
     "deploy:cloudflare": "npx wrangler@4.68.0 deploy"
