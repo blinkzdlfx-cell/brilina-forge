@@ -16,6 +16,10 @@ npm run build:web
 
 Check `package.json` before running commands; report the actual scripts and results from the checked-out commit. The CI workflow in `.github/workflows/ci.yml` is also part of the verification path. A passing local build does not prove the deployed Worker or its external integrations work.
 
+## Required rule for every verification decision
+
+Never use documentation-only verification to decide that functionality is complete. For every claimed behavior, inspect the relevant source/runtime path and tests, run focused tests and build/type checks, and verify the actual end-to-end effect. Then check that documentation accurately reflects the evidence. Record the checked SHA, exact commands and results, and any live checks. A successful read, a tool schema, mock, comment, or status checkbox does not prove a write works. If live verification is required but unavailable, report blocked/unverified rather than complete.
+
 ## Phase 1 — real GitHub coding
 
 The first end-to-end acceptance test must verify:
@@ -23,14 +27,18 @@ The first end-to-end acceptance test must verify:
 - repository and work-branch binding to the conversation;
 - a real provider request and tool-call response;
 - successful read of a relevant source file;
+- actual AI-triggered file create/update tool invocation that succeeds against GitHub (not just a generated patch or attempted call);
 - safe GitHub file creation/update using the correct blob SHA;
 - rejection of an unbound or wrong repository and unauthorized branch;
 - handling of stale SHA/conflict and GitHub API failures;
-- changed-file read-back and diff/commit reporting;
+- confirmation that GitHub contains the expected changed-file content and commit on the authorized non-default work branch;
+- changed-file read-back and diff/commit reporting in the UI;
 - persisted conversation/run/tool results after reload;
 - no secret leakage in model context, logs, or browser output.
 
 Use a repository and branch where the owner has explicitly authorized changes. Do not test destructive actions on production code.
+
+**Phase 1 gate is mandatory:** if the actual GitHub file write fails or is unverified, Phase 1 is not complete and Phase 2 must not start. Continue investigating the source, tool registration, provider tool-call format, GitHub API request, SHA/conflict handling, permissions, persistence, and UI result path. Record the failure and evidence.
 
 ## Phase 2 — verification and repair
 
