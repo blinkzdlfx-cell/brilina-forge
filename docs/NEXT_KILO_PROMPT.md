@@ -1,56 +1,69 @@
-# Next Kilo Prompt — Brilina Forge
+# Next Kilo Prompt — Brilina Forge Phase 1
 
-Copy this prompt into Kilo Code when ready. It is deliberately an inspection/reconciliation prompt first; it does not authorize implementation yet.
+Use this prompt in Kilo Code after pulling the latest `main`. The goal is to make the existing Forge UI usable for real AI-assisted code changes through GitHub. Do not begin the local companion yet.
 
 ---
 
-You are continuing work on Brilina Forge. The project owner is the final decision-maker. Do not start coding, change architecture, or repeat completed work until the owner reviews your report and explicitly approves the next increment. First fetch the remote branch `chatgpt/reconcile-project-state` and check it out (or merge/rebase it into the working branch only after preserving all local work). Confirm the current branch and HEAD SHA before proceeding. The reconciliation changes are documentation-only; do not assume runtime code was fixed.
+You are working on Brilina Forge. The owner uses Kilo Code for implementation and ChatGPT for architecture orchestration. GitHub is the source of truth. The app is hosted as a native Cloudflare Worker serving the React static site and API; Neon remains the database.
 
 ## Read first
 
-1. `docs/AI_COLLABORATION.md`
-2. `docs/CURRENT_STATE_AND_CONTINUATION.md`
-3. `docs/AGENT_HANDOFF.md`
+1. `README.md`
+2. `docs/ROADMAP.md`
+3. `docs/CURRENT_STATE_AND_CONTINUATION.md`
 4. `docs/ARCHITECTURE.md`
-5. `docs/DECISIONS.md`
-6. `docs/ROADMAP.md`
-7. `docs/NATIVE_WORKER_MIGRATION.md`
-8. Relevant tests and source files referenced by those documents.
+5. `docs/REQUIREMENTS.md`
+6. `docs/AI_COLLABORATION.md`
+7. Relevant implementation and test files.
 
-## First task: inspection only
+## First response: inspect and report
 
-Inspect the current checked-out branch and report, without modifying files:
+Before editing:
+- Confirm branch, HEAD SHA, and `git status`; preserve all local work.
+- Inspect the real GitHub OAuth -> repository/branch -> conversation -> AI run path.
+- Inspect the tool registry, GitHub service, AI provider adapter, run persistence, and UI diff/result handling.
+- Identify the smallest Phase 1 coding path and missing pieces with exact file paths.
+- Run available build/tests if the environment permits; give exact commands and results.
+- Distinguish implemented, automated-tested, live-verified, partial, and unverified behavior.
+- Do not assume that a configured provider key proves tool calling works.
+- Do not change architecture or start the companion during this inspection.
 
-1. Current branch, HEAD SHA, and working-tree status. Preserve any uncommitted work.
-2. The latest commits and what they actually changed.
-3. Which behavior is implemented in code, which is covered by automated tests, and which has been verified live. Do not treat documentation claims or historic test counts as proof.
-4. Conflicts between documentation and code.
-5. Build/type/test commands available in `package.json`; run them if dependencies/environment permit and report exact commands and output. Do not claim a command passed unless it ran.
-6. Review the known issues in `docs/CURRENT_STATE_AND_CONTINUATION.md`, confirming, rejecting, or qualifying each with file paths and evidence.
-7. Identify the single safest next implementation increment, its scope, acceptance criteria, tests, risks, and any decisions that need owner approval.
+## Phase 1 implementation target
 
-## Required constraints
+After the inspection report, implement one small, reviewable increment at a time, starting with the missing GitHub write-tool contract. The complete Phase 1 path must eventually support:
 
-- Production API is the native Cloudflare Worker in `worker/index.ts` and `worker/api.ts`. Do not add new application behavior to legacy Fastify files.
-- Keep Neon Postgres. Do not migrate to D1.
-- GitHub remains canonical for source code.
-- No shell execution on the Worker/server and no browser terminal. A local Node.js companion is a separate component and is not considered complete merely because Worker routes exist.
-- Do not silently change auth, database schema, permissions, command policy, execution boundaries, or run lifecycle architecture.
-- Do not add mock data to make a flow look complete.
-- Do not rewrite/recreate features already implemented. Verify first.
-- Do not edit documentation or code during this first inspection task. Return the report and wait.
+1. One real configured AI provider, verified against the actual provider API.
+2. Repository context bound to the authenticated user and selected repository/branch.
+3. Typed create/update-file tools that use GitHub's current blob SHA and handle stale-SHA conflicts.
+4. Branch-scoped changes; never silently write to the default branch.
+5. Safe sequencing for multiple file updates, path/input validation, bounded file/output sizes, audit events, and clear errors.
+6. Read-back and diff generation so the model and user can inspect what changed.
+7. UI feedback for tool activity, changed files, commit/branch, and failure states.
+8. An end-to-end test for a small real change using a repository where the owner has authorized access.
 
-## Report format
+Before coding, report the exact files, goal, tests, risks, and acceptance criteria for the first increment. Wait for owner approval if a schema, authentication, permissions, production execution, or major architecture decision is required.
 
-- **Repository checkpoint:** branch, SHA, working tree
-- **Latest changes:** commit-by-commit summary
-- **Implemented and tested:** evidence and exact tests
-- **Implemented but unverified:** what is missing
-- **Not implemented / partial**
-- **Confirmed documentation conflicts**
-- **Known issue review:** confirmed / rejected / needs local verification
-- **Recommended next small increment:** files, behavior, tests, acceptance criteria
-- **Owner decisions required**
-- **Exact commands run and results**
+## Constraints
 
-Stop after the report. Wait for the owner to share the report with ChatGPT and approve the next action.
+- Keep the native Worker runtime; do not add new behavior to legacy Fastify routes.
+- Keep Neon; no D1 migration.
+- Do not create a new branch for this task unless the owner asks. Work on the agreed current branch and commit small checkpoints.
+- Do not overwrite local changes.
+- Do not add mock data to simulate successful GitHub writes or AI calls.
+- Do not run shell commands in the Worker or build a browser terminal.
+- Do not start implementing the companion, Cloudflare log integration, multiple providers, or team features before Phase 1 acceptance passes.
+- Never commit secrets or expose tokens to the browser/model.
+- Do not auto-merge code or deploy production changes.
+- Run relevant tests and report actual results; do not claim success based only on source inspection.
+
+## Required completion report
+
+- Branch and SHA
+- Changed files and behavior
+- Tests run and exact results
+- Live checks actually completed
+- Known gaps/risks
+- Evidence that the model wrote a real GitHub file change and the diff/commit can be reviewed
+- Recommended next single increment
+
+Stop after one increment and wait for review.
