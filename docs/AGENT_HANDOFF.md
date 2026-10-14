@@ -21,6 +21,10 @@ For every feature and every phase, inspect the relevant source implementation an
 
 **Do not mark Phase 1 complete or start Phase 2 until AI-triggered GitHub file create/update works on an authorized non-default branch, GitHub confirms the change, the changed file is read back, and the UI displays a reviewable diff and commit/branch details.** File reading, issue reading, generated code, mocks, or documentation changes do not satisfy this requirement. If writes are failing, stay on Phase 1 and debug the write path.
 
+## Owner-performed manual checks
+
+When a required check needs the owner's real browser session, GitHub permissions, device, or access to the deployed environment, run safe automated checks first and then ask the owner using a compact test card: why it is needed; exact URL/screen and safe work branch; numbered steps; expected result; what to report (PASS/FAIL and exact error, with sanitized screenshot/details if useful); and how to stop safely if it fails. Never request secrets or credentials. Wait for the owner's result before marking it owner-reported manual evidence or passing a dependent gate. If unavailable, mark blocked/unverified. Group related steps where possible and automate checks that do not require the owner.
+
 ## Current priority: Phase 1
 
 Make the existing web UI capable of a real AI coding task through GitHub:
