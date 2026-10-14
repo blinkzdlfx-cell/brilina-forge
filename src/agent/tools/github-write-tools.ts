@@ -10,8 +10,20 @@ function scopedToConversation(context: ToolExecutionContext, args: RepositoryArg
   return Boolean(bound) && bound!.toLowerCase() === `${args.owner}/${args.repo}`.toLowerCase();
 }
 
-function validText(value: unknown, label: string, maxLength: number): value is string {
+function validText(value: unknown, _label: string, maxLength: number): value is string {
   return typeof value === "string" && value.length > 0 && value.length <= maxLength && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value);
+}
+
+function authorizedWorkBranch(
+  context: ToolExecutionContext,
+  branch: string,
+  branchesCreatedDuringRun: Set<string>
+): boolean {
+  const selectedBranch = context.principal.branchName?.trim();
+  return Boolean(branch) && (
+    (Boolean(selectedBranch) && selectedBranch!.toLowerCase() === branch.toLowerCase()) ||
+    branchesCreatedDuringRun.has(branch.toLowerCase())
+  );
 }
 
 function normalizedWriteResult(result: {
@@ -31,10 +43,13 @@ function normalizedWriteResult(result: {
   };
 }
 
-export function createGithubCreateBranchTool(service: GithubService): ForgeTool<BranchArgs> {
+export function createGithubCreateBranchTool(
+  service: GithubService,
+  branchesCreatedDuringRun: Set<string> = new Set()
+): ForgeTool<BranchArgs> {
   return {
     name: "github.create_work_branch",
-    description: "Create a new working branch for this repository. Use this before editing files; never write directly to the default branch.",
+    description: "Create a new working branch for this conversation's selected repository. The branch is authorized for writes during this run; never write directly to the default branch.",
     inputSchema: {
       type: "object",
       required: ["owner", "repo", "branchName"],
@@ -42,24 +57,41 @@ export function createGithubCreateBranchTool(service: GithubService): ForgeTool<
         owner: { type: "string", minLength: 1, maxLength: 100 },
         repo: { type: "string", minLength: 1, maxLength: 100 },
         branchName: { type: "string", minLength: 1, maxLength: 255, description: "A unique branch name, preferably under brilina/." },
-        baseRef: { type: "string", description: "Optional existing branch to branch from; defaults to the repository default branch." }
+        baseRef: { type: "string", minLength: 1, maxLength: 255, description: "Optional base branch; defaults to the branch selected for this conversation, or the repository default branch when no branch is selected." }
       },
       additionalProperties: false
     },
     policy: "allowed",
     async authorize(context, args) {
-      return scopedToConversation(context, args) && validText(args.branchName, "branch name", 255);
+      const selectedBranch = context.principal.branchName?.trim();
+      const baseRefAllowed = args.baseRef === undefined
+        ? true
+        : Boolean(selectedBranch) && args.baseRef.toLowerCase() === selectedBranch!.toLowerCase();
+      return scopedToConversation(context, args) &&
+        validText(args.branchName, "branch name", 255) &&
+        (args.baseRef === undefined || validText(args.baseRef, "base ref", 255)) &&
+        baseRefAllowed;
     },
-    async execute(_context, args) {
-      return await service.createBranch(args.owner, args.repo, args.branchName, args.baseRef);
+    async execute(context, args) {
+      const result = await service.createBranch(
+        args.owner,
+        args.repo,
+        args.branchName,
+        args.baseRef ?? context.principal.branchName
+      );
+      branchesCreatedDuringRun.add(result.branch.toLowerCase());
+      return result;
     }
   };
 }
 
-export function createGithubCreateTool(service: GithubService): ForgeTool<FileArgs> {
+export function createGithubCreateTool(
+  service: GithubService,
+  branchesCreatedDuringRun: Set<string>
+): ForgeTool<FileArgs> {
   return {
     name: "github.create_file",
-    description: "Create a new UTF-8 text file on an existing non-default working branch. Fails if the path already exists.",
+    description: "Create a new UTF-8 text file on the selected working branch or a working branch created during this run. Fails if the path already exists.",
     inputSchema: {
       type: "object",
       required: ["owner", "repo", "path", "content", "branch"],
@@ -76,10 +108,12 @@ export function createGithubCreateTool(service: GithubService): ForgeTool<FileAr
     policy: "allowed",
     async authorize(context, args) {
       return scopedToConversation(context, args) &&
+        authorizedWorkBranch(context, args.branch, branchesCreatedDuringRun) &&
         validText(args.path, "path", 4096) &&
         validText(args.branch, "branch", 255) &&
         typeof args.content === "string" &&
-        (args.message === undefined || typeof args.message === "string");
+        new TextEncoder().encode(args.content).byteLength <= 900000 &&
+        (args.message === undefined || (validText(args.message, "message", 200) && !/[\u0000-\u001f\u007f]/.test(args.message)));
     },
     async execute(_context, args) {
       const result = await service.createFile(args.owner, args.repo, args.path, args.content, args.message ?? `Create ${args.path}`, args.branch);
@@ -88,10 +122,13 @@ export function createGithubCreateTool(service: GithubService): ForgeTool<FileAr
   };
 }
 
-export function createGithubUpdateTool(service: GithubService): ForgeTool<FileArgs> {
+export function createGithubUpdateTool(
+  service: GithubService,
+  branchesCreatedDuringRun: Set<string>
+): ForgeTool<FileArgs> {
   return {
     name: "github.update_file",
-    description: "Replace an existing UTF-8 text file on an existing non-default working branch using its current blob SHA.",
+    description: "Replace an existing UTF-8 text file on the selected working branch or a working branch created during this run, using its current blob SHA.",
     inputSchema: {
       type: "object",
       required: ["owner", "repo", "path", "content", "branch"],
@@ -108,10 +145,12 @@ export function createGithubUpdateTool(service: GithubService): ForgeTool<FileAr
     policy: "allowed",
     async authorize(context, args) {
       return scopedToConversation(context, args) &&
+        authorizedWorkBranch(context, args.branch, branchesCreatedDuringRun) &&
         validText(args.path, "path", 4096) &&
         validText(args.branch, "branch", 255) &&
         typeof args.content === "string" &&
-        (args.message === undefined || typeof args.message === "string");
+        new TextEncoder().encode(args.content).byteLength <= 900000 &&
+        (args.message === undefined || (validText(args.message, "message", 200) && !/[\u0000-\u001f\u007f]/.test(args.message)));
     },
     async execute(_context, args) {
       const result = await service.updateFile(args.owner, args.repo, args.path, args.content, args.message ?? `Update ${args.path}`, args.branch);
@@ -120,10 +159,13 @@ export function createGithubUpdateTool(service: GithubService): ForgeTool<FileAr
   };
 }
 
-export function createGithubWriteTool(service: GithubService): ForgeTool<FileArgs> {
+export function createGithubWriteTool(
+  service: GithubService,
+  branchesCreatedDuringRun: Set<string>
+): ForgeTool<FileArgs> {
   return {
     name: "github.write_file",
-    description: "Create or update a UTF-8 text file on an existing non-default working branch. Use this for an intentional file change; it commits the change to that branch.",
+    description: "Create or update a UTF-8 text file on the selected working branch or a working branch created during this run. It commits the change to that branch.",
     inputSchema: {
       type: "object",
       required: ["owner", "repo", "path", "content", "branch"],
@@ -140,10 +182,12 @@ export function createGithubWriteTool(service: GithubService): ForgeTool<FileArg
     policy: "allowed",
     async authorize(context, args) {
       return scopedToConversation(context, args) &&
+        authorizedWorkBranch(context, args.branch, branchesCreatedDuringRun) &&
         validText(args.path, "path", 4096) &&
         validText(args.branch, "branch", 255) &&
         typeof args.content === "string" &&
-        (args.message === undefined || typeof args.message === "string");
+        new TextEncoder().encode(args.content).byteLength <= 900000 &&
+        (args.message === undefined || (validText(args.message, "message", 200) && !/[\u0000-\u001f\u007f]/.test(args.message)));
     },
     async execute(_context, args) {
       const result = await service.writeFile(args.owner, args.repo, args.path, args.content, args.message ?? `Update ${args.path}`, args.branch);
@@ -153,10 +197,11 @@ export function createGithubWriteTool(service: GithubService): ForgeTool<FileArg
 }
 
 export function createGithubWriteTools(service: GithubService): ForgeTool[] {
+  const branchesCreatedDuringRun = new Set<string>();
   return [
-    createGithubCreateBranchTool(service),
-    createGithubCreateTool(service),
-    createGithubUpdateTool(service),
-    createGithubWriteTool(service)
+    createGithubCreateBranchTool(service, branchesCreatedDuringRun),
+    createGithubCreateTool(service, branchesCreatedDuringRun),
+    createGithubUpdateTool(service, branchesCreatedDuringRun),
+    createGithubWriteTool(service, branchesCreatedDuringRun)
   ];
 }
