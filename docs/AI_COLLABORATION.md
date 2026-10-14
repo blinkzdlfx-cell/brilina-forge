@@ -1,49 +1,48 @@
 # AI Collaboration Handoff
 
-This file coordinates **Kilo Code** and **ChatGPT** on Brilina Forge. The project owner makes final decisions. GitHub is the shared source of truth; ChatGPT cannot inspect Kilo's unpushed local changes.
+This file coordinates Kilo Code and ChatGPT on Brilina Forge. The project owner makes final decisions. GitHub is the shared source of truth; ChatGPT cannot inspect Kilo's unpushed local changes.
 
-## Read at every session start
+## Read at each session start
 
-1. [Next Kilo Prompt](NEXT_KILO_PROMPT.md) — the reusable prompt to give Kilo.
-2. [Current State and Continuation Plan](CURRENT_STATE_AND_CONTINUATION.md) — evidence-based project status and next stages.
-3. [Agent Handoff](AGENT_HANDOFF.md), [Architecture](ARCHITECTURE.md), [Decisions](DECISIONS.md), and [Roadmap](ROADMAP.md).
-4. Inspect the actual source and tests relevant to the current task.
+1. [Roadmap](ROADMAP.md)
+2. [Current State and Continuation Plan](CURRENT_STATE_AND_CONTINUATION.md)
+3. [Architecture](ARCHITECTURE.md) and [Requirements](REQUIREMENTS.md)
+4. [Agent Handoff](AGENT_HANDOFF.md)
+5. [Next Kilo Prompt](NEXT_KILO_PROMPT.md)
 
-## Non-negotiable workflow
+## Working protocol
 
-- After a model change, context compaction, restart, or long pause, inspect first; do not resume from a remembered assumption.
-- Kilo's first action after a context reset is to report branch, HEAD SHA, working-tree status, recent commits, actual implementation/test evidence, documentation conflicts and a proposed next increment. **No edits until the owner approves.**
-- Never repeat completed work without checking the repository first.
-- Distinguish implemented in code, automated-tested, live-verified, partial, not implemented and blocked.
-- Never claim a test passed unless it actually ran. Include exact commands and results.
-- Before an implementation increment, state its goal, files, behavior, acceptance criteria, tests, risks and decisions needed.
-- Work in small increments. Test, commit and push each reviewable checkpoint; then pause for review.
-- Do not silently change architecture, auth, schema, permissions, command policy or execution boundaries.
-- Do not overwrite or discard local uncommitted work.
-- If ChatGPT directly changes repository files, it must identify the branch and commit SHA. Kilo must pull that branch before continuing.
+- Inspect branch, HEAD SHA, and working-tree status before acting. Preserve uncommitted work.
+- Work on the agreed current branch; do not create a new branch unless the owner explicitly asks.
+- Kilo implements code; ChatGPT helps with architecture, scope, review, and sequencing.
+- Work on one small increment at a time. State the goal, affected files, expected behavior, acceptance criteria, tests, risks, and decisions needed.
+- Do not repeat work without inspecting current code.
+- Distinguish implemented in code, automated-tested, live-verified, partial, not implemented, and blocked.
+- Never claim a test passed unless it actually ran. Include exact commands and output.
+- Do not silently change auth, database schema, permissions, execution boundaries, or command policy.
+- Do not overwrite or discard local changes.
+- Do not add mock data to make a feature look complete.
+- After a checkpoint, record its SHA and actual verification evidence in the current-state document.
 
-## Handoff procedure
+## Handoff: Kilo to ChatGPT
 
-### Kilo → ChatGPT
-1. Inspect status and preserve local changes.
-2. Run relevant tests and record exact results.
-3. Commit and push the checkpoint.
-4. Update the current-state ledger with the checkpoint SHA and verified findings.
-5. Report branch, SHA, summary, tests/results, known gaps and proposed next increment. Stop.
+1. Report branch, SHA, working-tree status and changed files.
+2. Run relevant tests and record exact commands/results.
+3. Summarize the diff and any security or architecture decisions.
+4. Update the current-state ledger and roadmap if the status changed.
+5. Stop and report the next proposed increment.
 
-### ChatGPT → Kilo
-1. Inspect the pushed code and relevant documentation.
-2. Classify findings as confirmed defect, documentation conflict, recommendation or owner decision.
-3. Make only isolated, safe repository edits; otherwise provide a reviewed plan.
-4. Keep [Next Kilo Prompt](NEXT_KILO_PROMPT.md) current so the owner can resume after ChatGPT usage limits or a context reset.
+## Handoff: ChatGPT to Kilo
+
+1. Inspect the pushed code and documentation.
+2. Separate confirmed defects from recommendations and owner decisions.
+3. Provide one small implementation task or make a narrowly scoped documentation change.
+4. Keep the next Kilo prompt current.
 
 ## Current shared checkpoint
 
-- **Branch:** `chatgpt/reconcile-project-state`
-- **Latest documentation checkpoint:** current HEAD of `chatgpt/reconcile-project-state` (the changes in this branch are documentation-only)
-- **Status:** documentation reconciliation committed to this branch; runtime code has not been modified or tested in this checkpoint.
-- **Next action:** owner reviews the reconciled docs, then Kilo performs the inspection-only report in `docs/NEXT_KILO_PROMPT.md`. Do not begin implementation before that report is reviewed and a small increment is approved.
+The documentation reconciliation branch `chatgpt/reconcile-project-state` was fast-forwarded into `main` on 2026-10-14. Its changes were documentation-only. The roadmap is now organized around five product phases, with Phase 1 (real AI coding through GitHub) as the immediate priority. No application code or tests were changed/run by that documentation merge.
 
-## Review priorities
+## Priority
 
-Run claim/dispatch/recovery, SSE reconnect and event replay, isolate-safe device identity, companion work ownership and result persistence, approval/resume, command policy, and honest documentation of tests and live verification.
+Do not work on all phases simultaneously. First make a real model write a reviewable change to a selected GitHub work branch. Then add GitHub Actions verification, the companion, Cloudflare diagnostics, and finally team/provider expansion.
