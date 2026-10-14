@@ -16,6 +16,12 @@ You are working on Brilina Forge. The owner uses Kilo Code for implementation an
 6. `docs/AI_COLLABORATION.md`
 7. Relevant implementation and test files.
 
+## Mandatory verification rule — do not infer completion from docs
+
+Every time you assess whether a feature or phase is complete, verify BOTH the implementation and the documentation. Inspect the actual source path and registered tool, run focused tests/build checks, and perform a real integration check where possible. A roadmap checkbox, status label, prompt, type/schema, mock, or successful read operation is not proof that a write operation works. Update status documents only after collecting evidence. Record exact files, commit SHA, commands/results, and live-check evidence. If a required check fails or cannot be run, mark the feature partial/blocked/unverified and keep the phase open.
+
+**Phase 1 hard gate:** do not proceed to Phase 2 until an actual AI tool call successfully creates or updates a file in an authorized GitHub non-default work branch, reads the file back, and exposes a reviewable diff and commit/branch details in the UI. Inspect the GitHub repository itself to confirm the result. Reading files, reading issues, generating suggested code, or documentation-only changes do not pass this gate. If writing currently fails, debug and fix the Phase 1 write path; do not skip ahead.
+
 ## First response: inspect and report
 
 Before editing:
