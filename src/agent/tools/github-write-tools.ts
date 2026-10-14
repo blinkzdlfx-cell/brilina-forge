@@ -146,9 +146,9 @@ export function createGithubUpdateTool(
     policy: "allowed",
     async authorize(context, args) {
       return scopedToConversation(context, args) &&
-        authorizedWorkBranch(context, args.branch, branchesCreatedDuringRun) &&
         validText(args.path, "path", 4096) &&
         validText(args.branch, "branch", 255) &&
+        authorizedWorkBranch(context, args.branch, branchesCreatedDuringRun) &&
         typeof args.content === "string" &&
         new TextEncoder().encode(args.content).byteLength <= 900000 &&
         (args.message === undefined || (validText(args.message, "message", 200) && !/[\u0000-\u001f\u007f]/.test(args.message)));
@@ -183,9 +183,9 @@ export function createGithubWriteTool(
     policy: "allowed",
     async authorize(context, args) {
       return scopedToConversation(context, args) &&
-        authorizedWorkBranch(context, args.branch, branchesCreatedDuringRun) &&
         validText(args.path, "path", 4096) &&
         validText(args.branch, "branch", 255) &&
+        authorizedWorkBranch(context, args.branch, branchesCreatedDuringRun) &&
         typeof args.content === "string" &&
         new TextEncoder().encode(args.content).byteLength <= 900000 &&
         (args.message === undefined || (validText(args.message, "message", 200) && !/[\u0000-\u001f\u007f]/.test(args.message)));
