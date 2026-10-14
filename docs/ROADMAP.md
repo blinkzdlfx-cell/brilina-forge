@@ -1,96 +1,140 @@
 # Brilina Forge Roadmap
 
-The evidence-based current status and continuation plan lives in [Current State and Continuation Plan](CURRENT_STATE_AND_CONTINUATION.md). This roadmap is ordered by dependency and risk. Historic phase completion notes must not be treated as live verification.
+This is the delivery roadmap for the product owner and Kilo Code. Follow the phases in order. Do not build all phases in parallel. Each phase has one user-visible outcome and a completion gate.
 
-## Stage A — Baseline and documentation
+**Current priority: Phase 1 — make the existing Forge UI capable of using a real AI to write code through GitHub.** The local companion is not the current priority.
 
-**Status: documentation reconciliation in progress; current runtime checks not independently rerun in this checkpoint.**
+## Product goal
 
-- [x] Native Cloudflare Worker identified as the production runtime.
-- [x] Neon retained as the database; D1 migration excluded.
-- [x] Reusable Kilo inspection prompt added.
-- [x] Known gaps recorded in the current-state document.
-- [ ] Pull the current branch on the development machine and preserve `git status`.
-- [ ] Run the exact build and test scripts in `package.json`; record commands and results.
-- [ ] Fix only reproducible build/type/test failures in isolated commits.
+Brilina Forge is a private, browser-based AI coding workspace. GitHub is the source of truth for code; Cloudflare Workers hosts the React static app and API; Neon Postgres stores Forge application state. A user connects GitHub, selects a repository and branch, describes a task, and the AI can inspect, edit, verify, and report changes.
 
-## Stage B — Reliable Worker run lifecycle
+## Architecture decisions that remain in force
 
-**Status: partial implementation; recovery guarantees not yet established.**
+- Production API and static site: native Cloudflare Worker + Workers Static Assets.
+- Database: Neon Postgres. Do not migrate to D1 as part of this roadmap.
+- Source control: GitHub. Do not create a separate canonical code store.
+- Model orchestration: provider-neutral Agent Controller and typed, authorized, audited tools.
+- Execution: no shell on the Cloudflare Worker and no browser terminal.
+- Local commands, when implemented, run only through a separate Node.js companion on the user's own computer.
+- No mock data to make incomplete functionality appear real.
+- Keep existing UI and infrastructure unless inspection proves a change is necessary.
+- No new branch for routine project work unless the owner explicitly asks. Work directly on the agreed branch and preserve any local uncommitted changes.
 
-Current code creates a queued run and uses the SSE GET request to claim/execute it. Neon stores run records, but request-bound execution is not sufficient proof of recovery or replay.
+## Before Phase 1 — establish a truthful baseline
 
-Acceptance criteria:
-- queued run is created exactly once for the accepted request;
-- atomic claim prevents duplicate execution under concurrent stream connections;
-- reconnect does not start duplicate work;
-- disconnect behavior is explicitly defined and tested;
-- cancellation, timeouts, failures and cleanup produce consistent terminal state;
-- result messages and tool audit are durable;
-- event replay/reconnect behavior is documented and tested;
-- abandoned claimed runs have a recovery strategy.
+This is a checkpoint, not a separate product phase.
 
-Do not make a large lifecycle redesign without presenting the smallest safe proposal and any schema changes for owner approval.
+- [ ] Pull the current `main` and inspect `git status`; preserve local work.
+- [ ] Confirm the deployed Worker configuration and the static-assets/API routing.
+- [ ] Run the repository's actual build and test scripts where the environment permits.
+- [ ] Record exact commands and results; do not rely on historic test counts.
+- [ ] Verify GitHub OAuth, Neon connectivity, and the current UI in a real environment when credentials are available.
+- [ ] Fix only confirmed baseline blockers that prevent Phase 1.
+- [ ] Keep the current-state document synchronized with evidence.
 
-## Stage C — Persistence and isolate correctness
+**Gate:** the owner and Kilo know which existing paths work, which fail, and which have not been tested. Do not start a broad refactor.
 
-**Status: partial; requires focused verification.**
+## Phase 1 — usable AI coding through GitHub (NOW)
 
-- [ ] Verify Neon query result contracts, especially stale-work timeout counts.
-- [ ] Replace in-memory device assignment with durable, ownership-checked assignment before relying on device IDs.
-- [ ] Test session and OAuth state behavior under multiple Worker isolates where applicable.
-- [ ] Ensure any data needed after a request is stored durably or held in a deliberately selected durable coordination primitive.
+**Outcome:** From the existing web UI, the user can ask a real model to make a useful, reviewable code change in a selected GitHub repository without needing the local companion.
 
-## Stage D — Interactive approval
+### Scope
+1. Verify GitHub sign-in, repository/branch selection, conversation context, Neon persistence, and the real AI provider path.
+2. Configure one real provider first. Keep the provider boundary extensible; do not integrate every provider yet.
+3. Expand the GitHub service and agent tool registry with controlled write operations:
+   - create a working branch when appropriate, or use a clearly selected existing work branch;
+   - create or update a file with GitHub's contents API and current blob SHA;
+   - apply multiple related file changes safely and sequentially;
+   - read back the changed files and produce a diff;
+   - commit changes with a clear message;
+   - expose the resulting branch/commit and review link to the UI.
+4. Keep repository access scoped to the repository bound to the conversation and to the signed-in user's GitHub permissions.
+5. Add tool schemas, input validation, authorization, audit events, bounded output, and clear failure handling.
+6. Require explicit confirmation for consequential write actions as appropriate. Never silently push to the default branch.
+7. Update the UI to show the plan/activity, changed files, diff, success/failure, and next action.
+8. Ensure the model receives only relevant files and tool results, not the entire repository by default.
 
-**Status: not implemented end to end.**
+### Phase 1 acceptance test
+From the deployed or locally running web app:
+- sign in with GitHub;
+- select a real repository and non-default work branch;
+- ask the AI to make a small, specific change;
+- observe it inspect relevant files;
+- see the model invoke authorized write tools;
+- see the changed file(s), diff, and commit/branch in GitHub;
+- reload the app and confirm the result/history remains available;
+- confirm errors are visible and no success is claimed when a tool fails.
 
-- [ ] Persist a pending tool call and its arguments safely.
-- [ ] Expose authenticated approve/reject actions scoped to the owning user and run.
-- [ ] Record who approved/rejected what and when.
-- [ ] Resume the same pending tool call after approval, exactly once; do not ask the model to recreate it.
-- [ ] On rejection, return a structured tool result and continue/stop according to the defined controller contract.
-- [ ] Test concurrent decisions, duplicate submissions, expiry and run cancellation.
+**Gate:** one real end-to-end code change is completed and reviewed. Reading files or returning suggested code in chat alone does not complete Phase 1.
 
-## Stage E — Local Node.js companion
+## Phase 2 — verification and repair loop
 
-**Status: partial Worker/database scaffolding; no complete companion verified.**
+**Outcome:** The AI can test a change and use actual results to guide a bounded correction.
 
-- [ ] Specify and approve the device identity, work-delivery, result-submission and revocation contract.
-- [ ] Build a separate Node.js companion application that runs only when needed.
-- [ ] Authenticate each device and scope work to its user/workspace/run.
-- [ ] Implement safe process spawning, command classification, timeout, output limits, cancellation and cleanup.
-- [ ] Block prohibited commands; require fresh explicit consent for risky commands.
-- [ ] Ensure device unavailability never silently changes execution location.
-- [ ] Correct the tool execution context so run ID and conversation ID cannot be confused.
-- [ ] Add unit/integration tests for dispatch, result persistence, failures and duplicate delivery.
+- Trigger the repository's configured GitHub Actions workflow or use an existing run.
+- Show status, failed job/step, and relevant logs.
+- Pass filtered, redacted failure evidence to the model.
+- Let the model propose/apply a correction through Phase 1's write tools.
+- Rerun checks with a strict attempt limit and clear cost/usage feedback.
+- Persist run state and important events so reconnecting does not lose the result.
+- Test duplicate SSE subscribers, disconnects, cancellation, timeouts, failed runs, and recovery before claiming the run lifecycle is reliable.
+- Do not automatically merge or deploy a fix.
 
-## Stage F — End-to-end verification
+**Gate:** a deliberately failing test/build can be diagnosed and corrected, and the final check result is shown accurately.
 
-**Status: not verified.**
+## Phase 3 — local Node.js companion
 
-In order:
-1. Local Worker startup and production build.
-2. `/health` and React static shell.
-3. Real GitHub App OAuth and Neon-backed session.
-4. Repository selection and conversation creation.
-5. Deterministic run through SSE.
-6. Run reconnect, cancellation, duplicate subscriber and recovery cases.
-7. Real AI provider request and streaming/tool-call behavior.
-8. Companion device registration, work delivery, consent, result and failure handling.
-9. Browser acceptance of the user-facing flow.
-10. Security review and legacy source removal only after route parity is proven.
+**Outcome:** When the user's computer is available, Forge can run approved project commands locally.
 
-## Stage G — Cleanup and enhancements
+- Build a separate Node.js companion; do not execute shell commands in the Worker.
+- Define durable device registration, authentication, ownership, revocation, work delivery, and result submission.
+- Fix the run ID versus conversation ID contract.
+- Use a narrow safe-command allow-list; classify blocked commands before approval-required commands.
+- Persist a specific pending approval and implement authenticated approve/reject plus reliable resume.
+- Require explicit consent for installs, writes, network access, Git mutations, unknown commands, and other risky operations.
+- Apply working-directory restrictions, timeouts, output limits, redaction, cancellation, and process cleanup.
+- Handle duplicate delivery and unavailable devices without silently changing execution location.
+- Keep GitHub Actions as the fallback for remote verification.
 
-After the reliability gates pass:
-- remove obsolete Fastify/terminal code and dependencies;
-- add UI acceptance automation;
-- add pagination for conversation/message history;
-- improve provider/model capability reporting and streaming;
-- estimate cost only when pricing data is well-defined;
-- consider additional providers without coupling the controller to a vendor.
+**Gate:** an approved command runs on the intended computer, returns output and exit code, and the result is correctly associated with the run and conversation.
 
-## Checkpoint rule
+## Phase 4 — Cloudflare production diagnostics
 
-Each increment has one goal, explicit files, acceptance criteria and tests. Run tests before committing where possible. Push the small checkpoint, report branch/SHA/exact test output/known gaps, and pause for review. Never label a feature verified based only on source inspection or an old test count.
+**Outcome:** Forge can help diagnose an existing Cloudflare deployment using real logs.
+
+- Connect Cloudflare with least-privilege credentials.
+- Select a Worker and retrieve supported logs/observability data.
+- Filter by time, severity, request, and deployment where supported.
+- Redact secrets and personal data before model use.
+- Correlate evidence with relevant source files and commits.
+- Propose and implement a fix through Phase 1's GitHub workflow.
+- Verify through Phase 2.
+- Keep production deployment separate and require user approval.
+
+**Gate:** a real error can be traced from evidence to a proposed source fix, and the result is verified without an automatic production deployment.
+
+## Phase 5 — collaboration, providers, and hardening
+
+**Outcome:** Forge is dependable for personal use and a small trusted team.
+
+- Add additional providers (for example Gemini, Grok, Cloudflare Workers AI, or Cerebras) one at a time based on available APIs and quotas.
+- Report provider capabilities, failures, and usage accurately; do not assume tool calling or structured output is identical across models.
+- Add invited team workspaces, membership roles, and repository-scoped access.
+- Separate personal and team provider settings/secrets.
+- Harden authentication, authorization, secret handling, auditability, rate limits, and data retention.
+- Add UI acceptance tests and end-to-end regression tests.
+- Remove legacy Fastify/terminal code only after route parity and production behavior are verified.
+- Document backups/recovery and service limits.
+
+**Gate:** a trusted invited user can collaborate without gaining access to another user's repositories or secrets, and core workflows pass the regression suite.
+
+## Working protocol for every increment
+
+1. Inspect current source and tests before changing anything.
+2. State one small goal, exact files, acceptance criteria, tests, risks, and any owner decision needed.
+3. Implement only that increment.
+4. Run relevant checks and report exact commands/results.
+5. Review the diff and update this roadmap/current-state document.
+6. Commit the checkpoint and stop for review before starting the next increment.
+
+Do not call a feature complete because source code exists. Use these labels consistently: **implemented in code**, **automated-tested**, **live-verified**, **partial**, **not implemented**, or **blocked**.
