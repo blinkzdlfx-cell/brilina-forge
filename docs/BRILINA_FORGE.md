@@ -1,64 +1,62 @@
-# Brilina Forge — product specification
+# Brilina Forge — Product Specification
 
-Brilina Forge is an AI-assisted software development workspace. It is not
-simply a chatbot with a terminal attached. It is a controlled engineering
-workflow for the owner and a small trusted group.
+## Product objective
 
-## What it is
+Brilina Forge is a private browser-based AI coding workspace for the owner and a small trusted group. It should let a user connect GitHub, choose a repository and work branch, ask an AI to inspect and change code, review the diff/commit, and later verify changes using real test/build results.
 
-- GitHub is the source of truth for repository code, branches, commits and
-  pull requests.
-- Neon Postgres stores Forge application state.
-- The browser is the interface. The AI plans, writes code, runs it, and
-  iterates — all on the user's own machine through a small local companion.
-- Commands never run on the Forge server. There is no server-side shell, no VPS
-  cost, and no browser terminal.
+This is not just a chatbot with a terminal attached. The system coordinates a controlled software-development workflow.
 
-## What it does
+## Canonical systems
 
-1. Authenticate with GitHub through a GitHub App.
-2. Discover repositories, branches and the repository context.
-3. Create conversations with a bound repository and branch.
-4. Send a message. The Agent Controller invokes a provider-neutral model,
-   which may request typed tools.
-5. GitHub read tools fetch metadata, context, branches, trees, files and diffs.
-6. When a command needs to execute, the companion starts, verifies the machine
-   on first use, runs light commands automatically and asks before risky
-   ones, and streams output back over SSE.
-7. The AI iterates using the output until the run completes.
+- **GitHub:** source code, branches, commits, diffs, and pull requests.
+- **Cloudflare Worker + Workers Static Assets:** hosted React application and API.
+- **Neon Postgres:** Forge state, including sessions, conversations, messages, runs, tool audit, usage, and later approvals/device work.
+- **AI provider:** model reasoning and tool selection through a provider-neutral adapter.
+- **GitHub Actions:** remote test/build execution, starting in Phase 2.
+- **Local Node.js companion:** optional local command execution, starting in Phase 3.
+- **Cloudflare observability:** production diagnostic evidence, starting in Phase 4.
 
-## Scope
+The Worker does not run shell commands. The browser is not a terminal. Do not migrate to D1 or add new product behavior to the legacy Fastify server as part of this plan.
 
-In scope:
+## Core workflow
 
-- GitHub-centered AI-assisted development
-- Conversations, messages and runs persisted in Neon
-- Provider-neutral AI runtime with an OpenAI-compatible adapter
-- Local execution through the companion with a command policy boundary
+1. User signs in through GitHub.
+2. User selects a repository and work branch.
+3. User describes a task.
+4. Agent Controller sends relevant context to one configured real AI provider.
+5. The model requests typed tools to read or write files through GitHub.
+6. Forge validates authorization/policy, executes the tools, and audits the results.
+7. Forge reads back changes and displays a diff, branch, and commit.
+8. In Phase 2, Forge runs checks through GitHub Actions and can use real logs for bounded repair attempts.
+9. In Phase 3, optional local commands run through a separately authenticated Node.js companion.
+10. In Phase 4, supported Cloudflare logs can be correlated with source to diagnose production issues.
+11. In Phase 5, Forge expands to additional providers and invited team workspaces.
 
-Out of scope:
+## Delivery order
 
-- A server-side shell
-- A browser terminal
-- Multi-tenant sharing beyond the owner and a small trusted group
-- Any execution that costs money on infrastructure
+Follow [ROADMAP.md](ROADMAP.md). The five product phases are:
 
-## Architecture
+1. Usable AI coding through GitHub — immediate priority.
+2. GitHub Actions verification and bounded repair.
+3. Local Node.js companion.
+4. Cloudflare production diagnostics.
+5. Additional providers, team collaboration, and hardening.
 
-See [Architecture](ARCHITECTURE.md), [Plan — Local execution](PLAN_LOCAL_EXECUTION.md)
-and [Security](SECURITY.md).
+Older files named `PHASE_1_...` through `PHASE_7_...` record historical implementation work and use a previous numbering scheme. They are not the current product roadmap and do not prove live verification.
 
-## Rules
+## Phase 1 non-negotiables
 
-- GitHub is canonical; the companion is disposable (ADR-001).
-- The backend owns orchestration; no coding-agent framework on the companion (ADR-002).
-- High-impact operations require policy checks and human control.
-- Do not install OpenCode or Kilo Code on the companion in the current
-  architecture.
+- Use one real AI provider first; a deterministic adapter is not a real coding workflow.
+- Bind every repository operation to the signed-in user and conversation repository.
+- Use a work branch; never silently write to the default branch.
+- Use current GitHub blob SHAs and handle conflicts.
+- Validate paths and tool arguments; bound file/output size.
+- Audit write actions and show failures honestly.
+- Read back changes and expose a reviewable diff/commit.
+- Do not expose secrets to the browser or model.
+- Do not automatically merge or deploy production changes.
+- Phase 1 must work without the local companion.
 
-## Status
+## Completion rule
 
-Phases 0 through 5 are complete in code. Phase 6 (local execution via the
-companion) and Phase 7 (verification and hardening) are not started. Live
-verification is outstanding: no provider key, no GitHub OAuth app, and no
-Neon-backed end-to-end run have been exercised.
+A feature is not complete just because source exists. Report it as implemented in code, automated-tested, live-verified, partial, not implemented, or blocked. Each phase must pass its acceptance criteria in [ROADMAP.md](ROADMAP.md) before work moves to the next phase.
