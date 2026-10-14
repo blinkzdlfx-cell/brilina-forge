@@ -80,7 +80,7 @@ test("writeFile updates an existing file with its current blob SHA and UTF-8 bas
   assert.equal(putBody?.sha, "current-blob-sha");
   assert.equal(putBody?.branch, "brilina/feature");
   assert.equal(putBody?.message, "Update app");
-  assert.equal(putBody?.content, btoa(unescape(encodeURIComponent("héllo"))));
+  assert.equal(putBody?.content, "aMOpbGxv");
   assert.equal(result.commit.sha, "commit-sha");
 });
 
