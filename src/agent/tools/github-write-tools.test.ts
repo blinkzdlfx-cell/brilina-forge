@@ -38,13 +38,26 @@ test("write tools are scoped to the repository selected for the conversation", a
     branch: "brilina/feature"
   }), false);
 
-  assert.equal(await write.authorize(context, {
+  const selectedContext: ToolExecutionContext = {
+    ...context,
+    principal: { ...context.principal, branchName: "brilina/selected" }
+  };
+
+  assert.equal(await write.authorize(selectedContext, {
     owner: "ACME",
     repo: "SITE",
     path: "src/app.ts",
     content: "new",
-    branch: "brilina/feature"
+    branch: "brilina/selected"
   }), true);
+
+  assert.equal(await write.authorize(selectedContext, {
+    owner: "ACME",
+    repo: "SITE",
+    path: "src/app.ts",
+    content: "new",
+    branch: "brilina/unselected"
+  }), false);
 });
 
 test("write_file delegates the full file update and returns a reviewable commit reference", async () => {
@@ -93,4 +106,31 @@ test("branch creation tool is scoped to the selected repository", async () => {
     repo: "another",
     branchName: "brilina/feature"
   }), false);
+});
+
+test("a branch created during the current run becomes an authorized work branch", async () => {
+  const service = {
+    createBranch: async (_owner: string, _repo: string, branchName: string) => ({
+      branch: branchName,
+      sha: "base-sha",
+      url: "https://api.github.com/repos/acme/site/git/refs/heads/brilina/feature"
+    })
+  } as unknown as GithubService;
+  const tools = createGithubWriteTools(service);
+  const branchTool = tools.find(tool => tool.name === "github.create_work_branch");
+  const writeTool = tools.find(tool => tool.name === "github.write_file");
+  assert.ok(branchTool);
+  assert.ok(writeTool);
+
+  const branchArgs = { owner: "acme", repo: "site", branchName: "brilina/feature" };
+  assert.equal(await branchTool.authorize(context, branchArgs), true);
+  await branchTool.execute(context, branchArgs);
+
+  assert.equal(await writeTool.authorize(context, {
+    owner: "acme",
+    repo: "site",
+    path: "src/app.ts",
+    content: "new",
+    branch: "brilina/feature"
+  }), true);
 });
