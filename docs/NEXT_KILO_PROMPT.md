@@ -34,6 +34,19 @@ Before editing:
 - Do not assume that a configured provider key proves tool calling works.
 - Do not change architecture or start the companion during this inspection.
 
+## Owner-performed manual verification protocol
+
+Some acceptance checks require the owner to use the deployed UI, approve a GitHub permission prompt, test on their own account/device, or inspect a result Kilo cannot access. When that happens, do not guess, silently skip the check, or mark it passed. First complete all safe automated checks. Then stop implementation at a clear checkpoint and give the owner a small, actionable manual test request containing:
+
+1. **Why it needs the owner:** what cannot be verified safely or reliably from the coding environment.
+2. **Exact starting point:** deployed URL or local route, screen/page, repository, and test branch to use. Never ask the owner to paste tokens, passwords, or secrets into chat.
+3. **Exact steps:** numbered actions, with the exact test input or action to perform.
+4. **Expected result:** observable UI text/state and, where relevant, the expected GitHub branch, file, commit, or diff.
+5. **What to report:** ask for PASS or FAIL, the exact error/message, and a screenshot or sanitized details if useful. Do not require sensitive information.
+6. **Failure path:** tell the owner to stop at the failure and report what happened; do not ask them to improvise, repeat destructive actions, or approve a production change.
+
+Wait for the owner's response before marking that manual check live-verified or moving past a gate that depends on it. Record the owner's result as owner-reported manual evidence, distinguish it from independently observed evidence, and investigate failures before asking for a focused retest. If the owner is unavailable or cannot perform the check, mark it **blocked/unverified** and continue only with work that does not depend on claiming that check passed. Bundle related checks into one short checklist where practical; do not interrupt the owner for checks that can be automated safely.
+
 ## Phase 1 implementation target
 
 After the inspection report, implement one small, reviewable increment at a time, starting with the missing GitHub write-tool contract. The complete Phase 1 path must eventually support:
