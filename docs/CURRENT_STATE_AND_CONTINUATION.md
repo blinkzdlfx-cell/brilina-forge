@@ -1,92 +1,79 @@
 # Current State and Continuation Plan
 
-**Last reconciled against:** `main` at `c9d4c6c1f1fdd4e719f1291c34b4f6a9917c88f4` (2026-10-14).
-**This document is the concise current-state reference.** If an older phase document disagrees with this file, inspect the code and the specific ADR, then correct the older document; do not assume either document proves implementation.
+**Last documentation reconciliation:** 2026-10-14. This file is the evidence-based status ledger. It records source/document inspection, not proof of a live deployment. Update it with exact commit SHA and test results after each implementation checkpoint.
 
 ## Product in plain English
 
-Brilina Forge is a private AI-assisted development workspace. A user connects GitHub, chooses a repository and branch, chats with an AI, and the AI can inspect relevant repository information through controlled tools. Forge records conversations, runs, tool activity, and usage in Neon. The AI must not receive the whole repository by default or have unrestricted access to secrets or commands.
+Brilina Forge is a private browser-based AI coding workspace. The user connects GitHub, selects a repository and branch, chats with an AI, and should be able to ask it to inspect and modify source files, verify changes, and report the result.
 
-GitHub is the source of truth for project code. Neon stores Forge's application state. Cloudflare Workers hosts the production API and React static assets. The browser is the interface, not a shell. If command execution is added, it must happen on the user's own computer through a separate local Node.js companion—not on the Cloudflare Worker or a VPS.
+- **GitHub:** canonical source code, branches, commits, diffs, and pull requests.
+- **Cloudflare Worker + Workers Static Assets:** production API and hosted React web app.
+- **Neon Postgres:** durable Forge application state such as sessions, conversations, messages, runs, tool audit, usage, companion work, and approvals.
+- **AI provider:** reasoning and tool selection through a provider-neutral adapter.
+- **Optional local Node.js companion:** future execution of approved commands on the user's computer. It is not required for Phase 1.
+- **GitHub Actions:** remote test/build execution and log retrieval for Phase 2.
 
-## Current architecture: intended versus observed
+## Current inspected state
 
-| Area | Current evidence | Honest status |
+| Area | Evidence from source inspection | Status |
 |---|---|---|
-| Production API | `worker/index.ts`, `worker/api.ts`; Wrangler configuration | Worker implementation exists in code; deployment and live route parity are not verified here |
-| Frontend | React/Vite/TypeScript under `web/`; packaged as Worker static assets | Build path is configured; browser acceptance is not verified here |
-| GitHub | GitHub App authorization and repository operations in Worker/source modules | Code exists; real OAuth flow is not verified here |
-| Persistence | Neon serverless driver and SQL repositories for sessions, conversations, runs, audit and usage | Code exists; current live end-to-end behavior is not verified here |
-| AI | Deterministic development model plus OpenAI-compatible provider adapter | Adapter/tests exist; no live provider request is verified here |
-| Run execution and SSE | POST creates a queued run; GET SSE route attempts to claim and execute it while the stream remains open | Implemented pattern, but execution is tied to the request lifetime; disconnect/retry/recovery needs focused tests and design review |
-| Run events | Worker emits SSE events; legacy `src/phase4/events.ts` is in-memory | Durable replayable event history across disconnects/restarts is not established |
-| Companion backend scaffolding | Worker routes and Neon companion-work repository code exist | Partial scaffolding only; it is not evidence that a usable local companion exists |
-| Device identity | Worker currently derives session device IDs from an in-memory `Map` | Not durable across Worker isolates; must be replaced before relying on it |
-| Approval | Controller emits approval-required and rejects the tool; Worker approval endpoint currently records a simple response | No end-to-end approve/reject-and-resume flow |
-| Local companion | No dedicated, complete companion application has been confirmed in the repository | Not implemented/verified |
-| Automated checks | Scripts exist in `package.json`; past docs report test counts | Do not treat historic counts as current. Run the exact commands locally and record actual output |
+| React/Vite UI | `web/` and Worker static asset configuration exist | Implemented in code; browser acceptance not live-verified |
+| Native Worker API | `worker/index.ts`, `worker/api.ts` | Implemented in code; production route behavior not independently verified |
+| GitHub authentication/service | GitHub OAuth/session modules and `GithubService` exist | Implemented in code; live OAuth not verified |
+| Neon persistence | Session, conversation, run, audit, usage and companion repositories exist | Implemented in code; end-to-end database flow not verified |
+| Agent Controller | Typed tool registry, authorization, policy and audit code exist | Implemented in code; complete user workflow not verified |
+| AI provider | Deterministic model and OpenAI-compatible adapter exist | Adapter code exists; live provider call and tool-calling behavior not verified |
+| GitHub read tools | Repository metadata/context, branches, tree, file read, diff | Implemented in code |
+| GitHub write tools | No complete registered create/update/commit coding workflow was found in the inspected tool set | **Phase 1 blocker; implement and test** |
+| UI-to-agent code change | No verified end-to-end change from chat to GitHub commit | **Not verified; primary Phase 1 target** |
+| GitHub Actions repair loop | APIs/workflows may provide a foundation; complete AI-driven diagnose/fix/retest loop not verified | Phase 2 |
+| Local companion | Partial Worker/database dispatch scaffolding exists; no complete executable companion verified | Phase 3 |
+| Approval/resume | Controller currently rejects approval-required tools rather than persisting and resuming the same pending call | Incomplete; required before risky companion execution |
+| Device identity | `worker/api.ts` contains isolate-local device assignment state | Not durable across Worker isolates; fix before relying on device identity |
+| Run lifecycle/SSE | A run can be claimed/executed while its SSE response is open | Recovery, disconnect, duplicate subscriber, cancellation and replay guarantees not established |
+| Cloudflare diagnostics | No verified end-to-end log-to-source-fix flow | Phase 4 |
+| Teams/multiple providers | Architecture can accommodate them; complete team workflow not verified | Phase 5 |
 
-## Confirmed issues to address
+## Immediate priority
 
-1. **Documentation drift:** older handoff/architecture/roadmap sections describe Fastify as the active API, the local companion as both not started and completed, and phase statuses that conflict with the native Worker migration.
-2. **Device assignment is isolate-local:** `sessionDevices` in `worker/api.ts` is a process-memory map. It cannot reliably assign the same device ID across Worker isolates/restarts.
-3. **Approval cannot resume a tool:** `src/agent/controller.ts` rejects `approval-required` tools instead of persisting a pending tool call and resuming after a user decision.
-4. **No complete local companion is present:** Worker routes and a command-dispatch tool do not constitute a companion process that polls/receives work, safely executes it, and posts results.
-5. **Run work is coupled to SSE:** the SSE GET route can claim and execute a run while its response remains open. This requires deliberate handling of disconnects, retries, duplicate dispatch, execution timeout, and recovery.
-6. **Run event history is not proven durable/replayable:** the legacy event bus is in memory, and Worker SSE behavior needs tests for reconnect/replay and concurrent subscribers.
-7. **Companion tool context requires review:** `src/agent/tools/companion-exec.ts` sets `conversationId` to `context.runId`, although the controller tool context currently exposes only the run ID. Do not wire this tool into working execution until the context contract and test are corrected.
-8. **Stale-work timeout count needs verification:** `timeoutStaleCompanionWork` reads a `count` property from the Neon query result using a cast. Verify the actual driver result contract and test the return value before depending on it.
-9. **Build/test status is unknown at this checkpoint:** ChatGPT inspected remote source/docs but did not run the repository's build or tests in a local checkout.
+**Phase 1: enable real AI coding through GitHub.** Do not continue expanding the companion until a real model can read relevant files, make controlled edits through GitHub, return a reviewable diff/commit, and persist the result.
 
-These findings are code/document observations, not claims that the production deployment is broken. Validate each in a local checkout and with focused tests.
+## Phase 1 implementation checklist
 
-## Decisions that remain in force
+- [ ] Inspect actual working tree and current `main` SHA in Kilo's checkout; preserve local changes.
+- [ ] Run available build and test commands; record exact output.
+- [ ] Verify GitHub OAuth, repository selection, branch selection, conversation binding, and Neon persistence.
+- [ ] Configure one real AI provider and verify a real request with tool calls.
+- [ ] Add typed GitHub create/update file tools using current blob SHAs.
+- [ ] Add scoped authorization so tools only modify the conversation's selected repository and an explicitly selected work branch.
+- [ ] Ensure writes are sequential for each path and handle conflicts safely.
+- [ ] Add branch/commit workflow, diff/read-back, audit events, output bounds, and clear error results.
+- [ ] Add UI activity and diff/result presentation.
+- [ ] Test a small real repository change end to end.
+- [ ] Record exact branch, SHA, commands, test results, live verification, and known gaps.
 
-- Cloudflare Worker is the production API runtime; do not add new product behavior to legacy Fastify routes.
-- Neon Postgres remains the database. Do not migrate to D1 as part of this work.
-- GitHub is canonical for source code; GitHub APIs remain the initial repository interface.
-- The controller is provider-neutral and tools are typed, registered, authorized and audited.
-- No shell on the Worker/server and no browser terminal.
-- Local execution, if built, is through a separate Node.js companion running as the user. The first version has no sandbox, so command policy and explicit consent are critical; this risk must be made clear.
-- No silent architecture changes. The project owner approves significant decisions.
-- Never report tests, deployment, OAuth, provider access, or browser acceptance as verified unless actually exercised.
+## Known engineering risks to preserve in later phases
 
-## Reconciled implementation order
+1. **Run lifecycle:** current execution is coupled to an open SSE request. Design and test idempotent claims, reconnects, disconnect behavior, cancellation, timeouts, recovery, durable result state, and event replay.
+2. **Device identity:** isolate-local maps are not durable identity stores.
+3. **Approval:** an approval notification is not an approval/resume implementation. Persist the exact pending tool call, authenticate the decision, audit it, and resume it at most once.
+4. **Companion context:** inspect the run ID/conversation ID contract before wiring command execution.
+5. **Neon query contracts:** verify driver return shapes, including stale-work timeout counts, with focused tests.
+6. **Security:** model output is untrusted input. Validate tool arguments, scope repository writes, protect tokens, redact logs, limit retries and output, and require consent for consequential operations.
+7. **Build/test status:** no current local build or test run was performed as part of this documentation update. Historic counts are not current verification.
 
-### Stage A — establish a trusted baseline (now)
-1. Reconcile documentation and establish this status document.
-2. Pull the branch, inspect the working tree, install dependencies, run the existing build/tests, and record actual results.
-3. Fix only confirmed baseline/type/test failures in small commits.
-4. Review current Worker route behavior and persistence assumptions before adding features.
+## Architectural decisions
 
-### Stage B — make the existing Worker path reliable
-1. Test queued-run creation, atomic claim, duplicate SSE connections, disconnect, cancellation, timeout, and terminal run states.
-2. Decide and document the minimum reliable run lifecycle: durable state, idempotent claim/dispatch, recovery after disconnect/restart, and event replay. Present any schema/architecture decision for approval before implementation.
-3. Test Neon query contracts and remove isolate-local state from any behavior that must survive requests.
-4. Run local Worker + browser acceptance using the deterministic provider first.
+- Keep the native Cloudflare Worker as production runtime. Do not add new product behavior to legacy Fastify routes.
+- Keep Neon Postgres; no D1 migration in this roadmap.
+- GitHub remains the source of truth for code.
+- Use the existing React UI and backend foundation where possible; do not rebuild them without evidence.
+- The Worker does not run shell commands. Local execution belongs in a separate companion.
+- Start with one real AI provider. Add other providers only after Phase 1 works.
+- Never automatically merge code or deploy production changes as part of the first coding loop.
+- No mock data to simulate a working AI coding flow.
+- Never claim tests, OAuth, provider access, deployment, or browser acceptance were verified unless actually exercised.
 
-### Stage C — finish approval and companion boundaries
-1. Specify the complete request/result contract and threat model for the companion.
-2. Design durable device identity and work assignment; no in-memory Map as authority.
-3. Implement a persisted approval/resume state machine and audit trail.
-4. Build the companion as a separate application, with bounded output, timeouts, cancellation/process cleanup, authenticated work retrieval/result submission, and explicit handling of unavailable devices.
-5. Add focused unit and integration tests before wiring the command tool into ordinary runs.
+## Continuation protocol
 
-### Stage D — live verification and hardening
-1. Verify GitHub App OAuth and Neon-backed sessions in a real local/deployed environment.
-2. Verify deterministic runs end-to-end, then a real provider request.
-3. Verify SSE reconnect/replay, cancellation, failure/recovery, and companion approval/execution.
-4. Remove legacy Fastify/terminal code only after route parity and acceptance are demonstrated.
-5. Update status/roadmap with exact commands, results, commit SHA, and remaining gaps.
-
-## Small-change checkpoint rule
-
-Every implementation increment must include: goal; affected files; expected behavior; tests to add/run; actual results; known gaps. Make one small change, test it, commit and push it, then stop for review. Never combine a broad refactor with a bug fix. If tests cannot be run, say so and do not mark the change verified.
-
-## How to resume after ChatGPT limits or a context reset
-
-1. Open `docs/AI_COLLABORATION.md` and this file first.
-2. Pull the latest shared branch and inspect `git status`; do not overwrite uncommitted work.
-3. Read `docs/NEXT_KILO_PROMPT.md`. It contains the current instruction to give Kilo.
-4. Kilo must first report findings without changing code. After review, update this document and the roadmap before the next implementation increment.
-5. After any push, record the exact branch and SHA here and in the collaboration handoff.
+Read [Roadmap](ROADMAP.md), [Architecture](ARCHITECTURE.md), [Agent Handoff](AGENT_HANDOFF.md), and [Next Kilo Prompt](NEXT_KILO_PROMPT.md). Work on one increment at a time. After each checkpoint, update this file with evidence and the exact commit SHA.
