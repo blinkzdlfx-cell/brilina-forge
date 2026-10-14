@@ -1,344 +1,98 @@
 # Brilina Forge Architecture
 
-## High-level topology
+## Purpose
+
+Brilina Forge is a private GitHub-centered workspace for controlled AI-assisted software development. The browser provides the workspace UI. The Agent Controller coordinates the model and registered tools. GitHub is the source of truth for code; Neon stores Forge application state.
+
+## Production topology
 
 ```
-                          ┌──────────────────────────┐
-                          │      Forge Web UI        │
-                          │  App.tsx (chat + diff)   │
-                          └───────────┬──────────────┘
-                                      │ SSE /api/*
-                                      ▼
-                          ┌──────────────────────────┐
-                          │  Fastify 5 application   │
-                          │  helmet · rate-limit     │
-                          │  origin + session guard  │
-                          └───────────┬──────────────┘
-                                      │
-               ┌──────────────────────┘
-               ▼
-  ┌────────────────────┐
-  │ Agent Controller   │
-  │ policy · registry  │
-  │ observer · audit   │
-  └────┬───────┬───────┘
-       │       │
-       ▼       ▼
-┌────────────┐  ┌───────────────────┐
-│ AI runtime │  │   Tool Registry   │
-│ src/ai/    │  │  github.* tools   │
-│ provider   │  └─────────┬─────────┘
-│ registry   │            │
-└─────┬──────┘            │
-      │                   ▼
-      │           ┌──────────────┐
-      │           │ GithubService│
-      │           └──────┬───────┘
-      │                  │
-      ▼                  ▼
- AI provider        REST/GraphQL
- (OpenAI-           GitHub
-  compatible)
-
-    ┌───────────────────────────────────────────┐
-    │             Neon / Lakebase Postgres      │
-    │ users · workspaces · sessions ·           │
-    │ conversations · messages · runs ·         │
-    │ tool_calls · usage_records                │
-    └───────────────────────────────────────────┘
-
-  Commands do not run here. The Forge server has no shell and no
-  child_process. When a command needs to execute, the browser asks the
-  user's machine, which runs a small local Node companion and streams the
-  output back over SSE. See [Plan — Local execution](PLAN_LOCAL_EXECUTION.md).
-```
-
-Note: the Forge server holds **no execution state**. There is no server-side
-worker, no browser terminal, and no WebSocket PTY. Execution lives on the
-user's machine behind a command-policy boundary (ADR-018).
-
-## Architectural rules
-
-### Rule 1 — Source ownership
-
-GitHub owns source code.
-
-### Rule 2 — Application state
-
-Neon owns Forge state.
-
-### Rule 3 — Execution
-
-Commands run on the user's machine, never on the Forge server. The companion
-is disposable: it holds only temporary execution state and the per-machine
-approval store. See [Plan — Local execution](PLAN_LOCAL_EXECUTION.md).
-
-### Rule 4 — Orchestration
-
-The Forge backend owns agent orchestration.
-
-### Rule 5 — Model abstraction
-
-The Agent Controller never depends directly on a provider SDK. Provider SDK-shaped code lives only in `src/ai/`.
-
-### Rule 6 — GitHub abstraction
-
-Application code never scatters raw GitHub API calls. All access goes through `GithubService`.
-
-### Rule 7 — Tool boundary
-
-Models request typed tools. Models do not receive arbitrary backend credentials or direct network access.
-
-### Rule 8 — No server-side shell
-
-The Forge server has no `child_process`, no local filesystem execution, and no
-browser terminal. Command classification happens in the companion, not on the
-server.
-
-## Backend module map
-
-The package layout as implemented:
-
-```
-src/
-  server.ts            Fastify routes, plugins, run orchestration, SSE (local dev only)
-  start.ts             Neon session store, graceful shutdown, listen
-  config.ts            Environment-backed configuration
-  web-serving.ts       Built frontend static files and SPA fallback
-  auth/
-    github.ts          PKCE authorization URL, token exchange, refresh, state binding
-    session.ts         SessionStore boundary and cookie parsing
-  github/
-    client.ts          GitHub REST + GraphQL transport
-    service.ts         Semantic GitHubService (repos, branches, tree, file, compare, commits)
-  db/
-    client.ts          Neon serverless SQL client
-    crypto.ts          AES-256-GCM token encryption and session hashing
-    repositories.ts    Users, workspaces, members, GitHub connections, sessions
-    conversation-repositories.ts
-    agent-repositories.ts   Run and tool-call audit (redacted on write)
-    audit-repositories.ts   Run audit read and run listing
-    usage-repositories.ts   usage_records writes
-  agent/
-    types.ts           Provider-neutral controller contracts, AgentObserver, lifecycle
-    registry.ts        Typed tool registry
-    context.ts         Bounded model context assembly
-    policy.ts          Tool policy evaluation and authorization boundary
-    run-state.ts       Run lifecycle state machine
-    controller.ts      The controller loop
-    tools/
-      github-read-repository.ts   github.get_repository
-      github-read-context.ts      five further GitHub read tools
-  ai/
-    types.ts           AiProvider, AiProviderError, AiMessage, AiStreamEvent, AiModelResult
-    errors.ts          HTTP status classification, retry-after parsing, transport errors
-    openai-compatible.ts  OpenAI-compatible chat/completions adapter with SSE streaming
-    deterministic.ts   DeterministicDevelopmentProvider
-    registry.ts        ProviderModelRegistry
-    retry.ts           withCooldownRetry
-    retry-model.ts     wrapWithCooldownRetry for AgentModel
-    provider-model.ts  ProviderAgentModel, toAiMessages
-    factory.ts         createProviderRuntime (key-gated activation)
-  security/
-    redact.ts          redactSecrets, redactValue
-  phase4/
-    model.ts           Phase4DeterministicModel
-    events.ts          In-memory RunEventBus
-web/src/
-  App.tsx              Workspace shell, chat, tool activity, diff panel
-  api.ts               Same-origin API wrappers
-  types.ts             Shared browser types
-db/migrations/         Ordered SQL migrations
-```
-
-Execution is not in this tree. It lives in the companion, which is built as a
-separate small Node service. See [Plan — Local execution](PLAN_LOCAL_EXECUTION.md).
-
-## Transport
-
-Only SSE is used (ADR-013). There is no WebSocket: the browser never holds a
-shell, so there is nothing bidirectional to stream.
-
-| Transport | Used for | Direction | Why |
-|---|---|---|---|
-| SSE | `/api/runs/:runId/events` — conversation and run lifecycle | server → browser | The chat stream is one-directional and benefits from automatic reconnection and simple per-event dispatch. |
-
-Consequences that are implemented, not aspirational:
-
-- The SSE stream replays the in-memory run history on subscribe, then streams live, and closes on `run.completed` or `run.failed`. A 15-second comment heartbeat keeps the connection alive.
-- The stream is origin-checked, because a WebSocket handshake is no longer the concern it was when the terminal lived on the server.
-
-## Command policy
-
-Command classification lives in the companion, not on the Forge server. The
-same `classifyCommand` logic is reused so the server and the companion cannot
-drift.
-
-Order of evaluation in `classifyCommand`:
-
-1. Empty command → `blocked`.
-2. Length above 2000 characters → `blocked`.
-3. Control characters → `blocked`.
-4. Chaining, command substitution, redirection or embedded newlines (`; & | \` > $( << \n \r`) → `blocked`. One classified command cannot smuggle in another.
-5. Block list → `blocked`. Destructive filesystem operations, disk writes, power-state changes, privilege escalation (`sudo`, `su -`), package publication, and the Windows equivalents.
-6. Approval list → `approval-required`. Dependency installation, repository mutation, outbound network fetches, container execution, process termination, long-running dev servers, interactive terminal programs, remote host access, and environment inspection.
-7. Executable not on the read-only inspection allow-list → `approval-required`. An unknown command never runs unattended.
-8. Otherwise → `safe`.
-
-The model cannot alter its own policy: the policy is applied inside the
-companion, after authorization, not by the caller.
-
-Evaluation order is **blocked → approval-required → safe**, matching Claude
-Code's `deny → ask → allow` and Codex's `forbidden → prompt → allow`.
-
-## Agent Controller boundary
-
-The Agent Controller owns orchestration, not provider-specific behavior or infrastructure implementation.
-
-Its inputs are:
-- authenticated principal
-- conversation/run identifiers
-- bounded user/model context
-- registered typed tools
-- model decisions through a provider-neutral interface
-- an optional observer for tool lifecycle events
-- an optional lifecycle hook for cooperative cancellation
-
-Its responsibilities are:
-- create and transition runs
-- expose only registered tool schemas
-- validate tool arguments
-- evaluate tool policy and authorization
-- execute typed tools
-- append structured tool results to model context, and record the assistant tool-call turn so provider message protocols stay valid
-- inject the active repository/branch as a system context message
-- persist run/tool-call audit state
-- enforce a maximum step count
-- stop at a step boundary when cancellation is requested
-
-The controller does not:
-- call provider SDKs directly
-- execute arbitrary shell commands
-- access GitHub outside `GithubService`
-- load an entire repository by default
-- receive or expose raw credentials
-
-## AI provider runtime
-
-```
-createProviderRuntime()
-  → DeterministicDevelopmentProvider always registered
-  → OpenAiCompatibleProvider registered only when AI_PROVIDER_API_KEY is set
-  → ProviderModelRegistry resolves model → provider
-  → ProviderAgentModel adapts AiProvider to the AgentModel contract
-  → wrapWithCooldownRetry adds provider-aware cooldown retry
-```
-
-Key properties:
-
-- Provider activation is key-gated. With no key, the deterministic adapter remains the active model and the rest of the system behaves identically (ADR-014).
-- Provider failures are normalized into `AiProviderError` with a classified `kind` and `retryAfterMs`. The API key never appears in an error message.
-- Timeouts use `AbortSignal.timeout`, composed with the run's cancellation signal via `AbortSignal.any`.
-- `runs.provider` / `runs.model` and a `usage_records` row are written for every run.
-
-## GitHub context pipeline
-
-```
-conversation repository + branch
-→ repository metadata
-→ branch metadata
-→ tree
-→ relevant paths
-→ file reads
-→ context assembly
-→ token/context budget check
-→ model
-```
-
-The context service may cache where safe, but cache invalidation must respect commit/branch changes. A conversation with no bound repository cannot use the GitHub read tools at all.
-
-## Agent execution pipeline
-
-```
-message
-→ create run
-→ inject active development context
-→ invoke model (with cooldown retry and cancellation signal)
-→ receive tool call
-→ validate schema
-→ evaluate policy
-→ authorize (identity → workspace → repository)
-→ execute
-→ persist redacted result
-→ append result and assistant tool-call turn to model context
-→ continue
-→ finish run
-→ release run event history
-```
-
-## Security layering
-
-See [Security](SECURITY.md) for the full control list. The layers in execution order:
-
-1. Transport: helmet headers, rate limiting, 256 KB body limit, `trustProxy`.
-2. Request: same-origin check on state-changing routes and the SSE stream.
-3. Identity: HttpOnly `SameSite=Strict` session cookie, server-side session lookup in Neon.
-4. Authorization: user + workspace scoping on every conversation and run route.
-5. Input: UUID and session-id validation, branch/title validation, GitHub path and ref validation.
-6. Execution: command classification, companion environment allow-list, device verification on first use.
-7. Output: secret redaction on persisted audit values, generic `internal_error` responses, `publicRunFailure` filtering over SSE.
-
-## Future extensibility
-
-The architecture should allow:
-
-- additional AI providers registered in `createProviderRuntime`
-- additional tool families
-- GitLab and Bitbucket services
-- persisted run-event history and a DB-backed OAuth state store
-- a future execution adapter (Codespaces, Docker, or another machine)
-
-without changing the conversation model or Agent Controller contract.
-
----
-
-## Current deployment architecture: native Cloudflare Worker
-
-The original architecture described a Node/Fastify API with a local execution
-worker. That is no longer the target production runtime.
-
-The current target is:
-
-```
-Browser
-   |
-   v
+Browser (React + Vite)
+        |
+        | HTTPS / same-origin API and SSE
+        v
 Cloudflare Worker
-   |-- React Static Assets
-   |-- Auth/session
-   |-- GitHubService
-   |-- Conversations
-   |-- Agent Controller
-   |-- AI provider
-   |-- SSE
-   |
-   v
-Neon Postgres
+  - GitHub App auth/session routes
+  - Forge API
+  - Agent Controller and typed tools
+  - AI provider adapter
+  - run lifecycle / SSE response
+  - Workers Static Assets
+        |
+        +------> GitHub REST / GraphQL (repository source)
+        |
+        +------> Neon Postgres (users, sessions, conversations,
+                                  messages, runs, tool audit, usage,
+                                  companion work results)
+        
+Separate future component:
+User's computer -> local Node.js companion -> approved local commands
 ```
 
-The Worker uses standard Fetch APIs and Web Streams. Neon remains the durable
-application database. GitHub remains the source of truth for repository code.
+The production entry points are `worker/index.ts` and `worker/api.ts`. The old Fastify runtime in `src/server.ts` is migration-era/local-only code. Do not add new product behavior to it. Neon remains the database; D1 is not part of the migration.
 
-Execution is outside this runtime. It runs on the user's machine through the
-companion, which is built as a separate small Node service. See
-[Plan — Local execution](PLAN_LOCAL_EXECUTION.md).
+## Ownership and boundaries
 
-`src/server.ts` is the local development runtime. Do not add new application
-behavior to it. New application routes belong in `worker/api.ts`, and new
-companion endpoints belong in the companion service.
+1. **GitHub owns source code.** Forge reads repositories through the shared `GithubService`; it does not replace GitHub as the canonical source.
+2. **Neon owns durable application records.** Session, conversation, run, message, audit and usage data belongs in the database where durability is required.
+3. **The Worker does not execute shell commands.** No `child_process`, local shell, or browser terminal in the production Worker.
+4. **The controller owns orchestration.** It validates typed tool requests, applies policy/authorization, audits tool activity and uses a provider-neutral model interface.
+5. **Context is progressive.** Give the model only task-relevant repository information, not a full repository dump by default.
+6. **Secrets stay server-side.** The model and browser must not receive raw provider/GitHub credentials.
+7. **Local execution is a separate component.** If implemented, a small Node.js companion runs on the user's machine. It must authenticate work, enforce command policy, obtain consent for risky commands, bound output and time, and report results. The current repository has partial Worker/database scaffolding but does not yet establish a complete working companion.
+8. **Human approval must be real.** A UI event saying approval is required is not approval functionality. The tool call must persist in a pending state, accept an authenticated decision, audit that decision and resume or reject deterministically.
 
-The run stream atomically claims a queued run and executes the Agent
-Controller while the SSE connection remains open. This removes production
-dependence on process-local run ownership and event history.
+## Run lifecycle: current behavior and required guarantees
 
-See [Native Worker migration](NATIVE_WORKER_MIGRATION.md) for the implementation record and [Cloudflare deployment](CLOUDFLARE_DEPLOYMENT.md) for deployment configuration.
+Current Worker code creates a run in Neon with status `queued`. The browser opens `GET /api/runs/:runId/events`; the Worker attempts to claim the run and executes the controller while the SSE response remains open. Another subscriber waits for the run to reach a terminal state. Run records are durable, but this request-bound execution pattern does not by itself guarantee recovery after disconnect, isolate termination, or timeout. Do not describe it as fully durable orchestration.
+
+Before this path is considered reliable, tests and implementation must establish:
+
+- one authoritative, atomic claim/lease per run;
+- idempotent dispatch so reconnects cannot execute the same run twice;
+- explicit behavior for browser disconnect versus actual run cancellation;
+- durable final status, result messages and tool audit;
+- bounded execution and cleanup on timeout/cancellation;
+- a documented recovery path for a claimed run whose execution disappears;
+- ordered event IDs and a reliable replay strategy if SSE reconnect/replay is required.
+
+The current legacy `src/phase4/events.ts` is an in-memory event bus. Do not claim that it provides durable replay across Worker isolates or restarts.
+
+## Current module map
+
+- `worker/index.ts`: Worker entry point, API dispatch, security headers, static assets.
+- `worker/api.ts`: native Worker auth, GitHub, conversation, run, audit, SSE and companion-related routes.
+- `src/auth/`: GitHub authorization and session abstractions shared by runtime code.
+- `src/github/`: GitHub API transport and semantic `GithubService`.
+- `src/db/`: Neon SQL client, session and conversation/run/audit/usage repositories, companion-work persistence.
+- `src/agent/`: typed tool contracts, policy, context assembly, controller and tool registry.
+- `src/ai/`: provider-neutral AI contracts, OpenAI-compatible adapter, deterministic adapter and retry logic.
+- `src/security/`: secret redaction.
+- `src/phase4/`: legacy deterministic model and in-memory event bus.
+- `web/src/`: React UI, API client and browser types.
+- `db/migrations/`: database migrations.
+- `docs/CURRENT_STATE_AND_CONTINUATION.md`: current evidence-based status and next stages.
+- `docs/NEXT_KILO_PROMPT.md`: reusable inspection-first handoff prompt.
+
+The exact current file tree must be inspected on the checked-out branch before coding; this module map is not a claim that every listed module is active in production.
+
+## AI provider boundary
+
+The controller consumes the provider-neutral `AgentModel` contract. The OpenAI-compatible adapter is intended to be enabled only when configured; otherwise the deterministic development model is used. Unit tests with faked responses do not prove a live provider request works. Usage/cost fields must distinguish provider-reported usage from estimates.
+
+## Companion and command policy
+
+The companion is not part of the Worker process and must not be described as complete until its executable application and end-to-end tests exist. Device identity cannot depend on an in-memory Worker `Map`, because requests may reach different isolates. Work assignment/results need authenticated ownership and durable state. Commands should be classified as blocked, approval-required, or safe in that order. Because the companion runs with the user's OS permissions and the first version has no sandbox, the policy boundary and user consent are critical and must not be bypassed.
+
+## Verification language
+
+Use these labels consistently:
+
+- **Implemented in code:** source exists.
+- **Automated-tested:** named test(s) actually ran and passed.
+- **Live-verified:** behavior was exercised against the real configured environment.
+- **Partial:** only some contracts or scaffolding exist.
+- **Not implemented:** no complete implementation exists.
+- **Blocked:** required environment, decision, or dependency is unavailable.
+
+See `docs/CURRENT_STATE_AND_CONTINUATION.md` and `docs/ROADMAP.md` for current status and order.
