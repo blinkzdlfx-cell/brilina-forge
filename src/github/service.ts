@@ -44,7 +44,7 @@ function assertBranchName(branch: string): void {
     branch.includes("..") ||
     branch.includes("//") ||
     branch.includes("@{") ||
-    [" ", "\\t", "\\n", "~", "^", ":", "?", "*", "[", "]", "\\\\"].some(character => branch.includes(character)) || /[\\u0000-\\u001f\\u007f]/.test(branch) ||
+    [" ", "\t", "\n", "~", "^", ":", "?", "*", "[", "]", "\\"].some(character => branch.includes(character)) || /[\u0000-\u001f\u007f]/.test(branch) ||
     branch.split("/").some(part => !part || part.startsWith(".") || part.endsWith(".lock"))
   ) {
     throw Object.assign(new Error("Invalid Git branch name"), { statusCode: 400 });
