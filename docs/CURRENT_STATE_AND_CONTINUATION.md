@@ -24,7 +24,7 @@ Brilina Forge is a private browser-based AI coding workspace. The user connects 
 | Agent Controller | Typed tool registry, authorization, policy and audit code exist | Implemented in code; complete user workflow not verified |
 | AI provider | Deterministic model and OpenAI-compatible adapter exist | Adapter code exists; live provider call and tool-calling behavior not verified |
 | GitHub read tools | Repository metadata/context, branches, tree, file read, diff | Implemented in code |
-| GitHub write tools | No complete registered create/update/commit coding workflow was found in the inspected tool set | **Phase 1 blocker; implement and test** |
+| GitHub write tools | Draft PR #7 implements work-branch creation plus file create/update/upsert operations and includes them in the Worker tool registry path. Writes use current blob SHAs and reject the repository default branch. | **Code implemented on feature branch; targeted checks and live acceptance pending** |
 | UI-to-agent code change | No verified end-to-end change from chat to GitHub commit | **Not verified; primary Phase 1 target** |
 | GitHub Actions repair loop | APIs/workflows may provide a foundation; complete AI-driven diagnose/fix/retest loop not verified | Phase 2 |
 | Local companion | Partial Worker/database dispatch scaffolding exists; no complete executable companion verified | Phase 3 |
@@ -54,10 +54,10 @@ When a check requires the owner to interact with the deployed/local app, use the
 - [ ] Run available build and test commands; record exact output.
 - [ ] Verify GitHub OAuth, repository selection, branch selection, conversation binding, and Neon persistence.
 - [ ] Configure one real AI provider and verify a real request with tool calls.
-- [ ] Add typed GitHub create/update file tools using current blob SHAs.
+- [ ] Merge and verify the typed GitHub branch/create/update/upsert tools added in draft PR #7; confirm current-blob-SHA updates and default-branch protection with tests.
 - [ ] Add scoped authorization so tools only modify the conversation's selected repository and an explicitly selected work branch.
 - [ ] Ensure writes are sequential for each path and handle conflicts safely.
-- [ ] Add branch/commit workflow, diff/read-back, audit events, output bounds, and clear error results.
+- [ ] Complete and verify the branch/commit workflow, diff/read-back, audit events, output bounds, and clear error results.
 - [ ] Add UI activity and diff/result presentation.
 - [ ] Test a small real repository change end to end.
 - [ ] Record exact branch, SHA, commands, test results, live verification, and known gaps.
