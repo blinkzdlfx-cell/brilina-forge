@@ -44,7 +44,7 @@ function assertBranchName(branch: string): void {
     branch.includes("..") ||
     branch.includes("//") ||
     branch.includes("@{") ||
-    /[\s~^:?*\\[\\]\\\\\u0000-\u001f\u007f]/.test(branch) ||
+    [" ", "\\t", "\\n", "~", "^", ":", "?", "*", "[", "]", "\\\\"].some(character => branch.includes(character)) || /[\\u0000-\\u001f\\u007f]/.test(branch) ||
     branch.split("/").some(part => !part || part.startsWith(".") || part.endsWith(".lock"))
   ) {
     throw Object.assign(new Error("Invalid Git branch name"), { statusCode: 400 });
@@ -273,14 +273,12 @@ export class GithubService {
   }
 
   async writeFile(owner: string, repo: string, path: string, content: string, message: string, branch: string): Promise<GithubWriteResponse> {
+    let current: GithubFile | undefined;
     try {
-      const current = await this.getFile(owner, repo, path, branch);
-      return await this.putFile(owner, repo, path, content, message, branch, current.sha);
+      current = await this.getFile(owner, repo, path, branch);
     } catch (error) {
-      if (error instanceof GithubApiError && error.status === 404) {
-        return this.putFile(owner, repo, path, content, message, branch);
-      }
-      throw error;
+      if (!(error instanceof GithubApiError) || error.status !== 404) throw error;
     }
+    return this.putFile(owner, repo, path, content, message, branch, current?.sha);
   }
 }
