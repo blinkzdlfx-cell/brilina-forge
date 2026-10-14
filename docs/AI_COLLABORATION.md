@@ -23,6 +23,10 @@ Before saying a task is done, deciding a feature works, checking off a roadmap i
 
 **Phase 1 is still in progress until the real AI GitHub file-writing flow passes end to end. Do not skip to Phase 2 while file writes fail.** An authorized non-default work-branch write must be confirmed in GitHub, read back, and shown as a reviewable diff/commit in the UI. Reading source files or issues is not a substitute for writing files.
 
+## When the owner must perform a manual check
+
+If verification requires the owner's browser/account/device, a live deployed UI, or a permission/consent step unavailable to Kilo, complete safe automated checks first and then pause at a checkpoint. Give the owner a test card containing the reason, exact URL/screen and safe work branch, numbered actions, expected result, what to report (PASS/FAIL and exact error; sanitized screenshot/details if useful), and safe stop instructions. Never ask for passwords, tokens, or secrets. Wait for the owner's response before recording owner-performed evidence or passing a gate. Label it **owner-reported manual verification**, not independently observed verification. If the owner cannot run it, leave the item blocked/unverified. Batch related checks and do not delegate checks that can safely be automated.
+
 ## Working protocol
 
 - Inspect branch, HEAD SHA, and working-tree status before acting. Preserve uncommitted work.
