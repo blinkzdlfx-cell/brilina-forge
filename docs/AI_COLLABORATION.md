@@ -10,6 +10,19 @@ This file coordinates Kilo Code and ChatGPT on Brilina Forge. The project owner 
 4. [Agent Handoff](AGENT_HANDOFF.md)
 5. [Next Kilo Prompt](NEXT_KILO_PROMPT.md)
 
+## Mandatory verification rule for every session and checkpoint
+
+Before saying a task is done, deciding a feature works, checking off a roadmap item, or moving to another phase, verify both the code and the documentation:
+
+- Inspect the actual implementation, runtime route, tool registration, authorization, external API call, persistence, and UI result for the behavior in question.
+- Run relevant focused automated tests and build/type checks. Add tests when coverage is missing.
+- For GitHub operations, verify the actual GitHub side effect (file contents, branch, commit, and diff), not merely that a tool call was attempted or the model returned success.
+- Perform live/end-to-end verification when the acceptance criteria require it and access is available. If not possible, explicitly mark it blocked/unverified.
+- Update the roadmap and current-state ledger only after the evidence is collected. Include SHA, files inspected/changed, exact commands/results, and live-check evidence.
+- Documentation alone, code presence alone, a mock, a type/schema, a read-only success, or an AI claim never proves completion. Missing or failing evidence keeps the item open.
+
+**Phase 1 is still in progress until the real AI GitHub file-writing flow passes end to end. Do not skip to Phase 2 while file writes fail.** An authorized non-default work-branch write must be confirmed in GitHub, read back, and shown as a reviewable diff/commit in the UI. Reading source files or issues is not a substitute for writing files.
+
 ## Working protocol
 
 - Inspect branch, HEAD SHA, and working-tree status before acting. Preserve uncommitted work.
