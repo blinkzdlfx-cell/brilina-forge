@@ -26,6 +26,10 @@ Apply this policy whenever verifying any feature or deciding whether to advance 
 
 **Phase gate enforcement:** do not begin a later phase until the previous phase's acceptance gate has passed with evidence. In particular, Phase 1 stays open while GitHub file writes fail or remain unverified. Reading files or issues does not demonstrate write capability. Phase 1 requires an actual AI-triggered file create/update on an authorized non-default work branch, confirmation in GitHub, read-back, and a reviewable diff/commit visible in the UI. If any part fails, stay on Phase 1 and debug it.
 
+## Owner-in-the-loop manual verification
+
+Some tests need the project owner because they require the owner's browser session, GitHub permissions, device, or access to the deployed environment. Do as much automated verification as safely possible first. For each remaining owner action, send one concise test card with: (1) why the owner is needed, (2) exact URL/screen and safe repository/work branch, (3) numbered steps and exact input, (4) expected visible outcome and any expected GitHub side effect, (5) what to return—PASS/FAIL plus the exact error and sanitized screenshot/details if useful—and (6) how to stop safely on failure. Never ask for credentials or secrets. Wait for the owner's report before recording owner-performed manual evidence or passing a dependent phase gate. If the test cannot be run, mark it blocked/unverified; do not infer success. Group related owner checks where practical and avoid asking the owner to perform checks that can be automated safely.
+
 ## Before Phase 1 — establish a truthful baseline
 
 This is a checkpoint, not a separate product phase.
