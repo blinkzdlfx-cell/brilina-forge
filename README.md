@@ -68,6 +68,7 @@ See [Cloudflare deployment](docs/CLOUDFLARE_DEPLOYMENT.md). Do not claim deploym
 - [Testing strategy](docs/TESTING.md)
 - [Database and API reference](docs/DATABASE_AND_API_REFERENCE.md)
 - [Phase 1 setup and user guide (GitHub, Neon, Cloudflare Workers AI, and first-time use)](docs/PHASE_1_SETUP_AND_USER_GUIDE.md)
+- [Cloudflare Workers AI API token setup and verification](docs/CLOUDFLARE_WORKERS_AI_TOKEN_SETUP.md)
 - [GitHub App setup](docs/GITHUB_APP_SETUP.md)
 
 ## Working rule
