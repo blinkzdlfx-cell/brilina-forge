@@ -75,7 +75,7 @@ Still unverified:
 - browser acceptance
 - final removal of Fastify and legacy terminal code
 
-See [Native Worker migration](docs/NATIVE_WORKER_MIGRATION.md).
+See [Native Worker migration](docs/NATIVE_WORKER_MIGRATION.md), [Current State and Continuation Plan](docs/CURRENT_STATE_AND_CONTINUATION.md), and the [reusable Kilo prompt](docs/NEXT_KILO_PROMPT.md).
 
 ## Database
 
