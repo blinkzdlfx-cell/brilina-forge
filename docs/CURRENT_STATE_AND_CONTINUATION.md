@@ -24,7 +24,7 @@ Brilina Forge is a private browser-based AI coding workspace. The user connects 
 | Agent Controller | Typed tool registry, authorization, policy and audit code exist | Implemented in code; complete user workflow not verified |
 | AI provider | Deterministic model and OpenAI-compatible adapter exist | Adapter code exists; live provider call and tool-calling behavior not verified |
 | GitHub read tools | Repository metadata/context, branches, tree, file read, diff | Implemented in code |
-| GitHub write tools | Draft PR #7 implements work-branch creation plus file create/update/upsert operations and includes them in the Worker tool registry path. Writes use current blob SHAs and reject the repository default branch. | **Focused CI passed on `b77ed1750f9ce72e8536ad5007b0fb329df8deef` (run 201); merge/deploy and live acceptance pending** |
+| GitHub write tools | PR #7 is merged as `41bee365a05c89b999ad38f9501cca039d637868`. Work-branch creation plus file create/update/upsert operations are registered in the Worker tool path. Writes use current blob SHAs and reject the repository default branch. | **Main CI run 203 passed; Cloudflare deployment and live acceptance pending** |
 | UI-to-agent code change | No verified end-to-end change from chat to GitHub commit | **Not verified; primary Phase 1 target** |
 | GitHub Actions repair loop | APIs/workflows may provide a foundation; complete AI-driven diagnose/fix/retest loop not verified | Phase 2 |
 | Local companion | Partial Worker/database dispatch scaffolding exists; no complete executable companion verified | Phase 3 |
@@ -36,7 +36,7 @@ Brilina Forge is a private browser-based AI coding workspace. The user connects 
 
 ## Automated verification snapshot (2026-10-14)
 
-GitHub Actions run 201 passed on commit `b77ed1750f9ce72e8536ad5007b0fb329df8deef`: frontend build, focused Phase 1 TypeScript check, focused Phase 1 tests, Worker tests, Wrangler dry-run, and dependency audits. The broad recursive `npm test` suite was also attempted and failed on unrelated legacy issues: `src/server.ts` has an existing parse/type-check problem near line 660, and several local-companion tests ended with unresolved promises. Those failures are not evidence that the new GitHub write tests failed; the focused Phase 1 suite passed.
+GitHub Actions run 203 passed on main commit `41bee365a05c89b999ad38f9501cca039d637868`: frontend build, focused Phase 1 TypeScript check, focused Phase 1 tests, Worker tests, Wrangler dry-run, and dependency audits. The Wrangler command is a dry-run, not a production deployment confirmation. The broad recursive `npm test` suite was also attempted and failed on unrelated legacy issues: `src/server.ts` has an existing parse/type-check problem near line 660, and several local-companion tests ended with unresolved promises. Those failures are not evidence that the new GitHub write tests failed; the focused Phase 1 suite passed.
 
 ## Mandatory completion and phase-transition rule
 
