@@ -40,7 +40,7 @@ This file coordinates **Kilo Code** and **ChatGPT** on Brilina Forge. The projec
 ## Current shared checkpoint
 
 - **Branch:** `chatgpt/reconcile-project-state`
-- **Latest documentation checkpoint:** `97413a33b69a401f0ff7b91ca1d01cfdc1409e89`
+- **Latest documentation checkpoint:** current HEAD of `chatgpt/reconcile-project-state` (the changes in this branch are documentation-only)
 - **Status:** documentation reconciliation committed to this branch; runtime code has not been modified or tested in this checkpoint.
 - **Next action:** owner reviews the reconciled docs, then Kilo performs the inspection-only report in `docs/NEXT_KILO_PROMPT.md`. Do not begin implementation before that report is reviewed and a small increment is approved.
 
