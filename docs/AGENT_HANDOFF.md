@@ -15,6 +15,12 @@ Brilina Forge is a private GitHub-centered AI coding workspace. GitHub is canoni
 - Do not create a new branch unless the owner explicitly asks. Preserve local changes.
 - Never claim a feature is verified unless the relevant test or live action actually ran.
 
+## Mandatory verification before status changes
+
+For every feature and every phase, inspect the relevant source implementation and registered runtime/tool path, run focused tests and build/type checks, and perform the required real integration/end-to-end check when possible. Verify actual external side effects. Only after this should documentation statuses be updated. Keep code evidence and documentation in sync; documentation is not proof of functionality. Record the SHA, files inspected/changed, exact commands/results, and live evidence. If a required check fails or cannot run, mark it partial, blocked, or unverified and do not advance the phase.
+
+**Do not mark Phase 1 complete or start Phase 2 until AI-triggered GitHub file create/update works on an authorized non-default branch, GitHub confirms the change, the changed file is read back, and the UI displays a reviewable diff and commit/branch details.** File reading, issue reading, generated code, mocks, or documentation changes do not satisfy this requirement. If writes are failing, stay on Phase 1 and debug the write path.
+
 ## Current priority: Phase 1
 
 Make the existing web UI capable of a real AI coding task through GitHub:
