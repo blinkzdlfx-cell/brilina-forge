@@ -1,4 +1,4 @@
-import { GithubClient } from "./client.js";
+import { GithubApiError, GithubClient } from "./client.js";
 import type {
   GithubBranch,
   GithubCommit,
@@ -6,7 +6,6 @@ import type {
   GithubFile,
   GithubGraphQLRepository,
   GithubRepository,
-  GithubTreeEntry,
   GithubTreeResult,
   GithubUser
 } from "./types.js";
@@ -15,6 +14,7 @@ const MAX_TREE_ENTRIES = 20_000;
 const MAX_BRANCHES = 100;
 const MAX_PAGE_SIZE = 100;
 const MAX_NAME_LENGTH = 100;
+const MAX_FILE_BYTES = 900_000;
 
 function assertName(value: string, label: string): void {
   if (!value || value.length > MAX_NAME_LENGTH || /[\u0000-\u001f\u007f]/.test(value)) {
@@ -33,11 +33,48 @@ function assertRef(ref: string): void {
   }
 }
 
+function assertBranchName(branch: string): void {
+  if (
+    !branch ||
+    branch.length > 255 ||
+    branch.startsWith("/") ||
+    branch.startsWith("-") ||
+    branch.endsWith("/") ||
+    branch.endsWith(".") ||
+    branch.includes("..") ||
+    branch.includes("//") ||
+    branch.includes("@{") ||
+    /[\s~^:?*\\[\\]\\\\\u0000-\u001f\u007f]/.test(branch) ||
+    branch.split("/").some(part => !part || part.startsWith(".") || part.endsWith(".lock"))
+  ) {
+    throw Object.assign(new Error("Invalid Git branch name"), { statusCode: 400 });
+  }
+}
+
 function assertPath(path: string): void {
-  if (!path || path.length > 4096 || path.split("/").some(part => part === "..") || /[\u0000]/.test(path)) {
+  if (!path || path.length > 4096 || path.startsWith("/") || path.split("/").some(part => part === ".." || part === "." || part === "") || /[\u0000-\u001f\u007f]/.test(path)) {
     throw Object.assign(new Error("Invalid GitHub file path"), { statusCode: 400 });
   }
 }
+
+function encodeBase64Utf8(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, Math.min(offset + chunkSize, bytes.length)));
+  }
+  return btoa(binary);
+}
+
+function encodeRefPath(ref: string): string {
+  return ref.split("/").map(encodeURIComponent).join("/");
+}
+
+type GithubWriteResponse = {
+  content?: { path: string; sha: string; html_url: string } | null;
+  commit: { sha: string; html_url: string; message: string };
+};
 
 export class GithubService {
   constructor(private readonly client: GithubClient) {}
@@ -127,7 +164,7 @@ export class GithubService {
 
     const encodedPath = path.split("/").map(encodeURIComponent).join("/");
     const query = ref ? `?ref=${encodeURIComponent(ref)}` : "";
-    const result = await this.client.rest< GithubFile | GithubFile[] >(
+    const result = await this.client.rest<GithubFile | GithubFile[]>(
       `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodedPath}${query}`
     );
 
@@ -141,7 +178,7 @@ export class GithubService {
     assertRepo(owner, repo);
     assertRef(base);
     assertRef(head);
-    return this.client.rest<GithubCompareResult>(
+    return this.client.rest(
       `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/compare/${encodeURIComponent(base)}...${encodeURIComponent(head)}`
     );
   }
@@ -149,9 +186,101 @@ export class GithubService {
   async listCommits(owner: string, repo: string, ref?: string, perPage = 20): Promise<GithubCommit[]> {
     assertRepo(owner, repo);
     if (ref) assertRef(ref);
-    const query = ref ? `?sha=${encodeURIComponent(ref)}&per_page=${perPage}` : `?per_page=${perPage}`;
-    return this.client.rest<GithubCommit[]>(
+    const safePerPage = Number.isInteger(perPage) && perPage >= 1 && perPage <= 100 ? perPage : 20;
+    const query = ref ? `?sha=${encodeURIComponent(ref)}&per_page=${safePerPage}` : `?per_page=${safePerPage}`;
+    return this.client.rest(
       `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commits${query}`
     );
+  }
+
+  /**
+   * Create an isolated working branch. By default it branches from the repository's
+   * default branch; callers may supply another existing base branch explicitly.
+   */
+  async createBranch(owner: string, repo: string, branchName: string, baseRef?: string): Promise<{ branch: string; sha: string; url: string }> {
+    assertRepo(owner, repo);
+    assertBranchName(branchName);
+    const repository = await this.getRepository(owner, repo);
+    const base = baseRef ?? repository.default_branch;
+    assertBranchName(base);
+
+    const ref = await this.client.rest<{ object: { sha: string } }>(
+      `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/ref/heads/${encodeRefPath(base)}`
+    );
+    const created = await this.client.rest<{ ref: string; object: { sha: string }; url: string }>(
+      `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/refs`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ref: `refs/heads/${branchName}`, sha: ref.object.sha })
+      }
+    );
+    return { branch: branchName, sha: created.object.sha, url: created.url };
+  }
+
+  private async assertWritableBranch(owner: string, repo: string, branch: string): Promise<void> {
+    assertBranchName(branch);
+    const repository = await this.getRepository(owner, repo);
+    if (branch.toLowerCase() === repository.default_branch.toLowerCase()) {
+      throw Object.assign(new Error("Refusing to write directly to the repository default branch. Create or select a working branch first."), { statusCode: 409 });
+    }
+    await this.client.rest(
+      `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/ref/heads/${encodeRefPath(branch)}`
+    );
+  }
+
+  private async putFile(owner: string, repo: string, path: string, content: string, message: string, branch: string, sha?: string): Promise<GithubWriteResponse> {
+    assertRepo(owner, repo);
+    assertPath(path);
+    await this.assertWritableBranch(owner, repo, branch);
+    if (new TextEncoder().encode(content).byteLength > MAX_FILE_BYTES) {
+      throw Object.assign(new Error(`File exceeds the ${MAX_FILE_BYTES}-byte write limit`), { statusCode: 413 });
+    }
+    const commitMessage = message.trim() || `Update ${path}`;
+    if (commitMessage.length > 200 || /[\u0000-\u001f\u007f]/.test(commitMessage)) {
+      throw Object.assign(new Error("Invalid commit message"), { statusCode: 400 });
+    }
+
+    const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+    return this.client.rest<GithubWriteResponse>(
+      `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodedPath}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: commitMessage,
+          content: encodeBase64Utf8(content),
+          branch,
+          ...(sha ? { sha } : {})
+        })
+      }
+    );
+  }
+
+  async createFile(owner: string, repo: string, path: string, content: string, message: string, branch: string): Promise<GithubWriteResponse> {
+    try {
+      await this.getFile(owner, repo, path, branch);
+      throw Object.assign(new Error(`File already exists at ${path}; use github.update_file or github.write_file`), { statusCode: 409 });
+    } catch (error) {
+      if (!(error instanceof GithubApiError) || error.status !== 404) throw error;
+    }
+    return this.putFile(owner, repo, path, content, message, branch);
+  }
+
+  async updateFile(owner: string, repo: string, path: string, content: string, message: string, branch: string): Promise<GithubWriteResponse> {
+    const current = await this.getFile(owner, repo, path, branch);
+    return this.putFile(owner, repo, path, content, message, branch, current.sha);
+  }
+
+  async writeFile(owner: string, repo: string, path: string, content: string, message: string, branch: string): Promise<GithubWriteResponse> {
+    try {
+      const current = await this.getFile(owner, repo, path, branch);
+      return await this.putFile(owner, repo, path, content, message, branch, current.sha);
+    } catch (error) {
+      if (error instanceof GithubApiError && error.status === 404) {
+        return this.putFile(owner, repo, path, content, message, branch);
+      }
+      throw error;
+    }
   }
 }
