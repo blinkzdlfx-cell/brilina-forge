@@ -20,7 +20,7 @@ Brilina Forge is a private browser-based AI coding workspace. The user connects 
 | React/Vite UI | `web/` and Worker static asset configuration exist | Implemented in code; browser acceptance not live-verified |
 | Native Worker API | `worker/index.ts`, `worker/api.ts` | Implemented in code; production route behavior not independently verified |
 | GitHub authentication/service | GitHub OAuth/session modules and `GithubService` exist | Implemented in code; live OAuth not verified |
-| Neon persistence | Session, conversation, run, audit, usage and companion repositories exist | Implemented in code; end-to-end database flow not verified |
+| Neon persistence | Session, conversation, run, audit, usage and companion repositories exist. On 2026-10-14, the Neon management connection listed the existing project/database and a read-only SQL query succeeded; 11 public application tables were present. | Database reachable through management tooling; deployed Worker `DATABASE_URL` and end-to-end app persistence remain unverified |
 | Agent Controller | Typed tool registry, authorization, policy and audit code exist | Implemented in code; complete user workflow not verified |
 | AI provider | Deterministic model and OpenAI-compatible adapter exist | Adapter code exists; live provider call and tool-calling behavior not verified |
 | GitHub read tools | Repository metadata/context, branches, tree, file read, diff | Implemented in code |
@@ -44,7 +44,7 @@ This ledger must be based on implementation evidence, not documentation alone. W
 
 When a check requires the owner to interact with the deployed/local app, use their GitHub account, test a real permission boundary, or inspect behavior unavailable to the agent, first run all safe automated checks. Then provide a concise manual test card: **reason**, **starting URL/screen and safe test branch**, **numbered steps**, **expected result**, **what to report (PASS/FAIL and exact error)**, and **how to stop safely if it fails**. Ask for sanitized evidence only; never request passwords, tokens, or secrets. Wait for the response before recording the check as owner-reported manual evidence. Do not convert an owner request into a verified result without their response. If it cannot be performed, mark it blocked/unverified and keep any dependent acceptance gate open. Prefer one grouped checklist over repeated interruptions.
 
-## Immediate priority
+## Setup and configuration status (2026-10-14)\n\nThe existing Neon project is `Brilina Forge` (`nameless-haze-58360399`), default branch `production` (`br-sparkling-boat-zakcaiqb`), database `neondb`, region `aws-eu-west-2`. A read-only query succeeded through Neon management tooling; no schema changes were made. This does not confirm that Cloudflare's deployed `DATABASE_URL` secret matches the project.\n\nA step-by-step guide covering GitHub App setup, Neon, Cloudflare Workers AI, Worker variables/secrets, local development, and first-time use is available in [Phase 1 Setup and User Guide](PHASE_1_SETUP_AND_USER_GUIDE.md). The Cloudflare Worker secret values themselves were not inspected in this review.\n\n## Immediate priority
 
 **Phase 1: enable real AI coding through GitHub.** Do not continue expanding the companion until a real model can read relevant files, make controlled edits through GitHub, return a reviewable diff/commit, and persist the result.
 
