@@ -66,10 +66,11 @@ export function createGithubCreateBranchTool(
       const selectedBranch = context.principal.branchName?.trim();
       const baseRefAllowed = args.baseRef === undefined
         ? true
-        : Boolean(selectedBranch) && args.baseRef.toLowerCase() === selectedBranch!.toLowerCase();
+        : validText(args.baseRef, "base ref", 255) &&
+          Boolean(selectedBranch) &&
+          args.baseRef.toLowerCase() === selectedBranch!.toLowerCase();
       return scopedToConversation(context, args) &&
         validText(args.branchName, "branch name", 255) &&
-        (args.baseRef === undefined || validText(args.baseRef, "base ref", 255)) &&
         baseRefAllowed;
     },
     async execute(context, args) {
@@ -108,9 +109,9 @@ export function createGithubCreateTool(
     policy: "allowed",
     async authorize(context, args) {
       return scopedToConversation(context, args) &&
-        authorizedWorkBranch(context, args.branch, branchesCreatedDuringRun) &&
         validText(args.path, "path", 4096) &&
         validText(args.branch, "branch", 255) &&
+        authorizedWorkBranch(context, args.branch, branchesCreatedDuringRun) &&
         typeof args.content === "string" &&
         new TextEncoder().encode(args.content).byteLength <= 900000 &&
         (args.message === undefined || (validText(args.message, "message", 200) && !/[\u0000-\u001f\u007f]/.test(args.message)));
