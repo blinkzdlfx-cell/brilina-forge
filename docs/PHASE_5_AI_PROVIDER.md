@@ -1,3 +1,5 @@
+> **Historical implementation note:** This file uses the previous internal phase numbering and records past implementation work. It is not the current five-phase product roadmap. Follow [the current roadmap](ROADMAP.md) and [current-state ledger](CURRENT_STATE_AND_CONTINUATION.md) for delivery order and verified status. A historical 'complete' label does not prove live verification.
+
 # Brilina Forge — Phase 5 AI provider
 
 Status: **complete in code; adapter unit-tested only, no live provider key used**
