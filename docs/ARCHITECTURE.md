@@ -2,97 +2,80 @@
 
 ## Purpose
 
-Brilina Forge is a private GitHub-centered workspace for controlled AI-assisted software development. The browser provides the workspace UI. The Agent Controller coordinates the model and registered tools. GitHub is the source of truth for code; Neon stores Forge application state.
+Brilina Forge is a private, browser-based AI coding workspace. The immediate goal is to let a user connect GitHub, select a repository, ask a real AI to change code, and review the resulting GitHub diff/commit. Automated verification, local execution, production diagnostics, and team features follow in later phases.
 
 ## Production topology
 
 ```
-Browser (React + Vite)
-        |
-        | HTTPS / same-origin API and SSE
-        v
+Browser — React/Vite static app
+       | HTTPS / same-origin API / SSE
+       v
 Cloudflare Worker
-  - GitHub App auth/session routes
-  - Forge API
-  - Agent Controller and typed tools
+  - authentication and session handling
+  - Forge API and Agent Controller
+  - typed, authorized and audited tools
   - AI provider adapter
-  - run lifecycle / SSE response
+  - run status and event delivery
   - Workers Static Assets
-        |
-        +------> GitHub REST / GraphQL (repository source)
-        |
-        +------> Neon Postgres (users, sessions, conversations,
-                                  messages, runs, tool audit, usage,
-                                  companion work results)
-        
-Separate future component:
-User's computer -> local Node.js companion -> approved local commands
+       |                 |                 |
+       v                 v                 v
+    GitHub            Neon Postgres     AI Provider
+ source/branches      Forge state       reasoning/tool calls
+
+Later optional execution:
+Browser/Worker -> authenticated work contract -> local Node.js companion
+GitHub Actions -> remote build/test execution
+Cloudflare observability -> production diagnostic evidence
 ```
 
-The production entry points are `worker/index.ts` and `worker/api.ts`. The old Fastify runtime in `src/server.ts` is migration-era/local-only code. Do not add new product behavior to it. Neon remains the database; D1 is not part of the migration.
+## Ownership boundaries
 
-## Ownership and boundaries
+1. **GitHub owns source code.** Branches, file contents, commits, diffs, and pull requests are canonical.
+2. **Neon owns durable Forge state.** Store sessions, conversations, messages, runs, tool audit, usage, approvals, device/work records and other application state where required.
+3. **Cloudflare Worker hosts the production API.** Entry points are `worker/index.ts` and `worker/api.ts`. Do not add new product behavior to legacy Fastify `src/server.ts`.
+4. **The browser is the interface, not a shell.** No shell execution in the Worker and no browser terminal.
+5. **The Agent Controller owns orchestration.** It validates model tool requests, enforces policy/authorization, audits execution and uses a provider-neutral interface.
+6. **The AI provider is replaceable.** Start with one real provider. Keep provider-specific API handling behind the adapter and verify each provider's tool-calling capabilities.
+7. **Context is progressive.** Retrieve only task-relevant files and bounded tool results. Do not dump a full repository to the model by default.
+8. **Secrets stay server-side.** Never expose raw GitHub/provider credentials to the browser or model. Redact logs and command output before model use.
+9. **Write operations are explicit.** Scope writes to the conversation's repository and selected work branch; use current blob SHAs, handle conflicts, audit actions, and never silently write to the default branch.
+10. **Execution is separate.** GitHub Actions runs remote checks. A local Node.js companion, when built in Phase 3, runs commands on the user's computer. The Worker itself never runs shell commands.
 
-1. **GitHub owns source code.** Forge reads repositories through the shared `GithubService`; it does not replace GitHub as the canonical source.
-2. **Neon owns durable application records.** Session, conversation, run, message, audit and usage data belongs in the database where durability is required.
-3. **The Worker does not execute shell commands.** No `child_process`, local shell, or browser terminal in the production Worker.
-4. **The controller owns orchestration.** It validates typed tool requests, applies policy/authorization, audits tool activity and uses a provider-neutral model interface.
-5. **Context is progressive.** Give the model only task-relevant repository information, not a full repository dump by default.
-6. **Secrets stay server-side.** The model and browser must not receive raw provider/GitHub credentials.
-7. **Local execution is a separate component.** If implemented, a small Node.js companion runs on the user's machine. It must authenticate work, enforce command policy, obtain consent for risky commands, bound output and time, and report results. The current repository has partial Worker/database scaffolding but does not yet establish a complete working companion.
-8. **Human approval must be real.** A UI event saying approval is required is not approval functionality. The tool call must persist in a pending state, accept an authenticated decision, audit that decision and resume or reject deterministically.
+## Phase-based architecture
 
-## Run lifecycle: current behavior and required guarantees
+- **Phase 1:** real AI + GitHub read/write tools + branch/commit/diff + usable UI.
+- **Phase 2:** GitHub Actions status/log retrieval, diagnosis, bounded repair, and reliable run lifecycle.
+- **Phase 3:** authenticated local companion, durable device/work identity, command policy, approval/resume, cancellation and result reporting.
+- **Phase 4:** Cloudflare observability/log integration, redaction, source correlation and approved fixes.
+- **Phase 5:** additional providers, small-team access controls, regression testing and hardening.
 
-Current Worker code creates a run in Neon with status `queued`. The browser opens `GET /api/runs/:runId/events`; the Worker attempts to claim the run and executes the controller while the SSE response remains open. Another subscriber waits for the run to reach a terminal state. Run records are durable, but this request-bound execution pattern does not by itself guarantee recovery after disconnect, isolate termination, or timeout. Do not describe it as fully durable orchestration.
+See `ROADMAP.md` for acceptance criteria and `CURRENT_STATE_AND_CONTINUATION.md` for evidence-based status.
 
-Before this path is considered reliable, tests and implementation must establish:
+## GitHub write-tool contract
 
-- one authoritative, atomic claim/lease per run;
-- idempotent dispatch so reconnects cannot execute the same run twice;
-- explicit behavior for browser disconnect versus actual run cancellation;
-- durable final status, result messages and tool audit;
-- bounded execution and cleanup on timeout/cancellation;
-- a documented recovery path for a claimed run whose execution disappears;
-- ordered event IDs and a reliable replay strategy if SSE reconnect/replay is required.
+The Phase 1 write tools should follow these principles:
 
-The current legacy `src/phase4/events.ts` is an in-memory event bus. Do not claim that it provides durable replay across Worker isolates or restarts.
+- Bind every tool call to the authenticated principal and the conversation's repository.
+- Require explicit owner/repo/path and validate path/ref input.
+- Never trust model-supplied repository identity without checking it against the conversation context.
+- Read the current file/blob SHA before updating; use the SHA expected by GitHub's contents API.
+- Serialize updates to the same path and handle conflicts with a fresh read rather than blind overwrite.
+- Use a non-default work branch for changes; creating a branch or committing is an auditable action.
+- Bound file size and tool output; never pass credentials into generated files.
+- Read back the resulting file/diff and return commit/branch metadata to the model/UI.
+- Record tool arguments/results and errors in the audit trail, without logging secrets.
+- Test permission denial, wrong repository, stale SHA, invalid path, API errors, and successful writes.
 
-## Current module map
+## Run lifecycle and reliability
 
-- `worker/index.ts`: Worker entry point, API dispatch, security headers, static assets.
-- `worker/api.ts`: native Worker auth, GitHub, conversation, run, audit, SSE and companion-related routes.
-- `src/auth/`: GitHub authorization and session abstractions shared by runtime code.
-- `src/github/`: GitHub API transport and semantic `GithubService`.
-- `src/db/`: Neon SQL client, session and conversation/run/audit/usage repositories, companion-work persistence.
-- `src/agent/`: typed tool contracts, policy, context assembly, controller and tool registry.
-- `src/ai/`: provider-neutral AI contracts, OpenAI-compatible adapter, deterministic adapter and retry logic.
-- `src/security/`: secret redaction.
-- `src/phase4/`: legacy deterministic model and in-memory event bus.
-- `web/src/`: React UI, API client and browser types.
-- `db/migrations/`: database migrations.
-- `docs/CURRENT_STATE_AND_CONTINUATION.md`: current evidence-based status and next stages.
-- `docs/NEXT_KILO_PROMPT.md`: reusable inspection-first handoff prompt.
+The current Worker pattern creates a queued run in Neon and executes the Agent Controller while an SSE response remains open. That does not by itself prove recovery after disconnects, isolate termination or timeout.
 
-The exact current file tree must be inspected on the checked-out branch before coding; this module map is not a claim that every listed module is active in production.
+Before Phase 2 is complete, tests must establish an atomic/idempotent run claim, duplicate-subscriber behavior, defined disconnect semantics, cancellation/timeouts, durable result/audit state, recovery for abandoned work, and replay behavior where required. Do not claim durable orchestration until these cases are verified.
 
-## AI provider boundary
+## Companion safety
 
-The controller consumes the provider-neutral `AgentModel` contract. The OpenAI-compatible adapter is intended to be enabled only when configured; otherwise the deterministic development model is used. Unit tests with faked responses do not prove a live provider request works. Usage/cost fields must distinguish provider-reported usage from estimates.
-
-## Companion and command policy
-
-The companion is not part of the Worker process and must not be described as complete until its executable application and end-to-end tests exist. Device identity cannot depend on an in-memory Worker `Map`, because requests may reach different isolates. Work assignment/results need authenticated ownership and durable state. Commands should be classified as blocked, approval-required, or safe in that order. Because the companion runs with the user's OS permissions and the first version has no sandbox, the policy boundary and user consent are critical and must not be bypassed.
+The repository contains partial companion-related Worker/database scaffolding, not a verified complete companion application. Device identity cannot depend on an isolate-local map. Approval must persist the exact pending call, authenticate and audit the decision, and resume the same call at most once. Command policy must block prohibited operations before considering approval, then require consent for risky operations. A pattern-based command classifier is not a full shell parser; restrict commands and clearly communicate the lack of a sandbox.
 
 ## Verification language
 
-Use these labels consistently:
-
-- **Implemented in code:** source exists.
-- **Automated-tested:** named test(s) actually ran and passed.
-- **Live-verified:** behavior was exercised against the real configured environment.
-- **Partial:** only some contracts or scaffolding exist.
-- **Not implemented:** no complete implementation exists.
-- **Blocked:** required environment, decision, or dependency is unavailable.
-
-See `docs/CURRENT_STATE_AND_CONTINUATION.md` and `docs/ROADMAP.md` for current status and order.
+Use **implemented in code**, **automated-tested**, **live-verified**, **partial**, **not implemented**, or **blocked**. Source inspection and old test counts are not proof of live behavior.
