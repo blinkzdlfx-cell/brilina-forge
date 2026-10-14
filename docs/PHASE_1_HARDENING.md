@@ -1,10 +1,13 @@
-# Brilina Forge — Phase 1 hardening
+# Brilina Forge — Phase 1 read-only hardening
 
-Status: **complete**
+**Status of the read-only hardening sub-scope:** completed in code on 2026-09-22, subject to current live verification.  
+**Status of the full Phase 1 AI coding workflow:** **OPEN / NOT COMPLETE**.
 
-Accepted on 2026-09-22.
+This document originally described the authentication and read-only GitHub foundation. It must not be interpreted as evidence that AI-driven GitHub writes work.
 
-## Completed
+## Read-only foundation
+
+The original hardening scope covered:
 
 - GitHub App authorization flow with PKCE
 - account identification and workspace provisioning
@@ -14,48 +17,36 @@ Accepted on 2026-09-22.
 - expiring authorization handling
 - malformed request handling
 
-## Acceptance
+The source code contains the foundation for these behaviors, but live OAuth, production persistence, and browser acceptance must be verified before they are described as live-verified.
 
-> Forge can authenticate, identify the account, discover repositories, inspect
-> branches, retrieve repository context and read files while handling expiring
-> authorization and malformed requests safely.
-
-## Notes
-
-- The Phase 1 hardening (read-only capabilities, authentication, repository discovery,
-  and file read operations) is complete.
-- **GitHub write tools** (create, update, commit with blob SHAs, scoped to conversation
-  repository, and diff/commit presentation) have been implemented and are ready for
-  Phase 1 verification.
-
-## Known engineering risks to keep visible
-
-- ...
-
-## Current priority: Phase 1 — usable AI coding through GitHub (NOW)
+## Full Phase 1: usable AI coding through GitHub
 
 **Outcome:** From the existing web UI, the user can ask a real model to make a useful, reviewable code change in a selected GitHub repository without needing the local companion.
 
-### Scope
+Source inspection on 2026-10-14 found that `src/agent/tools/github-write-tools.ts` still contained placeholder write implementations and `worker/api.ts` registered the existing read tools but not the new write tools in the Agent Controller execution path. Therefore, the GitHub write workflow is **not ready for manual acceptance testing** until those gaps are fixed and retested.
+
+### Required scope
 
 1. Verify GitHub sign-in, repository/branch selection, conversation context, Neon persistence, and the real AI provider path.
-2. Configure one real provider first. Keep the provider boundary extensible; do not integrate every provider yet.
-3. Expand the GitHub service and agent tool registry with controlled write operations:
+2. Configure one real provider first. Cloudflare Workers AI can be used through the existing OpenAI-compatible adapter when a supported tool-calling model is configured. Other providers are deferred until Phase 1 works.
+3. Implement and register controlled GitHub write operations:
    - create a working branch when appropriate, or use a clearly selected existing work branch;
    - create or update a file with GitHub's current blob SHA;
    - apply multiple related file changes safely and sequentially;
    - read back the changed files and produce a diff;
    - commit changes with a clear message;
    - expose the resulting branch/commit and review link to the UI.
-4. Keep repository access scoped to the repository bound to the conversation and to the signed-in user's GitHub permissions.
+4. Scope repository access to the repository bound to the conversation and the signed-in user's GitHub permissions.
 5. Add tool schemas, input validation, authorization, audit events, bounded output, and clear failure handling.
-6. Require explicit confirmation for consequential write actions as appropriate. Never silently push to the default branch.
-7. Update the UI to show the plan/activity, changed files, diff, success/failure, and next action.
+6. Never silently write to the default branch.
+7. Update the UI to show activity, changed files, diff, success/failure, and next action.
 8. Ensure the model receives only relevant files and tool results, not the entire repository by default.
-9. End-to-end test for a small real change using a repository where the owner has authorized access.
+9. End-to-end test a small real change using an authorized repository.
 10. Persist conversation/run/tool results after reload.
 11. Confirm the model wrote a real GitHub file change and the diff/commit can be reviewed in GitHub.
 
-## Gate
+For setup instructions, see [Phase 1 Setup and User Guide](PHASE_1_SETUP_AND_USER_GUIDE.md).
 
-**Phase 1 gate is mandatory:** if the actual GitHub file write fails or is unverified, Phase 1 is not complete and Phase 2 must not start. Continue debugging the Phase 1 write path; do not skip ahead.
+## Mandatory gate
+
+**Phase 1 is not complete and Phase 2 must not start** until the real AI-to-GitHub write path succeeds on an authorized non-default work branch: the tool call creates or updates a file, GitHub confirms the change, the file is read back, and the UI presents a reviewable diff plus branch/commit details. Reading files or creating tool definitions does not prove writing works.
