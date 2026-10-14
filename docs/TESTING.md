@@ -20,6 +20,19 @@ Check `package.json` before running commands; report the actual scripts and resu
 
 Never use documentation-only verification to decide that functionality is complete. For every claimed behavior, inspect the relevant source/runtime path and tests, run focused tests and build/type checks, and verify the actual end-to-end effect. Then check that documentation accurately reflects the evidence. Record the checked SHA, exact commands and results, and any live checks. A successful read, a tool schema, mock, comment, or status checkbox does not prove a write works. If live verification is required but unavailable, report blocked/unverified rather than complete.
 
+## Owner-performed manual verification workflow
+
+Use manual owner testing only for checks that genuinely require the owner's browser session, GitHub account/permissions, device, explicit consent, or access to the deployed environment. Run all safe automated checks first. Then provide a test card with:
+
+- **Reason:** why the coding agent cannot complete the check itself.
+- **Starting point:** exact URL/screen and safe test repository/work branch.
+- **Steps:** short, numbered actions and exact input.
+- **Expected result:** visible UI outcome and any expected external side effect.
+- **Report back:** PASS or FAIL, exact error/message, and sanitized screenshot/details if helpful.
+- **Safe stop:** what to do if the result differs; avoid destructive retries and production changes.
+
+Never ask for passwords, access tokens, recovery codes, or other secrets. Wait for the owner's report before marking the check owner-reported manual verification. If the owner cannot run it, record blocked/unverified and keep any dependent acceptance gate open. Do not label an owner-reported result as independently observed by the agent. Combine related checks into one request and do not ask the owner to manually do something that can safely be automated.
+
 ## Phase 1 — real GitHub coding
 
 The first end-to-end acceptance test must verify:
