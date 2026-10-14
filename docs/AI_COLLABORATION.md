@@ -1,48 +1,49 @@
 # AI Collaboration Handoff
 
-This file is the shared coordination point for **Kilo Code** and **ChatGPT** on Brilina Forge. Read it at the start of each handoff and update it when a review checkpoint is reached.
+This file coordinates **Kilo Code** and **ChatGPT** on Brilina Forge. The project owner makes final decisions. GitHub is the shared source of truth; ChatGPT cannot inspect Kilo's unpushed local changes.
 
-## Working Agreement
+## Read at every session start
 
-- The project owner is the final decision-maker. Do not make significant architectural changes silently.
-- GitHub is the shared source of truth. ChatGPT cannot see Kilo's unpushed local work; push reviewable checkpoints so both can inspect the same code.
-- Keep this file short. Put detailed technical decisions in the appropriate architecture/decision documents.
-- Never claim a test passed unless it was actually run. Clearly separate implemented, tested, planned, blocked, and superseded work.
-- Before starting substantial implementation, state the goal, approach, affected files, risks, acceptance criteria, and unresolved decisions.
-- Work in small, reviewable increments. At a checkpoint, report the branch, commit SHA, summary, tests run and results, and known gaps. Then pause for review before the next major phase.
+1. [Next Kilo Prompt](NEXT_KILO_PROMPT.md) — the reusable prompt to give Kilo.
+2. [Current State and Continuation Plan](CURRENT_STATE_AND_CONTINUATION.md) — evidence-based project status and next stages.
+3. [Agent Handoff](AGENT_HANDOFF.md), [Architecture](ARCHITECTURE.md), [Decisions](DECISIONS.md), and [Roadmap](ROADMAP.md).
+4. Inspect the actual source and tests relevant to the current task.
 
-## Handoff Procedure
+## Non-negotiable workflow
 
-### Kilo Code → ChatGPT
+- After a model change, context compaction, restart, or long pause, inspect first; do not resume from a remembered assumption.
+- Kilo's first action after a context reset is to report branch, HEAD SHA, working-tree status, recent commits, actual implementation/test evidence, documentation conflicts and a proposed next increment. **No edits until the owner approves.**
+- Never repeat completed work without checking the repository first.
+- Distinguish implemented in code, automated-tested, live-verified, partial, not implemented and blocked.
+- Never claim a test passed unless it actually ran. Include exact commands and results.
+- Before an implementation increment, state its goal, files, behavior, acceptance criteria, tests, risks and decisions needed.
+- Work in small increments. Test, commit and push each reviewable checkpoint; then pause for review.
+- Do not silently change architecture, auth, schema, permissions, command policy or execution boundaries.
+- Do not overwrite or discard local uncommitted work.
+- If ChatGPT directly changes repository files, it must identify the branch and commit SHA. Kilo must pull that branch before continuing.
 
-1. Finish the current safe checkpoint and save all intended changes.
-2. Commit and push the checkpoint to GitHub.
-3. Pull/fetch the latest shared branch before continuing, especially if another contributor has updated it.
-4. Update the **Latest Kilo Checkpoint** section below with the branch, SHA, summary, tests, and questions.
-5. Stop before the next major phase so ChatGPT can review the pushed code against the plan and project decisions.
+## Handoff procedure
 
-### ChatGPT → Kilo Code
+### Kilo → ChatGPT
+1. Inspect status and preserve local changes.
+2. Run relevant tests and record exact results.
+3. Commit and push the checkpoint.
+4. Update the current-state ledger with the checkpoint SHA and verified findings.
+5. Report branch, SHA, summary, tests/results, known gaps and proposed next increment. Stop.
 
-1. Read the latest pushed code, this file, and relevant project documentation before making recommendations.
-2. Record concise review findings under **Latest ChatGPT Review**: approved items, issues to fix, recommended improvements, and decisions that require the owner's input.
-3. Do not directly overwrite Kilo's active/unpushed work. Make repository edits only when they are clearly isolated and safe, and tell Kilo what changed and the commit SHA.
-4. Kilo should read the review, discuss any disagreement or uncertainty with the owner, then implement approved changes and push a new checkpoint.
+### ChatGPT → Kilo
+1. Inspect the pushed code and relevant documentation.
+2. Classify findings as confirmed defect, documentation conflict, recommendation or owner decision.
+3. Make only isolated, safe repository edits; otherwise provide a reviewed plan.
+4. Keep [Next Kilo Prompt](NEXT_KILO_PROMPT.md) current so the owner can resume after ChatGPT usage limits or a context reset.
 
-## Latest Kilo Checkpoint
+## Current shared checkpoint
 
-- **Status:** Awaiting Kilo's next pushed checkpoint.
-- **Branch / commit:** Not yet recorded.
-- **Summary:** Kilo should update this section after pushing.
-- **Tests and results:** Record exact commands and outcomes; state clearly if tests were not run.
-- **Questions / known gaps:** List unresolved issues and anything needing owner approval.
+- **Branch:** `chatgpt/reconcile-project-state`
+- **Latest documentation checkpoint:** `20bea79836ff6e895b75d0563d146979bc9dfb06`
+- **Status:** documentation reconciliation committed to this branch; runtime code has not been modified or tested in this checkpoint.
+- **Next action:** owner reviews the reconciled docs, then Kilo performs the inspection-only report in `docs/NEXT_KILO_PROMPT.md`. Do not begin implementation before that report is reviewed and a small increment is approved.
 
-## Latest ChatGPT Review
+## Review priorities
 
-- **Status:** Waiting for the next Kilo checkpoint to review.
-- **Review of code:** Pending; do not treat this as an approval of uninspected changes.
-- **Findings:** To be added after reviewing a specific pushed commit.
-- **Owner decisions needed:** Record only concrete decisions that cannot safely be inferred from existing requirements or decisions.
-
-## Current Review Priority
-
-Review the reliability of run execution and recovery, the local Node.js companion's safe command/process lifecycle, durable and replayable run events, cancellation and retry behavior, duplicate-dispatch protection, and consistency between code and documentation. Treat these as review priorities, not permission to redesign the architecture without presenting the plan to the owner first.
+Run claim/dispatch/recovery, SSE reconnect and event replay, isolate-safe device identity, companion work ownership and result persistence, approval/resume, command policy, and honest documentation of tests and live verification.
