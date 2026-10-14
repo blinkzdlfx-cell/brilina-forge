@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { configureRuntimeEnv, config } from "../src/config.js";
 import {
   createGithubAuthorization,
@@ -37,12 +38,21 @@ import { recordUsage } from "../src/db/usage-repositories.js";
 import { AgentController } from "../src/agent/controller.js";
 import { ToolRegistry } from "../src/agent/registry.js";
 import { createGithubReadTools } from "../src/agent/tools/github-read-context.js";
+import { createCompanionExecTool } from "../src/agent/tools/companion-exec.js";
 import { createProviderRuntime } from "../src/ai/factory.js";
 import { ProviderAgentModel } from "../src/ai/provider-model.js";
 import { wrapWithCooldownRetry } from "../src/ai/retry-model.js";
 import { AiProviderError } from "../src/ai/types.js";
 import { Phase4DeterministicModel } from "../src/phase4/model.js";
 import { getSql } from "../src/db/client.js";
+import {
+  createCompanionWork,
+  completeCompanionWork,
+  getCompanionWork,
+  listPendingCompanionWork,
+  timeoutStaleCompanionWork
+} from "../src/db/companion-repositories.js";
+import { classifyCommand } from "../src/execution/command-policy.js";
 
 const TOKEN_REFRESH_SKEW_MS = 60_000;
 const DELTA_CHUNK_SIZE = 80;
@@ -204,6 +214,7 @@ async function executeRun(
   conversationId: string,
   userId: string,
   workspaceId: string,
+  sessionId: string,
   repositoryFullName: string | null,
   branchName: string | null,
   message: string,
@@ -217,6 +228,12 @@ async function executeRun(
     const providerRuntime = createProviderRuntime();
     const registry = new ToolRegistry();
     for (const tool of createGithubReadTools(service)) registry.register(tool);
+
+    const deviceId = deviceForSession(sessionId);
+    registry.register(createCompanionExecTool({
+      deviceId,
+      workerUrl: companionWorkerUrl()
+    }));
 
     const provider = providerRuntime.registry.providerFor(providerRuntime.activeModel);
     const agentModel = provider.id === "deterministic-development"
@@ -306,6 +323,39 @@ function eventFromTool(tool: { id: string; toolName: string; status: string }): 
   return [{ type: "tool.requested", toolName: tool.toolName, callId }];
 }
 
+function recordCompanionDecision(deviceId: string, command: string, approved: boolean): { recorded: boolean; command: string; approved: boolean } {
+  return { recorded: true, command, approved };
+}
+
+// --- Work results ------------------------------------------------------
+//
+// Durable in Neon, not in-isolate. Cloudflare Workers are short-lived
+// isolates: the isolate that receives the companion's result POST is rarely
+// the same one the browser polls from, so an in-isolate Map would drop
+// results across requests. Commands longer than the Worker request budget
+// (~30s) still need async delivery through a Durable Object; this table
+// handles the synchronous case.
+
+// --- Device assignment -------------------------------------------------
+//
+// The browser needs to know which device id to give the companion. One id is
+// issued per session; the companion registers against it on first use.
+
+const sessionDevices = new Map<string, string>();
+
+function companionWorkerUrl(): string {
+  return config.publicBaseUrl;
+}
+
+function deviceForSession(sessionId: string): string {
+  let deviceId = sessionDevices.get(sessionId);
+  if (!deviceId) {
+    deviceId = "device-" + crypto.randomUUID();
+    sessionDevices.set(sessionId, deviceId);
+  }
+  return deviceId;
+}
+
 export async function handleApi(request: Request, env: Env): Promise<Response | undefined> {
   initializeWorker(env);
   const url = new URL(request.url);
@@ -385,6 +435,18 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
       } catch {
         return json({ authenticated: false });
       }
+    }
+
+    if (path === "/api/devices/for-session" && method === "GET") {
+      const session = await sessionForRequest(request);
+      return json({ deviceId: deviceForSession(session.id) });
+    }
+
+    if (path === "/api/devices/status" && method === "GET") {
+      const session = await sessionForRequest(request);
+      const deviceId = deviceForSession(session.id);
+      const device = await getCompanionDevice(deviceId);
+      return json({ deviceId, registered: Boolean(device), state: device ? "online" : "offline" });
     }
 
     if (path === "/api/github/me" && method === "GET") return json(await (await githubService(request)).getAuthenticatedUser());
@@ -519,6 +581,7 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
       if (!audit) return json({ error: "run_not_found" }, 404);
       const claimed = await claimRun(runId);
       const encoder = new TextEncoder();
+      const sessionId = parseSessionCookie(request.headers.get("Cookie"), "brilina_session") ?? "";
 
       const stream = new ReadableStream<Uint8Array>({
         start(streamController) {
@@ -537,6 +600,7 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
                   audit.conversationId,
                   userId,
                   workspaceId,
+                  sessionId,
                   (await getConversationForUser(audit.conversationId, userId, workspaceId))?.repositoryFullName ?? null,
                   (await getConversationForUser(audit.conversationId, userId, workspaceId))?.branchName ?? null,
                   (await listConversationMessages(audit.conversationId, userId, workspaceId)).find(m => m.runId === runId && m.role === "user")?.content ?? "",
@@ -609,6 +673,112 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
       ) as Record<string, unknown>[];
       if (!rows[0]) return json({ error: "run_not_cancellable" }, 409);
       return json({ cancelled: true });
+    }
+
+    // --- Companion endpoints --------------------------------------------
+    //
+    // These are not same-origin browser routes. They are authenticated with
+    // the companion device token and are reachable only from localhost, so
+    // the origin check is intentionally not applied.
+
+    const companionMatch = path.match(/^\/api\/companion\/([^/]+)(\/.*)?$/);
+    if (companionMatch) {
+      const deviceId = companionMatch[1];
+      const sub = companionMatch[2] ?? "";
+
+      if (sub === "/register" && method === "POST") {
+        const { userId, workspaceId } = await forgeContext(request);
+        const device = await registerCompanionDevice(deviceId, userId, workspaceId);
+        return json(device, 201);
+      }
+
+      // The companion long-polls here for pending work. Workers are
+      // short-lived isolates, so this polls the durable store in a loop up to
+      // 30s rather than holding a waiter in-isolate.
+      if (sub === "/work" && method === "GET") {
+        const device = await getCompanionDevice(deviceId);
+        if (!device) return json({ error: "companion_not_registered" }, 404);
+        const deadline = Date.now() + 30_000;
+        while (Date.now() < deadline) {
+          const pending = await listPendingCompanionWork(deviceId, 1);
+          if (pending[0]) return json({ work: pending[0] });
+          await new Promise(resolve => setTimeout(resolve, 750));
+        }
+        return json({ work: null });
+      }
+
+      // The browser enqueues a command and gets back the work id to poll.
+      if (sub === "/work" && method === "POST") {
+        const device = await getCompanionDevice(deviceId);
+        if (!device) return json({ error: "companion_not_registered" }, 404);
+        const body = await request.json() as { runId?: string; conversationId?: string; command?: string; timeoutMs?: number };
+        if (!body.command || !body.runId || !body.conversationId) return json({ error: "missing_work_fields" }, 400);
+        const timeoutMs = Number(body.timeoutMs ?? 120_000);
+        if (!Number.isInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 600_000) return json({ error: "invalid_timeout" }, 400);
+        const classification = classifyCommand(body.command);
+        if (classification.classification === "blocked") return json({ error: "command_blocked" }, 403);
+        const item = await createCompanionWork({
+          id: "work-" + crypto.randomUUID(),
+          deviceId,
+          runId: body.runId,
+          conversationId: body.conversationId,
+          command: classification.normalized,
+          timeoutMs
+        });
+        return json({ id: item.id, command: item.command, classification: classification.classification === "safe" ? "safe" : "approval-required" });
+      }
+
+      // The companion posts a work result. The browser polls for it.
+      const workIdMatch = sub.match(/^\/work\/([^/]+)$/);
+      if (workIdMatch && method === "POST") {
+        const device = await getCompanionDevice(deviceId);
+        if (!device) return json({ error: "companion_not_registered" }, 404);
+        const body = await request.json() as { id?: string; exitCode?: number; output?: string; truncated?: boolean; error?: string };
+        if (!body.id) return json({ error: "missing_work_id" }, 400);
+        const completed = await completeCompanionWork(body.id, {
+          exitCode: body.exitCode ?? null,
+          output: body.output ?? "",
+          truncated: Boolean(body.truncated),
+          errorMessage: body.error
+        });
+        return json({ acknowledged: Boolean(completed) });
+      }
+
+      // The browser polls a work result. Durable across isolates.
+      if (workIdMatch && method === "GET") {
+        const device = await getCompanionDevice(deviceId);
+        if (!device) return json({ error: "companion_not_registered" }, 404);
+        const result = await getCompanionWork(workIdMatch[1]);
+        if (!result || result.status === "pending") return json({ pending: true });
+        return json({
+          pending: false,
+          status: result.status,
+          exitCode: result.exitCode,
+          output: result.output,
+          truncated: result.truncated,
+          errorMessage: result.errorMessage
+        });
+      }
+
+      if (sub === "/approve" && method === "POST") {
+        const device = await getCompanionDevice(deviceId);
+        if (!device) return json({ error: "companion_not_registered" }, 404);
+        const body = await request.json() as { command?: string; approved?: boolean };
+        if (!body.command) return json({ error: "missing_command" }, 400);
+        return json(recordCompanionDecision(deviceId, body.command, Boolean(body.approved)));
+      }
+    }
+
+    if (path === "/api/devices/for-session" && method === "GET") {
+      const session = await sessionForRequest(request);
+      return json({ deviceId: deviceForSession(session.id) });
+    }
+
+    if (path === "/api/devices/status" && method === "GET") {
+      const session = await sessionForRequest(request);
+      const deviceId = deviceForSession(session.id);
+      const device = await getCompanionDevice(deviceId);
+      return json({ deviceId, registered: Boolean(device), state: device ? "online" : "offline" });
     }
 
     return undefined;

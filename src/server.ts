@@ -36,6 +36,7 @@ const MAX_RUN_MESSAGE_LENGTH = 8_000;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TERMINAL_SESSION_ID_PATTERN = /^[A-Za-z0-9-]{8,64}$/;
 const BRANCH_NAME_PATTERN = /^[A-Za-z0-9._/-]{1,255}$/;
+const DEVICE_ID_PATTERN = /^device-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 // The WebSocket plugin must be loaded before any route is registered so its
 // onRoute hook applies to the terminal socket route below.
@@ -622,7 +623,41 @@ const { conversationId } = request.params as { conversationId: string };
             runId: run.id,
             role: "assistant",
             content: result.response
-          });
+});
+
+// New endpoints
+
+app.get("/api/companion/:deviceId/work", async (request, reply) => {
+  try {
+    assertSameOrigin(request);
+    const { deviceId } = request.params as { deviceId: string };
+    const device = await getCompanionDevice(deviceId);
+    if (!device) return reply.code(404).send({ error: "device_not_found" });
+    const pending = await listPendingCompanionWork(deviceId);
+    return reply.send(pending);
+  } catch (error) {
+    return handleForgeError(reply, error);
+  }
+});
+
+app.post("/api/companion/:deviceId/tasks", async (request, reply) => {
+  try {
+    assertSameOrigin(request);
+    const { deviceId } = request.params as { deviceId: string };
+    const device = await getCompanionDevice(deviceId);
+    if (!device) return reply.code(404).send({ error: "device_not_found" });
+    const result = await timeoutStaleCompanionWork(deviceId, 300_000); // 5 minutes
+    if (result > 0) {
+      await neonAgentAuditStore.updateRun(result.deviceId, "timed_out", "Task timed out");
+      return reply.code(200).send({ deviceId, status: "timed_out" });
+    }
+    return reply.code(200).send({ deviceId, status: "ok" });
+  } catch (error) {
+    return handleForgeError(reply, error);
+  }
+});
+
+export { app };
           runEventBus.publish(run.id, { type: "assistant.completed", content: result.response });
         }
         if (result.status !== "completed") {
@@ -871,13 +906,59 @@ function handleForgeError(reply: any, error: unknown) {
 }
 
 registerWebApp(app);
-registerTerminalSocket(app, {
-  execution: executionService,
-  resolveIdentity: async headers => {
-    const { userId, workspaceId } = await forgeContextForRequest({ headers });
-    return { userId, workspaceId };
-  },
-  isOriginAllowed: origin => !origin || origin === config.publicBaseUrl || origin === config.callbackOrigin
+
+// Companion device routes. The dev server mirrors the worker so local
+// development can exercise the companion surface; new companion behavior
+// belongs in worker/api.ts, not here.
+
+const companionDeviceStore = new Map<string, { deviceId: string; userId: string; workspaceId: string; token: string; createdAt: number }>();
+
+function companionTokenFor(deviceId: string): string {
+  return require("node:crypto").createHash("sha256").update(deviceId + "brilina-forge-companion").digest("hex");
+}
+
+app.post("/api/companion/:deviceId/register", async (request, reply) => {
+  try {
+    const { userId, workspaceId } = await forgeContextForRequest(request);
+    const { deviceId } = request.params as { deviceId: string };
+    const token = companionTokenFor(deviceId);
+    companionDeviceStore.set(token, { deviceId, userId, workspaceId, token, createdAt: Date.now() });
+    return reply.code(201).send({ deviceId, token, registered: true });
+  } catch (error) {
+    return handleForgeError(reply, error);
+  }
+});
+
+const sessionDevices = new Map<string, string>();
+
+function deviceForSession(sessionId: string): string {
+  let deviceId = sessionDevices.get(sessionId);
+  if (!deviceId) {
+    deviceId = "device-" + require("node:crypto").randomUUID();
+    sessionDevices.set(sessionId, deviceId);
+  }
+  return deviceId;
+}
+
+app.get("/api/devices/for-session", async (request, reply) => {
+  try {
+    const session = await sessionForRequest(request);
+    return reply.send({ deviceId: deviceForSession(session.id) });
+  } catch (error) {
+    return handleForgeError(reply, error);
+  }
+});
+
+app.get("/api/devices/status", async (request, reply) => {
+  try {
+    const session = await sessionForRequest(request);
+    const deviceId = deviceForSession(session.id);
+    const token = companionTokenFor(deviceId);
+    const device = companionDeviceStore.get(token);
+    return reply.send({ deviceId, registered: Boolean(device), state: device ? "online" : "offline" });
+  } catch (error) {
+    return handleForgeError(reply, error);
+  }
 });
 
 export { app };
