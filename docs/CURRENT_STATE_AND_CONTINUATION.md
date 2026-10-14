@@ -40,6 +40,10 @@ This ledger must be based on implementation evidence, not documentation alone. W
 
 **Phase 1 is NOT complete and Phase 2 must NOT start** until the real AI-to-GitHub write path succeeds on an authorized non-default work branch: the tool call creates/updates a file, GitHub confirms the change, the file is read back, and the UI presents a reviewable diff plus branch/commit details. File reading or issue reading does not prove file writing works. If writing fails, continue debugging Phase 1 and report the exact blocker.
 
+## Owner-performed verification requests
+
+When a check requires the owner to interact with the deployed/local app, use their GitHub account, test a real permission boundary, or inspect behavior unavailable to the agent, first run all safe automated checks. Then provide a concise manual test card: **reason**, **starting URL/screen and safe test branch**, **numbered steps**, **expected result**, **what to report (PASS/FAIL and exact error)**, and **how to stop safely if it fails**. Ask for sanitized evidence only; never request passwords, tokens, or secrets. Wait for the response before recording the check as owner-reported manual evidence. Do not convert an owner request into a verified result without their response. If it cannot be performed, mark it blocked/unverified and keep any dependent acceptance gate open. Prefer one grouped checklist over repeated interruptions.
+
 ## Immediate priority
 
 **Phase 1: enable real AI coding through GitHub.** Do not continue expanding the companion until a real model can read relevant files, make controlled edits through GitHub, return a reviewable diff/commit, and persist the result.
