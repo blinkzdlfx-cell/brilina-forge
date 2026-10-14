@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "incremental": false
+  },
+  "include": [
+    "src/agent/types.ts",
+    "src/agent/registry.ts",
+    "src/agent/tools/github-read-context.ts",
+    "src/agent/tools/github-read-repository.ts",
+    "src/agent/tools/github-read-tools.ts",
+    "src/agent/tools/github-write-tools.ts",
+    "src/agent/tools/github-write-tools.test.ts",
+    "src/github/client.ts",
+    "src/github/types.ts",
+    "src/github/service.ts",
+    "src/github/write-service.test.ts"
+  ]
+}
