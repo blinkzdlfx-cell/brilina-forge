@@ -1,7 +1,7 @@
 # Brilina Forge — Phase 1 Setup and User Guide
 
 **Last reviewed:** 2026-10-14  
-**Current gate:** Phase 1 is still open. Draft PR #7 passed its focused CI checks on commit `d562dfa0ddf29bedb0e0855a1571aa1eefe5cbd5`; merge/deploy and live acceptance are still required.
+**Current gate:** Phase 1 is still open. Draft PR #7 passed its focused CI checks and dependency audits on commit `b77ed1750f9ce72e8536ad5007b0fb329df8deef` (GitHub Actions run 201). Merge/deploy and live acceptance are still required.
 
 ## 1. What Brilina Forge needs
 
@@ -15,7 +15,7 @@ Brilina Forge is a browser-based AI coding workspace. Its intended first workflo
 
 The current production architecture is a Cloudflare Worker with a React frontend, Neon Postgres for app state, GitHub for source code, and an OpenAI-compatible AI provider adapter.
 
-**Implementation status:** the initial source inspection found placeholder write tools and missing registration. Draft PR #7 now implements branch creation plus file create/update/upsert tools and registers them through the repository-tool factory used by the Worker. The focused Phase 1 type-check, tests, Worker tests, frontend build, Wrangler dry-run, and dependency audits passed on commit `d562dfa0ddf29bedb0e0855a1571aa1eefe5cbd5`. This is not proof of a working production workflow: the change still needs review, merge/deploy, and a real frontend-to-GitHub acceptance test before Phase 1 can close. The broad legacy `npm test` suite also currently fails on pre-existing issues in `src/server.ts` and local-companion tests, so it is not being treated as a passing check.
+**Implementation status:** the initial source inspection found placeholder write tools and missing registration. Draft PR #7 now implements branch creation plus file create/update/upsert tools and registers them through the repository-tool factory used by the Worker. The focused Phase 1 type-check, tests, Worker tests, frontend build, Wrangler dry-run, and dependency audits passed on commit `b77ed1750f9ce72e8536ad5007b0fb329df8deef` (GitHub Actions run 201). This is not proof of a working production workflow: the change still needs review, merge/deploy, and a real frontend-to-GitHub acceptance test before Phase 1 can close. The broad legacy `npm test` suite also currently fails on pre-existing issues in `src/server.ts` and local-companion tests, so it is not being treated as a passing check.
 
 ## 2. Start with one AI provider: Cloudflare Workers AI
 
