@@ -24,7 +24,7 @@ Brilina Forge is a private browser-based AI coding workspace. The user connects 
 | Agent Controller | Typed tool registry, authorization, policy and audit code exist | Implemented in code; complete user workflow not verified |
 | AI provider | Deterministic model and OpenAI-compatible adapter exist | Adapter code exists; live provider call and tool-calling behavior not verified |
 | GitHub read tools | Repository metadata/context, branches, tree, file read, diff | Implemented in code |
-| GitHub write tools | Draft PR #7 implements work-branch creation plus file create/update/upsert operations and includes them in the Worker tool registry path. Writes use current blob SHAs and reject the repository default branch. | **Code implemented on feature branch; targeted checks and live acceptance pending** |
+| GitHub write tools | Draft PR #7 implements work-branch creation plus file create/update/upsert operations and includes them in the Worker tool registry path. Writes use current blob SHAs and reject the repository default branch. | **Focused CI passed on `d562dfa0ddf29bedb0e0855a1571aa1eefe5cbd5`; merge/deploy and live acceptance pending** |
 | UI-to-agent code change | No verified end-to-end change from chat to GitHub commit | **Not verified; primary Phase 1 target** |
 | GitHub Actions repair loop | APIs/workflows may provide a foundation; complete AI-driven diagnose/fix/retest loop not verified | Phase 2 |
 | Local companion | Partial Worker/database dispatch scaffolding exists; no complete executable companion verified | Phase 3 |
@@ -34,7 +34,7 @@ Brilina Forge is a private browser-based AI coding workspace. The user connects 
 | Cloudflare diagnostics | No verified end-to-end log-to-source-fix flow | Phase 4 |
 | Teams/multiple providers | Architecture can accommodate them; complete team workflow not verified | Phase 5 |
 
-## Mandatory completion and phase-transition rule
+## Automated verification snapshot (2026-10-14)\n\nGitHub Actions run 192 passed on commit `d562dfa0ddf29bedb0e0855a1571aa1eefe5cbd5`: frontend build, focused Phase 1 TypeScript check, focused Phase 1 tests, Worker tests, Wrangler dry-run, and dependency audits. The broad recursive `npm test` suite was also attempted and failed on unrelated legacy issues: `src/server.ts` has an existing parse/type-check problem near line 660, and several local-companion tests ended with unresolved promises. Those failures are not evidence that the new GitHub write tests failed; the focused Phase 1 suite passed.\n\n## Mandatory completion and phase-transition rule
 
 This ledger must be based on implementation evidence, not documentation alone. Whenever checking a feature, inspect the relevant source code and runtime/tool registration, run the focused automated tests and build/type checks, and perform an end-to-end/live check when required and possible. Then update this ledger and the roadmap to match the evidence. A documentation checkbox, prompt, comment, type, mock, successful file read, or AI statement is not proof that an operation works. Record the checked commit SHA, relevant source/test files, exact commands and results, and live verification. Missing or failed evidence means the status stays partial, blocked, not implemented, or unverified.
 
