@@ -460,6 +460,8 @@ export function App() {
     }
 
     setError(null);
+    shouldStickToBottomRef.current = true;
+    setShowJumpToLatest(false);
     setComposer("");
     setRunning(true);
     setStreaming("");
