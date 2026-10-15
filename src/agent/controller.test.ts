@@ -241,3 +241,29 @@ test("controller enforces a total tool-result context budget across a run", asyn
   assert.ok(audit.toolCalls.some(call => (call.result as { truncated?: boolean }).truncated));
 });
 
+test("controller rejects duplicate model tool-call identifiers", async () => {
+  let executions = 0;
+  const tool: ForgeTool<{ path: string }, { ok: boolean }> = {
+    ...readTool,
+    async execute() { executions += 1; return { ok: true }; }
+  };
+  const registry = new ToolRegistry();
+  registry.register(tool);
+  const audit = new InMemoryAgentAuditStore();
+  const controller = new AgentController(new FakeModel([
+    { type: "tool_call", call: { id: "reused-call-id", name: tool.name, arguments: { path: "one.txt" } } },
+    { type: "tool_call", call: { id: "reused-call-id", name: tool.name, arguments: { path: "two.txt" } } }
+  ]), registry, audit);
+
+  const result = await controller.run({
+    conversationId: "conversation-duplicate-call-id",
+    principal: { userId: "user-1", workspaceId: "workspace-1" },
+    message: "Read both files."
+  });
+
+  assert.equal(result.status, "failed");
+  assert.equal(result.errorMessage, "Invalid or duplicate tool call id");
+  assert.equal(executions, 1);
+  assert.equal(audit.toolCalls.length, 1);
+});
+
