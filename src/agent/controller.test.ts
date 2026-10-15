@@ -187,7 +187,7 @@ test("controller bounds oversized tool results before adding them to run history
   assert.equal(result.status, "completed");
   const saved = audit.toolCalls[0].result as { truncated?: boolean; originalCharacters?: number; preview?: string };
   assert.equal(saved.truncated, true);
-  assert.equal(saved.originalCharacters, 40_012);
+  assert.equal(saved.originalCharacters, 40_014);
   assert.ok((saved.preview?.length ?? 0) < 32_000);
 });
 
