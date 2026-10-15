@@ -192,7 +192,7 @@ function publicRunFailure(error: unknown): string {
 type RunEvent = { type: string; [key: string]: unknown };
 
 function sseLine(event: RunEvent): string {
-  return `event: ${event.type}\\ndata: ${JSON.stringify(event)}\\n\\n`;
+  return `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
 }
 
 async function runStatus(runId: string): Promise<string | undefined> {
