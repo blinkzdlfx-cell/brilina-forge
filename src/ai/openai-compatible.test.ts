@@ -156,3 +156,25 @@ test("malformed streamed tool arguments degrade to an empty object", () => {
   assert.deepEqual(safeParseArguments(""), {});
   assert.deepEqual(safeParseArguments('{"a":1}'), { a: 1 });
 });
+
+test("default fetch is bound to the global context in Workers-compatible runtimes", async () => {
+  const originalFetch = globalThis.fetch;
+  let calledWithGlobalThis = false;
+  globalThis.fetch = function (this: typeof globalThis, _input: RequestInfo | URL, _init?: RequestInit): Promise<Response> {
+    calledWithGlobalThis = this === globalThis;
+    return Promise.resolve(jsonResponse({
+      choices: [{ message: { role: "assistant", content: "Hello." } }],
+      usage: { prompt_tokens: 1, completion_tokens: 1 }
+    }));
+  } as typeof fetch;
+
+  try {
+    const adapter = new OpenAiCompatibleProvider({ apiKey: "test-key", defaultModel: "test-model" });
+    const result = await adapter.complete(request(), "test-model");
+    assert.equal(calledWithGlobalThis, true);
+    assert.equal(result.content, "Hello.");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
