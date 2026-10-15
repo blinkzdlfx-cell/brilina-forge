@@ -1,5 +1,18 @@
 # Current State and Continuation Plan
 
+
+## Increment: restore branch choices when reopening a conversation (2026-10-15)
+
+- **Code commit:** `58376fe3469def9bdf84ed5e4c747bce4239acae` — `fix: restore branch options when switching conversations`.
+- **Change:** `web/src/App.tsx` now fetches branch choices when an existing conversation with a selected GitHub repository becomes active, shows a branch-loading state, disables branch/base selectors while loading, and ignores stale async responses after switching conversations.
+- **Review evidence:** inspected the commit diff via GitHub; change is limited to `web/src/App.tsx`.
+- **Automated test status:** not confirmed. The available GitHub status endpoint returned no commit statuses, and the available workflow-run connector only exposes PR-triggered runs. No local checkout/build was available in this execution path. Do not mark this increment tested or live-verified until CI/build and browser acceptance are checked.
+- **Required acceptance:** reopen a conversation bound to a multi-branch repository; confirm the branch selector populates, the saved branch is selected, selecting a different branch persists, switching conversations loads that conversation's branches, and branch loading/errors are visible and safe.
+
+## Documentation terminology correction (2026-10-15)
+
+The UI reference is **Claude Code**, not “Cloud Code.” Corrected the terminology in the orchestrator/UI plan, roadmap, and current-state document. This is documentation-only; it does not change the product implementation.
+
 > **Owner requirements captured (2026-10-15):** [Orchestrator, Project Memory, and Workspace UI Plan](ORCHESTRATOR_UI_AND_MEMORY_PLAN.md) is the detailed working checklist for the next increments. It captures the Claude Code-style task activity UI, orchestrator evidence/continuity requirements, repo/branch selection defect, stop/continue recovery, proposed repository-scoped memory/compaction (design discussion before coding), and later GitHub session-expiry/reconnect/logout behavior. Requirements documented here are not yet implementation or live-verification evidence.
 
  > **Phase numbering note (2026-10-15):** The owner-approved working sequence is defined in [ROADMAP.md](ROADMAP.md) and [Product Architecture Plan](PRODUCT_ARCHITECTURE_PLAN.md). Phase 0 is the baseline audit; Phase 1 is core GitHub coding; Phase 2 is runtime reliability/recovery. Historical phase records are retained.
