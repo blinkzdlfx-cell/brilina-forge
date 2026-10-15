@@ -163,3 +163,34 @@ test("write_file fails verification when GitHub read-back differs from requested
     /GitHub write verification failed/
   );
 });
+
+test("branches created by one run are not authorized in another run", async () => {
+  const service = {
+    createBranch: async (_owner: string, _repo: string, branchName: string) => ({
+      branch: branchName,
+      sha: "base-sha",
+      url: "https://api.github.com/repos/acme/site/git/refs/heads/brilina/isolated"
+    })
+  } as unknown as GithubService;
+  const firstRunTools = createGithubWriteTools(service);
+  const secondRunTools = createGithubWriteTools(service);
+  const createBranch = firstRunTools.find(tool => tool.name === "github.create_work_branch");
+  const secondRunWrite = secondRunTools.find(tool => tool.name === "github.write_file");
+  assert.ok(createBranch);
+  assert.ok(secondRunWrite);
+
+  await createBranch.execute(context, {
+    owner: "acme",
+    repo: "site",
+    branchName: "brilina/isolated"
+  });
+
+  assert.equal(await secondRunWrite.authorize(context, {
+    owner: "acme",
+    repo: "site",
+    path: "src/app.ts",
+    content: "new",
+    branch: "brilina/isolated"
+  }), false);
+});
+
