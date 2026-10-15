@@ -38,6 +38,7 @@ import { recordUsage } from "../src/db/usage-repositories.js";
 import { AgentController } from "../src/agent/controller.js";
 import { ToolRegistry } from "../src/agent/registry.js";
 import { createGithubReadTools } from "../src/agent/tools/github-read-context.js";
+import { createGithubWriteTools } from "../src/agent/tools/github-write-tools.js";
 import { createCompanionExecTool } from "../src/agent/tools/companion-exec.js";
 import { createProviderRuntime } from "../src/ai/factory.js";
 import { ProviderAgentModel } from "../src/ai/provider-model.js";
@@ -242,6 +243,7 @@ async function executeRun(
     const providerRuntime = createProviderRuntime();
     const registry = new ToolRegistry();
     for (const tool of createGithubReadTools(service)) registry.register(tool);
+    for (const tool of createGithubWriteTools(service)) registry.register(tool);
 
     const deviceId = deviceForSession(sessionId);
     registry.register(createCompanionExecTool({
