@@ -3,7 +3,13 @@
  > **Phase numbering note (2026-10-15):** The owner-approved working sequence is defined in [ROADMAP.md](ROADMAP.md) and [Product Architecture Plan](PRODUCT_ARCHITECTURE_PLAN.md). Phase 0 is the baseline audit; Phase 1 is core GitHub coding; Phase 2 is runtime reliability/recovery. Historical phase records are retained.
 
 
-**Latest implementation checkpoint:** 2026-10-15, commit `3ca281261a4efa4c9fdae8404899d218be2a8ea3` on `main`. Phase 0 source audit began at `1a57e347ef88a9aa15affe7b7d48c21def2fbbc5`. CI run 237 passed for the implementation checkpoint: `npm ci`, `npm run build`, `npm run typecheck:phase1`, `npm run test:phase1`, `npm run test:worker`, Wrangler deploy dry-run, and dependency audits. This is automated evidence, not proof of live browser/provider/GitHub coding behavior. The broad `npm test` suite and live coding workflow have not been run in this checkpoint.
+**Latest implementation checkpoint:** 2026-10-15, commit `a1a7ab7a51f12ca4a5bf587a77b8599b27820d1b` on `main`. GitHub Actions run 242 passed: `npm ci`, `npm run build`, `npm run typecheck:phase1`, `npm run test:phase1`, `npm run test:worker`, Wrangler deploy dry-run, and both dependency audits. This increment adds bounded prior-turn conversation context to the agent controller and restores per-run tool activity from existing Neon run/tool-call audit records. It does not yet provide ordered durable event replay, resumable approval, or live end-to-end proof of GitHub writes. Production behavior remains owner-reported, not independently live-verified.
+
+
+
+## Latest user-reported behavior and implementation checkpoint (2026-10-15)
+
+The owner tested the deployed interface and reported that the agent behaved like a generic chatbot, did not remember earlier turns in the same conversation, and cleared old run activity when a new message was sent. Source inspection confirmed the causes: `AgentController.run()` started with only the current message, and `web/src/App.tsx` reset transient tool activity on every run. Commit `a1a7ab7a51f12ca4a5bf587a77b8599b27820d1b` addresses these two defects by passing a bounded window of persisted user/assistant turns into the controller and rendering each conversation's run/tool audit history from existing API endpoints. Automated CI run 242 passed: https://github.com/blinkzdlfx-cell/brilina-forge/actions/runs/38740916489. This is not a claim that production has been independently checked after the push. The current audit model preserves tool-call history, but it is not yet an ordered event ledger and does not provide SSE replay/resume.
 
 ## Product in plain English
 
