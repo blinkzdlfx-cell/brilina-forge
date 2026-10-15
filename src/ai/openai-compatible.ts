@@ -51,7 +51,7 @@ export class OpenAiCompatibleProvider implements AiProvider {
     this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
     this.defaultModel = options.defaultModel;
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-    this.fetchImpl = options.fetchImpl ?? fetch;
+    this.fetchImpl = options.fetchImpl ?? globalThis.fetch.bind(globalThis);
     this.models = options.models ?? [{
       id: options.defaultModel,
       provider: this.id,
