@@ -2,35 +2,38 @@
 
 **A private, GitHub-centered AI coding workspace.**
 
-Brilina Forge is being built so you can open a browser workspace, connect GitHub, choose a repository, ask an AI to modify code, review the diff, and later verify fixes through automated checks. The project is delivered in five phases so the core coding workflow works before optional execution and collaboration features are added.
+Brilina Forge is being built so you can open a browser workspace, connect GitHub, choose a repository, ask an AI to modify code, review the diff, and verify changes through real checks. The target is a controlled, recoverable coding workflow—not a chatbot with an unrestricted terminal.
 
 ## Architecture
 
 - **Frontend and API:** React/Vite hosted with the native Cloudflare Worker and Workers Static Assets.
-- **Source of truth:** GitHub repositories, branches, commits, and pull requests.
-- **Application database:** Neon Postgres.
-- **AI:** provider-neutral adapter; start with one real provider and add others later.
+- **Source of truth:** GitHub repositories, branches, commits, diffs and pull requests.
+- **Application database:** Neon Postgres (D1 was evaluated in the product architecture plan; migration is not currently recommended).
+- **Agent runtime:** typed controller, provider-neutral adapter, policy-checked tools, durable run/event state and visible activity.
 - **Remote verification:** GitHub Actions.
-- **Optional local execution:** separate Node.js companion on the user's computer, planned for Phase 3.
-- **Production diagnostics:** Cloudflare observability integration, planned for Phase 4.
+- **Optional local execution:** separate Node.js companion on the user's computer; the Worker does not execute shell commands.
+- **Production diagnostics:** Cloudflare observability integration.
 
-The Worker does not execute shell commands. Do not add new product behavior to legacy Fastify routes in `src/server.ts`. New Worker API work belongs in `worker/index.ts` and `worker/api.ts`. Neon remains the database; D1 is not part of the current plan.
+## Planning and phases
 
-## The five phases
+The active roadmap is in [`docs/ROADMAP.md`](docs/ROADMAP.md). The reference comparison, proposed target architecture, Neon-versus-D1 evaluation, free-tier constraints, recovery design and rebaselined phases are in [`docs/PRODUCT_ARCHITECTURE_PLAN.md`](docs/PRODUCT_ARCHITECTURE_PLAN.md).
 
-1. **GitHub coding (current priority):** configure one real model and add safe GitHub write tools so the AI can inspect, modify, diff, and commit code on a work branch.
-2. **Verification and repair:** run GitHub Actions, retrieve logs, diagnose failures, and perform bounded correction attempts.
-3. **Local Node.js companion:** execute approved commands on the user's own computer with explicit policy, consent, limits, and audit.
-4. **Cloudflare diagnostics:** retrieve and redact production logs, correlate errors with source, and verify proposed fixes.
-5. **Providers, teams, and hardening:** add other models, invited team workspaces, permissions, and end-to-end regression coverage.
+The proposed product phases are:
+0. Architecture, baseline and data decision.
+1. Reliable core GitHub coding workflow.
+2. Autonomous runtime reliability and recovery.
+3. GitHub Actions verification and bounded repair.
+4. Optional local Node.js companion.
+5. Cloudflare diagnostics and production troubleshooting.
+6. Providers, collaboration and hardening.
 
-Read [the roadmap](docs/ROADMAP.md) for phase acceptance criteria and [current state](docs/CURRENT_STATE_AND_CONTINUATION.md) for the known gaps.
+**The rebaseline is a proposal pending owner approval.** Historical technical Phase 0–7 documents and old branches are preserved as history; they are not automatically the current product roadmap.
 
 ## Start here
 
-1. Read `docs/AI_COLLABORATION.md` and `docs/CURRENT_STATE_AND_CONTINUATION.md`.
-2. Inspect `git status` and preserve any local changes.
-3. Follow `docs/ROADMAP.md` in order. Do not work on all phases at once.
+1. Read `docs/PRODUCT_ARCHITECTURE_PLAN.md`, `docs/ROADMAP.md`, `docs/CURRENT_STATE_AND_CONTINUATION.md`, and `docs/AI_COLLABORATION.md`.
+2. Inspect `git status` and preserve local changes.
+3. Work on one increment at a time and follow the active phase gate.
 4. Use `docs/NEXT_KILO_PROMPT.md` to start a focused Kilo Code session.
 
 ## Local development
@@ -42,7 +45,7 @@ npm test
 npm run dev
 ```
 
-Use `.dev.vars` for local Worker secrets and variables; never commit it. Check `package.json` for the exact scripts and report their actual results. The legacy `npm run dev:node` command is for migration-era code only.
+Use `.dev.vars` for local Worker secrets and variables; never commit it. Check `package.json` for exact scripts and report their actual results. The legacy `npm run dev:node` command is for migration-era code only.
 
 ## Deployment
 
@@ -55,6 +58,7 @@ See [Cloudflare deployment](docs/CLOUDFLARE_DEPLOYMENT.md). Do not claim deploym
 
 ## Documentation map
 
+- [Product architecture and phase rebaseline](docs/PRODUCT_ARCHITECTURE_PLAN.md)
 - [Roadmap and acceptance criteria](docs/ROADMAP.md)
 - [Current state and continuation](docs/CURRENT_STATE_AND_CONTINUATION.md)
 - [Architecture](docs/ARCHITECTURE.md)
@@ -67,7 +71,7 @@ See [Cloudflare deployment](docs/CLOUDFLARE_DEPLOYMENT.md). Do not claim deploym
 - [Architecture decisions](docs/DECISIONS.md)
 - [Testing strategy](docs/TESTING.md)
 - [Database and API reference](docs/DATABASE_AND_API_REFERENCE.md)
-- [Phase 1 setup and user guide (GitHub, Neon, Cloudflare Workers AI, and first-time use)](docs/PHASE_1_SETUP_AND_USER_GUIDE.md)
+- [Phase 1 setup and user guide](docs/PHASE_1_SETUP_AND_USER_GUIDE.md)
 - [Cloudflare Workers AI API token setup and verification](docs/CLOUDFLARE_WORKERS_AI_TOKEN_SETUP.md)
 - [GitHub App setup](docs/GITHUB_APP_SETUP.md)
 
