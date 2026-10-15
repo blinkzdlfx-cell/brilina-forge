@@ -1,5 +1,7 @@
 # Current State and Continuation Plan
 
+> **Owner requirements captured (2026-10-15):** [Orchestrator, Project Memory, and Workspace UI Plan](ORCHESTRATOR_UI_AND_MEMORY_PLAN.md) is the detailed working checklist for the next increments. It captures the Cloud Code-style task activity UI, orchestrator evidence/continuity requirements, repo/branch selection defect, stop/continue recovery, proposed repository-scoped memory/compaction (design discussion before coding), and later GitHub session-expiry/reconnect/logout behavior. Requirements documented here are not yet implementation or live-verification evidence.
+
  > **Phase numbering note (2026-10-15):** The owner-approved working sequence is defined in [ROADMAP.md](ROADMAP.md) and [Product Architecture Plan](PRODUCT_ARCHITECTURE_PLAN.md). Phase 0 is the baseline audit; Phase 1 is core GitHub coding; Phase 2 is runtime reliability/recovery. Historical phase records are retained.
 
 
