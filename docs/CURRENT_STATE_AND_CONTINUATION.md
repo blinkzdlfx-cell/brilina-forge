@@ -97,6 +97,13 @@ A step-by-step guide covering GitHub App setup, Neon, Cloudflare Workers AI, Wor
 - No mock data to simulate a working AI coding flow.
 - Never claim tests, OAuth, provider access, deployment, or browser acceptance were verified unless actually exercised.
 
-## Continuation protocol
+## Owner-approved working protocol (2026-10-15)
 
-Read [Roadmap](ROADMAP.md), [Architecture](ARCHITECTURE.md), [Agent Handoff](AGENT_HANDOFF.md), and [Next Kilo Prompt](NEXT_KILO_PROMPT.md). Work on one increment at a time. After each checkpoint, update this file with evidence and the exact commit SHA.
+- Primary database: Neon Postgres. D1 migration is not planned.
+- Branch workflow: work directly on `main`; do not create a PR by default.
+- Delivery discipline: one bounded increment at a time. Run the relevant tests/build and inspect the diff; if anything fails, fix and retest before advancing.
+- Record exact commit SHA, files changed, commands run, results, live checks and known gaps after each increment.
+- Do not equate a passing unit test with live-provider, GitHub, browser or production verification.
+- Do not deploy to production, perform destructive database changes, or migrate the database without explicit authorization.
+
+Read [Roadmap](ROADMAP.md), [Product Architecture Plan](PRODUCT_ARCHITECTURE_PLAN.md), [Architecture](ARCHITECTURE.md), [Agent Handoff](AGENT_HANDOFF.md), and [Next Kilo Prompt](NEXT_KILO_PROMPT.md) before implementation. Phase 0 baseline audit is the next step.
