@@ -132,7 +132,7 @@ export function App() {
       setLoadingBranches(true);
       void listGithubBranches(githubRepo.owner.login, githubRepo.name)
         .then(items => {
-          if (!cancelled) setBranches(items);
+          if (!cancelled && requestId === branchRequestId.current) setBranches(items);
         })
         .catch(err => {
           if (!cancelled) {
@@ -141,7 +141,7 @@ export function App() {
           }
         })
         .finally(() => {
-          if (!cancelled) setLoadingBranches(false);
+          if (!cancelled && requestId === branchRequestId.current) setLoadingBranches(false);
         });
     } else {
       setLoadingBranches(false);
@@ -433,7 +433,7 @@ export function App() {
                 <select
                   value={diffBase}
                   onChange={event => setDiffBase(event.target.value)}
-                  disabled={!selectedForgeRepoId || loadingBranches || running}
+                  disabled={!selectedRepoId || loadingBranches || running}
                 >
                   <option value="">Select base</option>
                   {branches.map(branch => (
@@ -469,7 +469,7 @@ export function App() {
                 onChange={event => void handleBranchChange(event.target.value)}
                 disabled={!selectedForgeRepoId || loadingBranches || running}
               >
-                <option value="">{loadingBranches ? "Loading branches…" : "Select branch"}</option>
+                <option value="">{loadingBranches ? "Loading branches…" : branches.length ? "Select branch" : "No branches loaded"}</option>
                 {branches.map(branch => (
                   <option key={branch.name} value={branch.name}>{branch.name}{branch.protected ? " · protected" : ""}</option>
                 ))}
