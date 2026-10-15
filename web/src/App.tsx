@@ -43,6 +43,7 @@ export function App() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [repositories, setRepositories] = useState<GithubRepository[]>([]);
   const [branches, setBranches] = useState<GithubBranch[]>([]);
+  const [loadingBranches, setLoadingBranches] = useState(false);
   const [active, setActive] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>(demoMessages);
   const [streaming, setStreaming] = useState("");
@@ -101,19 +102,47 @@ export function App() {
       return;
     }
 
+    let cancelled = false;
     setSelectedForgeRepoId(active.repositoryId);
     setSelectedBranch(active.branchName ?? "");
     const githubRepo = repositories.find(item => item.full_name === active.repositoryFullName);
     setSelectedRepoId(githubRepo?.id ?? null);
     setError(null);
 
+    // A restored conversation must restore its branch choices as well as its selected branch.
+    // Otherwise the controlled select has a value but no matching options.
+    setBranches([]);
+    if (githubRepo) {
+      setLoadingBranches(true);
+      void listGithubBranches(githubRepo.owner.login, githubRepo.name)
+        .then(items => {
+          if (!cancelled) setBranches(items);
+        })
+        .catch(err => {
+          if (!cancelled) {
+            setBranches([]);
+            setError(err instanceof Error ? err.message : "Unable to load repository branches");
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setLoadingBranches(false);
+        });
+    } else {
+      setLoadingBranches(false);
+    }
+
     void Promise.all([listConversationMessages(active.id), listConversationRuns(active.id)])
       .then(async ([history, runs]) => {
-        setMessages(history.length ? history : demoMessages);
         const audits = await Promise.all(runs.map(run => getRunAudit(run.id).catch(() => null)));
+        if (cancelled) return;
+        setMessages(history.length ? history : demoMessages);
         setRunActivities(audits.filter((audit): audit is RunAudit => audit !== null).map(activityFromAudit));
       })
-      .catch(err => setError(err instanceof Error ? err.message : "Unable to load conversation history and run activity"));
+      .catch(err => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Unable to load conversation history and run activity");
+      });
+
+    return () => { cancelled = true; };
   }, [active, repositories]);
 
   const title = useMemo(() => active?.title ?? "New Forge conversation", [active]);
@@ -368,7 +397,7 @@ export function App() {
                 <select
                   value={diffBase}
                   onChange={event => setDiffBase(event.target.value)}
-                  disabled={!selectedForgeRepoId || running}
+                  disabled={!selectedForgeRepoId || loadingBranches || running}
                 >
                   <option value="">Select base</option>
                   {branches.map(branch => (
@@ -402,9 +431,9 @@ export function App() {
               <select
                 value={selectedBranch}
                 onChange={event => void handleBranchChange(event.target.value)}
-                disabled={!selectedForgeRepoId || running}
+                disabled={!selectedForgeRepoId || loadingBranches || running}
               >
-                <option value="">Select branch</option>
+                <option value="">{loadingBranches ? "Loading branches…" : "Select branch"}</option>
                 {branches.map(branch => (
                   <option key={branch.name} value={branch.name}>{branch.name}{branch.protected ? " · protected" : ""}</option>
                 ))}
