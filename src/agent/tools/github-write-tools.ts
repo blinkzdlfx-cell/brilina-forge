@@ -43,6 +43,35 @@ function normalizedWriteResult(result: {
   };
 }
 
+function decodeGithubFileContent(file: { encoding: string; content: string }): string {
+  if (file.encoding === "utf-8" || file.encoding === "utf8") return file.content;
+  if (file.encoding !== "base64") throw new Error("GitHub returned an unsupported file encoding during write verification");
+  const binary = atob(file.content.replace(/\\s/g, ""));
+  const bytes = Uint8Array.from(binary, character => character.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+async function verifyWriteResult(
+  service: GithubService,
+  args: FileArgs,
+  writeResult: {
+    content?: { path: string; sha: string; html_url: string } | null;
+    commit: { sha: string; html_url: string; message: string };
+  },
+  operation: string
+) {
+  const readBack = await service.getFile(args.owner, args.repo, args.path, args.branch);
+  if (decodeGithubFileContent(readBack) !== args.content) {
+    throw new Error("GitHub write verification failed: read-back content did not match the requested content");
+  }
+
+  return {
+    ...normalizedWriteResult(writeResult, args.branch, operation),
+    readBackVerified: true,
+    readBackSha: readBack.sha
+  };
+}
+
 export function createGithubCreateBranchTool(
   service: GithubService,
   branchesCreatedDuringRun: Set<string> = new Set()
@@ -118,7 +147,7 @@ export function createGithubCreateTool(
     },
     async execute(_context, args) {
       const result = await service.createFile(args.owner, args.repo, args.path, args.content, args.message ?? `Create ${args.path}`, args.branch);
-      return normalizedWriteResult(result, args.branch, "created");
+      return verifyWriteResult(service, args, result, "created");
     }
   };
 }
@@ -155,7 +184,7 @@ export function createGithubUpdateTool(
     },
     async execute(_context, args) {
       const result = await service.updateFile(args.owner, args.repo, args.path, args.content, args.message ?? `Update ${args.path}`, args.branch);
-      return normalizedWriteResult(result, args.branch, "updated");
+      return verifyWriteResult(service, args, result, "updated");
     }
   };
 }
@@ -192,7 +221,7 @@ export function createGithubWriteTool(
     },
     async execute(_context, args) {
       const result = await service.writeFile(args.owner, args.repo, args.path, args.content, args.message ?? `Update ${args.path}`, args.branch);
-      return normalizedWriteResult(result, args.branch, "written");
+      return verifyWriteResult(service, args, result, "written");
     }
   };
 }
