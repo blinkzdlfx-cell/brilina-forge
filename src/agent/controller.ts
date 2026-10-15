@@ -70,6 +70,24 @@ function validateObjectArguments(schema: Record<string, unknown>, value: unknown
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Tool arguments must be an object");
 }
 
+const MAX_TOOL_RESULT_CHARS = 32_000;
+
+function boundToolResult(result: unknown): unknown {
+  let serialized: string;
+  try {
+    serialized = JSON.stringify(result);
+  } catch {
+    return { truncated: true, preview: "[Tool result could not be serialized]" };
+  }
+  if (serialized.length <= MAX_TOOL_RESULT_CHARS) return result;
+  const suffix = "\\n...[tool result truncated to protect model context and run history]";
+  return {
+    truncated: true,
+    originalCharacters: serialized.length,
+    preview: serialized.slice(0, MAX_TOOL_RESULT_CHARS - suffix.length - 100) + suffix
+  };
+}
+
 function summarizeToolResult(result: unknown): ToolResultSummary | undefined {
   if (!result || typeof result !== "object" || Array.isArray(result)) return undefined;
   const value = result as Record<string, unknown>;
@@ -160,9 +178,10 @@ export class AgentController {
           this.observer?.emit({ type: "tool.started", toolName: tool.name, callId });
           await this.audit.updateToolCall(toolCallId, "running");
           const result = await tool.execute({ principal: input.principal, runId: run.id }, decision.call.arguments);
-          await this.audit.updateToolCall(toolCallId, "completed", result);
+          const boundedResult = boundToolResult(result);
+          await this.audit.updateToolCall(toolCallId, "completed", boundedResult);
           this.observer?.emit({ type: "tool.completed", toolName: tool.name, callId, resultSummary: summarizeToolResult(result) });
-          context.add({ role: "tool", toolCallId: decision.call.id, content: JSON.stringify(result) });
+          context.add({ role: "tool", toolCallId: decision.call.id, content: JSON.stringify(boundedResult) });
         } catch (error) {
           const message = error instanceof Error ? error.message : "Tool execution failed";
           const alreadyRejected = message.startsWith("Tool is blocked") || message.startsWith("Human approval") || message.startsWith("Tool authorization denied");
