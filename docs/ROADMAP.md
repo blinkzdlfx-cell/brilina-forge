@@ -2,7 +2,7 @@
 
 This is the active product delivery roadmap. Follow phases in order; do not build all phases in parallel. The reference comparison, target architecture, database evaluation and detailed acceptance criteria are maintained in [Product Architecture Plan](PRODUCT_ARCHITECTURE_PLAN.md).
 
-**Planning status (2026-10-15):** a proposed architecture and phase rebaseline has been documented for owner review. Phase 0 is not complete until the owner approves the plan and the baseline audit is recorded. No application code or database schema migration is authorized by this planning document alone.
+**Planning status (2026-10-15):** the owner approved retaining Neon Postgres and working directly on `main`, with testing and evidence recorded after each increment before proceeding. The broad architecture plan is the working baseline; Phase 0 still requires an actual source/runtime/database audit and evidence ledger. No database migration is planned.
 
 ## Product goal
 
@@ -32,7 +32,7 @@ Do not add new product behavior to the legacy Fastify server. Do not add a secon
 - Review free-tier constraints, export/restore procedure and the possible use of Cloudflare Workflows for durable execution. Workflows remains a candidate until a measured proof of concept supports a decision.
 - Preserve the historical technical Phase 0–7 records and older branches; do not delete or merge them blindly.
 
-**Gate:** owner approves the architecture direction and database choice; the baseline ledger includes source SHA, exact checks and verified gaps. No broad refactor before this gate.
+**Gate:** record the current main SHA, source/runtime/database audit, exact checks, verified gaps and the accepted architecture decisions. Neon is already approved; do not reopen the D1 decision without measured new evidence. No broad refactor before this gate.
 
 ## Phase 1 — reliable core GitHub coding workflow
 
@@ -114,4 +114,8 @@ Do not add new product behavior to the legacy Fastify server. Do not add a secon
 - Record the checked commit SHA, files inspected, exact commands/results and live-check evidence.
 - Use only these status labels: **implemented in code**, **automated-tested**, **live-verified**, **partial**, **not implemented**, or **blocked**.
 - If a required check cannot be run, mark it blocked/unverified. Never infer success from comments, mock data, type definitions, old test counts or an AI's claim.
-- No PR is merged, production data changed, database migrated, or production deployment performed without the relevant explicit authorization.
+- Work directly on `main`; do not create a PR as the default workflow.
+- Every increment must be tested before the next increment begins. If a test fails, fix and retest that increment first.
+- Record each increment's commit SHA, files changed, commands run, pass/fail results and any live verification.
+- A direct-to-main workflow does not mean skipping review of the diff or tests.
+- Production data changes, database migrations and production deployments still require explicit authorization.
