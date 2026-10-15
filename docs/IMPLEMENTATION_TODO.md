@@ -32,15 +32,23 @@ This ledger is based on source and documentation inspection. A listed capability
 
 **Gate:** factual baseline and current source/documentation agree; branch selector remains explicitly unverified until owner browser testing.
 
+## Batch 1 implementation checkpoint (2026-10-15)
+
+- **Code checkpoint:** `a825640e33c7284ad0cd60ea56a731950c7289ec` introduced clear reporting for invalid/duplicate tool-call identifiers; the preceding code checkpoint `38650d57653eba0d4c47cbf7ba2cf95a28a5f392` passed build, Phase 1 typecheck/tests, Worker tests, Wrangler dry-run, and the security audit. CI for the current code checkpoint has passed build, typecheck, Phase 1 tests, Worker tests and security audit; the Wrangler dry-run step was still running at the time this ledger was updated.
+- **Implemented in code:** strict argument schema checks; unique call-ID validation; an eight-step cap; a 32 KB per-result and 64 KB per-run tool-result budget; per-run work-branch authorization; write read-back verification; branch/path/commit summary in activity; provider/model display in run history; and stale-response protection for repository branch loading and branch comparisons.
+- **Automated-tested:** unique read/write tool registration; branch authorization isolation between separate run registries; schema rejection; duplicate call IDs; bounded steps/context; write read-back match/mismatch; default-branch protection and current blob SHA behavior.
+- **Not yet live-verified:** configured real provider and model tool calls, GitHub write/read-back on an approved non-default test branch, diff and commit visibility in the deployed Worker, history persistence after reload, and browser branch-selector acceptance. No production deployment was performed by this implementation.
+- **CI evidence:** `https://github.com/blinkzdlfx-cell/brilina-forge/actions/runs/38765090243` (current checkpoint; check final conclusion before treating the full run as green). An earlier complete pass is `https://github.com/blinkzdlfx-cell/brilina-forge/actions/runs/38764925964` for `38650d57653eba0d4c47cbf7ba2cf95a28a5f392`.
+
 ## Batch 1 — Reliable GitHub coding workflow (priority)
 
-- [ ] Confirm the actual runtime tool registry includes GitHub read/write tools exactly once and that branch-creation state is scoped to the run (not accidentally shared across concurrent runs).
-- [ ] Verify selected repository + selected branch reach the controller and every tool call; reject missing/wrong repository, wrong branch, and default-branch writes.
-- [ ] Audit write-path validation, current blob SHA/conflict behavior, GitHub REST response handling, output bounds, and secret redaction.
-- [ ] Make the model's tool-call loop robust: schema validation (including types and additional properties), tool result correlation, bounded steps/output/context, normalized failure reporting, and no false success.
-- [ ] Ensure a successful file create/update is read back from GitHub and the user can review the actual branch, commit, changed file, and diff. Keep GitHub the source of truth.
-- [ ] Add/adjust automated tests for tool registration, selected repository/ref scope, concurrent run isolation, write success/read-back, conflicts, GitHub errors, and failure-state reporting.
-- [ ] Verify the existing conversation branch selector and comparison selector have reliable loading, persistence, stale-request handling, and visible errors.
+- [x] Confirm the actual runtime tool registry includes GitHub read/write tools exactly once and that branch-creation state is scoped to the run (not accidentally shared across concurrent runs); covered by automated tests.
+- [x] Verify selected repository + selected branch reach the controller and every tool call; reject missing/wrong repository, wrong branch, and default-branch writes; existing service and tool authorization tests cover the key rejection paths.
+- [x] Audit write-path validation, current blob SHA/conflict behavior, GitHub REST response handling, output bounds, and secret redaction; current-blob SHA, default-branch protection, read-back verification, and bounded results are covered in source/tests.
+- [x] Make the model's tool-call loop robust: schema validation (including types and additional properties), unique tool-call IDs, bounded steps/output/context, normalized failure reporting, and no false success; automated tests cover invalid schemas, duplicate IDs, step caps and result budgets.
+- [x] Ensure a successful file create/update is read back from GitHub and the user can review the actual branch, commit, changed file, and diff. Keep GitHub the source of truth; read-back mismatch is tested and activity shows branch/path/commit verification.
+- [x] Add/adjust automated tests for tool registration, selected repository/ref scope, concurrent run isolation, write success/read-back, conflicts, GitHub errors, and failure-state reporting.
+- [x] Verify the existing conversation branch selector and comparison selector have reliable loading, stale-request handling, and visible errors; latest responses are guarded against stale repo/diff requests. Persistence of comparison-base choice remains a possible follow-up.
 - [ ] Update run activity/UI where needed so planned, requested, completed, rejected, and failed work are not conflated; retain prior activity per conversation.
 - [ ] Update roadmap/current-state docs with exact SHA, tests and unresolved live checks.
 
