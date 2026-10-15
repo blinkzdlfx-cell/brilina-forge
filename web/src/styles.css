@@ -146,3 +146,9 @@ button, textarea { font: inherit; }
 .run-history-summary:hover { background: #fafafd; }
 .tool-state.failed { background: #a4453f; }
 .run-history .tool-status { overflow-wrap: anywhere; }
+
+
+.tool-result-summary { grid-column: 2 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: #626675; font-size: 11px; }
+.tool-result-summary code { overflow-wrap: anywhere; color: #383a48; }
+.tool-result-summary a { color: #3b3d9c; font-weight: 600; text-decoration: none; }
+.tool-result-summary a:hover { text-decoration: underline; }
