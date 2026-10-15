@@ -18,10 +18,18 @@ export type ForgeTool<TArgs = unknown, TResult = unknown> = {
   execute(context: ToolExecutionContext, args: TArgs): Promise<TResult>;
 };
 export type RunRecord = { id: string; status: RunStatus };
+export type ToolResultSummary = {
+  operation?: string;
+  branch?: string;
+  path?: string | null;
+  commitUrl?: string;
+  readBackVerified?: boolean;
+};
+
 export type AgentObserverEvent =
   | { type: "tool.requested"; toolName: string; callId: string }
   | { type: "tool.started"; toolName: string; callId: string }
-  | { type: "tool.completed"; toolName: string; callId: string }
+  | { type: "tool.completed"; toolName: string; callId: string; resultSummary?: ToolResultSummary }
   | { type: "approval.required"; toolName: string; callId: string }
   | { type: "tool.rejected"; toolName: string; callId: string; reason: string };
 export type AgentObserver = {
