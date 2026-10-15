@@ -1,5 +1,8 @@
 # Current State and Continuation Plan
 
+> **Phase numbering note (2026-10-15):** The active proposed phase sequence is defined in [ROADMAP.md](ROADMAP.md) and the [Product Architecture Plan](PRODUCT_ARCHITECTURE_PLAN.md). The sequence has been rebaselined to insert runtime reliability as Phase 2. This proposal is pending owner approval; historical phase records are retained.
+
+
 **Last documentation reconciliation:** 2026-10-14. This file is the evidence-based status ledger. It records source/document inspection, not proof of a live deployment. Update it with exact commit SHA and test results after each implementation checkpoint.
 
 ## Product in plain English
@@ -26,13 +29,13 @@ Brilina Forge is a private browser-based AI coding workspace. The user connects 
 | GitHub read tools | Repository metadata/context, branches, tree, file read, diff | Implemented in code |
 | GitHub write tools | PR #7 is merged as `41bee365a05c89b999ad38f9501cca039d637868`. Work-branch creation plus file create/update/upsert operations are registered in the Worker tool path. Writes use current blob SHAs and reject the repository default branch. | **Main CI run 203 passed; Cloudflare deployment and live acceptance pending** |
 | UI-to-agent code change | No verified end-to-end change from chat to GitHub commit | **Not verified; primary Phase 1 target** |
-| GitHub Actions repair loop | APIs/workflows may provide a foundation; complete AI-driven diagnose/fix/retest loop not verified | Phase 2 |
-| Local companion | Partial Worker/database dispatch scaffolding exists; no complete executable companion verified | Phase 3 |
+| GitHub Actions repair loop | APIs/workflows may provide a foundation; complete AI-driven diagnose/fix/retest loop not verified | Proposed active Phase 3 |
+| Local companion | Partial Worker/database dispatch scaffolding exists; no complete executable companion verified | Proposed active Phase 4 |
 | Approval/resume | Controller currently rejects approval-required tools rather than persisting and resuming the same pending call | Incomplete; required before risky companion execution |
 | Device identity | `worker/api.ts` contains isolate-local device assignment state | Not durable across Worker isolates; fix before relying on device identity |
 | Run lifecycle/SSE | A run can be claimed/executed while its SSE response is open | Recovery, disconnect, duplicate subscriber, cancellation and replay guarantees not established |
-| Cloudflare diagnostics | No verified end-to-end log-to-source-fix flow | Phase 4 |
-| Teams/multiple providers | Architecture can accommodate them; complete team workflow not verified | Phase 5 |
+| Cloudflare diagnostics | No verified end-to-end log-to-source-fix flow | Proposed active Phase 5 |
+| Teams/multiple providers | Architecture can accommodate them; complete team workflow not verified | Proposed active Phase 6 |
 
 ## Automated verification snapshot (2026-10-14)
 
@@ -56,7 +59,7 @@ A step-by-step guide covering GitHub App setup, Neon, Cloudflare Workers AI, Wor
 
 ## Immediate priority
 
-**Phase 1: enable real AI coding through GitHub.** Do not continue expanding the companion until a real model can read relevant files, make controlled edits through GitHub, return a reviewable diff/commit, and persist the result.
+**Proposed Phase 0:** approve the architecture rebaseline and record the source/runtime/database baseline. After that gate, **Phase 1 remains the immediate product gate: enable real AI coding through GitHub.** Do not continue expanding the companion until a real model can read relevant files, make controlled edits through GitHub, return a reviewable diff/commit, and persist the result.
 
 ## Phase 1 implementation checklist
 
