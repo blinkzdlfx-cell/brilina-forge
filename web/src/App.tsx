@@ -17,6 +17,7 @@ import {
   updateConversationContext
 } from "./api";
 import type { ChatMessage, Conversation, ForgeDiff, ForgeEvent, GithubBranch, GithubRepository, RunAudit, RunStatus, SessionInfo } from "./types";
+import { SelectField } from "./components/ui/SelectField";
 
 const demoMessages: ChatMessage[] = [
   {
@@ -429,19 +430,15 @@ export function App() {
             <span>{(active?.branchName ?? selectedBranch) || "No branch selected"}</span>
           </div>
 <div className="top-actions">
-              <label className="context-select">
-                <span>Compare base</span>
-                <select
-                  value={diffBase}
-                  onChange={event => setDiffBase(event.target.value)}
-                  disabled={!selectedRepoId || loadingBranches || running}
-                >
-                  <option value="">Select base</option>
-                  {branches.map(branch => (
-                    <option key={branch.name} value={branch.name}>{branch.name}</option>
-                  ))}
-                </select>
-              </label>
+              <SelectField
+                id="compare-base"
+                label="Compare base"
+                value={diffBase}
+                onChange={setDiffBase}
+                placeholder={loadingBranches ? "Loading branches…" : "Select base"}
+                disabled={!selectedForgeRepoId || loadingBranches || running || branches.length === 0}
+                options={branches.map(branch => ({ value: branch.name, label: branch.name }))}
+              />
               <button
                 className="icon-button diff-button"
                 disabled={!diffBase || !selectedBranch || loadingDiff}
@@ -450,32 +447,34 @@ export function App() {
               >
                 ⇄
               </button>
-              <label className="context-select">
-              <span>Repository</span>
-              <select
-                value={selectedRepoId ?? ""}
-                onChange={event => void handleRepositoryChange(event.target.value)}
+              <SelectField
+                id="repository-select"
+                label="Repository"
+                value={selectedRepoId === null ? "" : String(selectedRepoId)}
+                onChange={value => void handleRepositoryChange(value)}
+                placeholder={loadingRepos ? "Loading…" : "Select repository"}
                 disabled={loadingRepos || running}
-              >
-                <option value="">{loadingRepos ? "Loading…" : "Select repository"}</option>
-                {repositories.map(repository => (
-                  <option key={repository.id} value={repository.id}>{repository.full_name}</option>
-                ))}
-              </select>
-            </label>
-            <label className="context-select">
-              <span>Branch</span>
-              <select
-                value={selectedBranch}
-                onChange={event => void handleBranchChange(event.target.value)}
-                disabled={!selectedForgeRepoId || loadingBranches || running}
-              >
-                <option value="">{loadingBranches ? "Loading branches…" : branches.length ? "Select branch" : "No branches loaded"}</option>
-                {branches.map(branch => (
-                  <option key={branch.name} value={branch.name}>{branch.name}{branch.protected ? " · protected" : ""}</option>
-                ))}
-              </select>
-            </label>
+                options={repositories.map(repository => ({ value: String(repository.id), label: repository.full_name }))}
+              />
+            <SelectField
+              id="branch-select"
+              label="Branch"
+              value={selectedBranch}
+              onChange={value => void handleBranchChange(value)}
+              placeholder={loadingBranches ? "Loading branches…" : branches.length ? "Select branch" : "No branches loaded"}
+              disabled={!selectedForgeRepoId || loadingBranches || running || branches.length === 0}
+              helperText={
+                loadingBranches ? "Loading available branches…" :
+                !selectedRepoId ? "Choose a repository first." :
+                !selectedForgeRepoId ? "Repository connection is not ready." :
+                branches.length === 0 ? "No branches loaded. Check the error message." :
+                `${branches.length} branches available`
+              }
+              options={branches.map(branch => ({
+                value: branch.name,
+                label: `${branch.name}${branch.protected ? " · protected" : ""}`
+              }))}
+            />
             {session?.githubUser?.avatar_url
               ? <img className="avatar" src={session.githubUser.avatar_url} alt="" />
               : <button className="avatar" aria-label="Forge workspace">F</button>}
