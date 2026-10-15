@@ -32,6 +32,12 @@ This ledger is based on source and documentation inspection. A listed capability
 
 **Gate:** factual baseline and current source/documentation agree; branch selector remains explicitly unverified until owner browser testing.
 
+## Batch 1 UI consistency pass
+
+- [x] Add centralized visual tokens and consistent global focus, hover, disabled, and reduced-motion states without replacing the current React/Vite architecture.
+- [x] Improve mobile context-selector layout and reduce the branch selector's dependency on an internal sync identifier.
+- [ ] Confirm build/CI and manually verify repository, branch, compare-base, chat composer, and error/loading states on the deployed app.
+
 ## Batch 1 implementation checkpoint (2026-10-15)
 
 - **Code checkpoint:** `a825640e33c7284ad0cd60ea56a731950c7289ec` introduced clear reporting for invalid/duplicate tool-call identifiers; the preceding code checkpoint `38650d57653eba0d4c47cbf7ba2cf95a28a5f392` passed build, Phase 1 typecheck/tests, Worker tests, Wrangler dry-run, and the security audit. CI for the current code checkpoint has passed build, typecheck, Phase 1 tests, Worker tests and security audit; the Wrangler dry-run step was still running at the time this ledger was updated.
