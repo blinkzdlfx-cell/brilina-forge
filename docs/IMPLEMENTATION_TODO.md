@@ -127,3 +127,31 @@ This ledger is based on source and documentation inspection. A listed capability
 3. I then provide one consolidated owner test card with exact starting URL, safe branch, numbered steps, expected outcomes, PASS/FAIL response format, and safe-stop instructions.
 4. You test the deployed app and report the result. I record it as owner-reported evidence, fix failures in the same batch, and ask you to retest.
 5. A batch is not complete until its acceptance gate passes. We do not jump ahead merely because code has been committed.
+
+## Batch 1 — shared UI foundation and live-test gate (2026-10-15)
+
+**Status:** implementation committed; automated CI is running; owner live test pending.
+
+- Added `web/src/components/ui/SelectField.tsx` as a shared accessible control for repository, branch, and compare-base selection.
+- Reused the shared control in all three workspace context fields so loading, disabled, option, and focus behavior stays consistent.
+- Added visible branch-control helper text so the user can distinguish loading, no repository, disconnected repository, and available-branch states.
+- Extended shared CSS tokens and interaction styles for controls, focus, disabled states, composer focus, and responsive mobile layout.
+- Normalized five literal escaped line-break sequences in `web/src/styles.css` into actual newlines so the affected global CSS rules parse as intended.
+- Preserved React/Vite, Cloudflare Worker Static Assets, Neon, and the existing GitHub API division.
+
+**Important framework note:** the current repository still does not have Tailwind CSS or the shadcn/ui package/tooling installed. These commits establish reusable UI primitives and consistency without adding unverified dependencies or leaving `package-lock.json` out of sync. Do not describe shadcn/ui as installed. The next framework step should be a deliberate dependency-and-lockfile change after this live acceptance pass, rather than a partial install.
+
+### Batch 1 owner test checklist
+
+1. Open the live Forge URL and refresh once.
+2. Confirm the GitHub session remains connected.
+3. Open **Repository** and choose a repository.
+4. Wait for branch loading to finish. The branch control should show the available-branch count below it.
+5. Open **Branch** and choose a branch other than `main`, if available. Confirm the selected branch appears in the header.
+6. Open **Compare base**, select a different branch, then tap the compare button. Confirm a diff panel appears or a clear error is shown.
+7. Start a new chat and send a harmless question such as `Summarize the current repository without changing files.`
+8. Confirm the reply and run activity appear. Do not ask the agent to write files during this UI smoke test.
+9. Check that the controls fit the phone screen and that loading/error/disabled states are understandable.
+
+Record any step that fails before starting Batch 2. A green build alone does not satisfy this gate.
+
