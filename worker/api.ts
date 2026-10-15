@@ -575,24 +575,24 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
       // normal provider/tool timeout so legitimate longer runs are not interrupted.
       const staleRuns = await getSql().query(
         "WITH stale AS (\n" +
-           UPDATE runs\n" +
-           SET status = 'interrupted',\n" +
-               finished_at = now(),\n" +
-               error_message = 'Run interrupted after exceeding the stale-run timeout'\n" +
-           WHERE conversation_id = $1\n" +
-             AND status IN ('queued', 'running')\n" +
-             AND COALESCE(started_at, created_at) < now() - interval '10 minutes'\n" +
-           RETURNING id\n" +
-         ), stale_tools AS (\n" +
-           UPDATE tool_calls\n" +
-           SET status = 'failed',\n" +
-               finished_at = now(),\n" +
-               error_message = 'Parent run interrupted after exceeding the stale-run timeout'\n" +
-           WHERE run_id IN (SELECT id FROM stale)\n" +
-             AND status IN ('requested', 'authorized', 'running')\n" +
-           RETURNING id\n" +
-         )\n" +
-         SELECT id FROM stale",
+        "  UPDATE runs\n" +
+        "  SET status = 'interrupted',\n" +
+        "      finished_at = now(),\n" +
+        "      error_message = 'Run interrupted after exceeding the stale-run timeout'\n" +
+        "  WHERE conversation_id = $1\n" +
+        "    AND status IN ('queued', 'running')\n" +
+        "    AND COALESCE(started_at, created_at) < now() - interval '10 minutes'\n" +
+        "  RETURNING id\n" +
+        "), stale_tools AS (\n" +
+        "  UPDATE tool_calls\n" +
+        "  SET status = 'failed',\n" +
+        "      finished_at = now(),\n" +
+        "      error_message = 'Parent run interrupted after exceeding the stale-run timeout'\n" +
+        "  WHERE run_id IN (SELECT id FROM stale)\n" +
+        "    AND status IN ('requested', 'authorized', 'running')\n" +
+        "  RETURNING id\n" +
+        ")\n" +
+        "SELECT id FROM stale",
         [conversationId]
       ) as Record<string, unknown>[];
       if (staleRuns.length) console.warn("Recovered stale Forge runs", staleRuns.map(row => row.id));
