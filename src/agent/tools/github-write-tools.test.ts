@@ -194,3 +194,16 @@ test("branches created by one run are not authorized in another run", async () =
   }), false);
 });
 
+test("GitHub tool registry includes each read/write tool exactly once", async () => {
+  const { createGithubReadTools } = await import("./github-read-context.js");
+  const tools = createGithubReadTools({} as GithubService);
+  const names = tools.map(tool => tool.name);
+  assert.equal(new Set(names).size, names.length);
+  assert.ok(names.includes("github.read_file"));
+  assert.ok(names.includes("github.get_diff"));
+  assert.ok(names.includes("github.create_work_branch"));
+  assert.ok(names.includes("github.create_file"));
+  assert.ok(names.includes("github.update_file"));
+  assert.ok(names.includes("github.write_file"));
+});
+
