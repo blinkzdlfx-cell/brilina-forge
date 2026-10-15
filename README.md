@@ -58,6 +58,7 @@ See [Cloudflare deployment](docs/CLOUDFLARE_DEPLOYMENT.md). Do not claim deploym
 - [Roadmap and acceptance criteria](docs/ROADMAP.md)
 - [Current state and continuation](docs/CURRENT_STATE_AND_CONTINUATION.md)
 - [Architecture](docs/ARCHITECTURE.md)
+- [UI architecture research and proposed patterns](docs/UI_ARCHITECTURE_RESEARCH.md)
 - [Requirements](docs/REQUIREMENTS.md)
 - [Agent handoff](docs/AGENT_HANDOFF.md)
 - [AI collaboration workflow](docs/AI_COLLABORATION.md)
