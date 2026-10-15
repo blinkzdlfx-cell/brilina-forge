@@ -42,4 +42,4 @@ export type AgentAuditStore = {
   updateToolCall(id: string, status: ToolStatus, result?: unknown, errorMessage?: string): Promise<void>;
 };
 export type AgentRunInput = { conversationId: string; principal: AgentPrincipal; message: string; maxSteps?: number; runId?: string };
-export type AgentRunResult = { runId: string; status: RunStatus; response?: string };
+export type AgentRunResult = { runId: string; status: RunStatus; response?: string; errorMessage?: string };

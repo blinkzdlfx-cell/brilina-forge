@@ -103,7 +103,7 @@ export class AgentController {
       const message = error instanceof Error ? error.message : "Agent run failed";
       state.transition("failed");
       await this.audit.updateRun(run.id, "failed", message);
-      return { runId: run.id, status: "failed" };
+      return { runId: run.id, status: "failed", errorMessage: message };
     }
   }
 }
