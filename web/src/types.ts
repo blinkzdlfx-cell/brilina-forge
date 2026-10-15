@@ -1,5 +1,11 @@
 export type RunStatus = "queued" | "running" | "completed" | "failed" | "cancelled" | "interrupted";
 
+export type ConversationRun = { id: string; status: RunStatus; provider: string | null; model: string | null; createdAt: string };
+export type RunAudit = ConversationRun & {
+  conversationId: string; startedAt: string | null; finishedAt: string | null; errorMessage: string | null;
+  toolCalls: Array<{ id: string; toolName: string; status: "requested" | "authorized" | "running" | "completed" | "failed" | "rejected"; arguments: unknown; result: unknown; errorMessage: string | null; startedAt: string | null; finishedAt: string | null }>;
+};
+
 export type Conversation = {
   id: string;
   title: string | null;

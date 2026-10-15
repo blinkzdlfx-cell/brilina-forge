@@ -25,6 +25,23 @@ test("controller validates, authorizes, executes and records a read-only tool", 
   assert.deepEqual(audit.toolCalls[0].result, { content: "contents:README.md" });
 });
 
+test("controller includes prior conversation turns before the current message", async () => {
+  const registry = new ToolRegistry();
+  let received: Array<{ role: string; content: string }> = [];
+  const model = { async next(input: { messages: Array<{ role: string; content: string }> }) { received = input.messages; return { type: "final" as const, content: "I remember the earlier request." }; } };
+  const controller = new AgentController(model, registry, new InMemoryAgentAuditStore());
+  const result = await controller.run({ conversationId: "conversation-memory", principal: { userId: "user-1", workspaceId: "workspace-1" }, history: [
+    { role: "user", content: "We are working on the checkout page." },
+    { role: "assistant", content: "Understood. I will keep the checkout page in context." }
+  ], message: "What page are we working on?" });
+  assert.equal(result.status, "completed");
+  assert.deepEqual(received.map(item => [item.role, item.content]), [
+    ["user", "We are working on the checkout page."],
+    ["assistant", "Understood. I will keep the checkout page in context."],
+    ["user", "What page are we working on?"]
+  ]);
+});
+
 test("controller rejects blocked tools before execution", async () => {
   let executed = false;
   const blocked: ForgeTool = { ...readTool, name: "dangerous.tool", policy: "blocked", async execute() { executed = true; return {}; } };

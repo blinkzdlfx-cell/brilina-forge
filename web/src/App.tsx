@@ -4,6 +4,8 @@ import {
   createConversation,
   listConversations,
   listConversationMessages,
+  listConversationRuns,
+  getRunAudit,
   listGithubBranches,
   listGithubRepositories,
   loadSession,
@@ -14,7 +16,7 @@ import {
   syncGithubRepository,
   updateConversationContext
 } from "./api";
-import type { ChatMessage, Conversation, ForgeDiff, ForgeEvent, GithubBranch, GithubRepository, SessionInfo } from "./types";
+import type { ChatMessage, Conversation, ForgeDiff, ForgeEvent, GithubBranch, GithubRepository, RunAudit, RunStatus, SessionInfo } from "./types";
 
 const demoMessages: ChatMessage[] = [
   {
@@ -25,12 +27,15 @@ const demoMessages: ChatMessage[] = [
   }
 ];
 
-type ToolActivity = {
-  callId: string;
-  toolName: string;
-  status: "requested" | "running" | "completed" | "approval" | "rejected";
-  detail?: string;
-};
+type ToolActivity = { callId: string; toolName: string; status: "requested" | "running" | "completed" | "approval" | "rejected" | "failed"; detail?: string };
+type RunActivity = { runId: string; status: RunStatus; createdAt: string; tools: ToolActivity[]; errorMessage?: string | null };
+function activityFromAudit(audit: RunAudit): RunActivity {
+  return { runId: audit.id, status: audit.status, createdAt: audit.createdAt, errorMessage: audit.errorMessage, tools: audit.toolCalls.map(call => ({
+    callId: call.id, toolName: call.toolName,
+    status: call.status === "authorized" || call.status === "running" ? "running" : call.status === "completed" ? "completed" : call.status === "failed" ? "failed" : call.status === "rejected" ? "rejected" : "requested",
+    detail: call.errorMessage ?? undefined
+  })) };
+}
 
 export function App() {
   const [session, setSession] = useState<SessionInfo | null>(null);
@@ -43,7 +48,7 @@ export function App() {
   const [streaming, setStreaming] = useState("");
   const [composer, setComposer] = useState("");
   const [running, setRunning] = useState(false);
-  const [toolActivities, setToolActivities] = useState<ToolActivity[]>([]);
+  const [runActivities, setRunActivities] = useState<RunActivity[]>([]);
   const [selectedRepoId, setSelectedRepoId] = useState<number | null>(null);
   const [selectedForgeRepoId, setSelectedForgeRepoId] = useState<string | null>(null);
   const [selectedBranch, setSelectedBranch] = useState("");
@@ -102,9 +107,13 @@ export function App() {
     setSelectedRepoId(githubRepo?.id ?? null);
     setError(null);
 
-    void listConversationMessages(active.id)
-      .then(history => setMessages(history.length ? history : demoMessages))
-      .catch(err => setError(err instanceof Error ? err.message : "Unable to load conversation history"));
+    void Promise.all([listConversationMessages(active.id), listConversationRuns(active.id)])
+      .then(async ([history, runs]) => {
+        setMessages(history.length ? history : demoMessages);
+        const audits = await Promise.all(runs.map(run => getRunAudit(run.id).catch(() => null)));
+        setRunActivities(audits.filter((audit): audit is RunAudit => audit !== null).map(activityFromAudit));
+      })
+      .catch(err => setError(err instanceof Error ? err.message : "Unable to load conversation history and run activity"));
   }, [active, repositories]);
 
   const title = useMemo(() => active?.title ?? "New Forge conversation", [active]);
@@ -200,7 +209,7 @@ export function App() {
     if (running) return;
     setActive(conversation);
     setMessages(demoMessages);
-    setToolActivities([]);
+    setRunActivities([]);
     setStreaming("");
     setError(null);
   }
@@ -209,40 +218,37 @@ export function App() {
     if (running) return;
     setActive(null);
     setMessages(demoMessages);
-    setToolActivities([]);
+    setRunActivities([]);
     setStreaming("");
     setError(null);
   }
 
-  const upsertTool = useCallback((callId: string, toolName: string, patch: Partial<ToolActivity>) => {
-    setToolActivities(items => {
-      const existing = items.find(item => item.callId === callId);
-      if (existing) return items.map(item => item.callId === callId ? { ...item, ...patch } : item);
-      return [...items, { callId, toolName, status: "requested", ...patch }];
+  const upsertTool = useCallback((runId: string, callId: string, toolName: string, patch: Partial<ToolActivity>) => {
+    setRunActivities(items => {
+      const run = items.find(item => item.runId === runId);
+      const tools = run?.tools ?? [];
+      const existing = tools.find(item => item.callId === callId);
+      const nextTools = existing ? tools.map(item => item.callId === callId ? { ...item, ...patch } : item) : [...tools, { callId, toolName, status: "requested" as const, ...patch }];
+      if (run) return items.map(item => item.runId === runId ? { ...item, tools: nextTools } : item);
+      return [{ runId, status: "running", createdAt: new Date().toISOString(), tools: nextTools }, ...items];
     });
   }, []);
 
-  const handleRunEvent = useCallback((event: ForgeEvent) => {
+  const handleRunEvent = useCallback((runId: string, event: ForgeEvent) => {
     switch (event.type) {
       case "run.started":
-        setToolActivities([]);
+        setRunActivities(items => {
+          const run = items.find(item => item.runId === runId);
+          if (run) return items.map(item => item.runId === runId ? { ...item, status: "running" } : item);
+          return [{ runId, status: "running", createdAt: new Date().toISOString(), tools: [] }, ...items];
+        });
         setStreaming("");
         break;
-      case "tool.requested":
-        upsertTool(event.callId, event.toolName, { status: "requested" });
-        break;
-      case "tool.started":
-        upsertTool(event.callId, event.toolName, { status: "running" });
-        break;
-      case "tool.completed":
-        upsertTool(event.callId, event.toolName, { status: "completed" });
-        break;
-      case "approval.required":
-        upsertTool(event.callId, event.toolName, { status: "approval" });
-        break;
-      case "tool.rejected":
-        upsertTool(event.callId, event.toolName, { status: "rejected", detail: event.reason });
-        break;
+      case "tool.requested": upsertTool(runId, event.callId, event.toolName, { status: "requested" }); break;
+      case "tool.started": upsertTool(runId, event.callId, event.toolName, { status: "running" }); break;
+      case "tool.completed": upsertTool(runId, event.callId, event.toolName, { status: "completed" }); break;
+      case "approval.required": upsertTool(runId, event.callId, event.toolName, { status: "approval" }); break;
+      case "tool.rejected": upsertTool(runId, event.callId, event.toolName, { status: "rejected", detail: event.reason }); break;
       case "assistant.delta":
         setStreaming(value => value + event.content);
         break;
@@ -255,12 +261,14 @@ export function App() {
         break;
       case "run.failed":
         setRunning(false);
+        setRunActivities(items => items.map(item => item.runId === runId ? { ...item, status: "failed", errorMessage: event.message } : item));
         setStreaming("");
         setError(event.message);
         closeStream.current?.();
         break;
       case "run.completed":
         setRunning(false);
+        setRunActivities(items => items.map(item => item.runId === runId ? { ...item, status: "completed" } : item));
         setStreaming("");
         closeStream.current?.();
         break;
@@ -275,7 +283,6 @@ export function App() {
     setComposer("");
     setRunning(true);
     setStreaming("");
-    setToolActivities([]);
 
     try {
       const conversation = await ensureConversation();
@@ -285,7 +292,8 @@ export function App() {
       ]);
 
       const { runId } = await startRun(conversation.id, message);
-      closeStream.current = streamRun(runId, handleRunEvent, () => {
+      setRunActivities(items => [{ runId, status: "queued", createdAt: new Date().toISOString(), tools: [] }, ...items.filter(item => item.runId !== runId)]);
+      closeStream.current = streamRun(runId, event => handleRunEvent(runId, event), () => {
         setRunning(false);
         setError("The run event stream disconnected.");
       });
@@ -427,28 +435,24 @@ export function App() {
                 </article>
               ))}
 
-              {toolActivities.length > 0 && (
-                <div className="tool-activity">
-                  <div className="tool-activity-title">Run activity</div>
-                  {toolActivities.map(item => (
-                    <div className="tool-activity-row" key={item.callId}>
-                      <span className={`tool-state ${item.status}`} />
-                      <span>{item.toolName}</span>
-                      <span className="tool-status">
-                        {item.status === "requested" && "Requested"}
-                        {item.status === "running" && "Running"}
-                        {item.status === "completed" && "Completed"}
-                        {item.status === "approval" && "Approval required"}
-                        {item.status === "rejected" && (item.detail ?? "Rejected")}
-                      </span>
-                    </div>
+              {runActivities.length > 0 && (
+                <section className="run-history" aria-label="Run activity history">
+                  <div className="run-history-heading">Run activity</div>
+                  {runActivities.map(run => (
+                    <details className="tool-activity" key={run.runId} open={run.status === "running" || run.status === "queued"}>
+                      <summary className="run-history-summary">
+                        <span className={`tool-state ${run.status === "completed" ? "completed" : run.status === "failed" || run.status === "interrupted" ? "failed" : run.status === "running" ? "running" : "requested"}`} />
+                        <span>Run · {new Date(run.createdAt).toLocaleString()}</span><span className="tool-status">{run.status}</span>
+                      </summary>
+                      {run.tools.length === 0 && <div className="diff-empty">No tool activity recorded for this run.</div>}
+                      {run.tools.map(item => <div className="tool-activity-row" key={item.callId}>
+                        <span className={`tool-state ${item.status}`} /><span>{item.toolName}</span>
+                        <span className="tool-status">{item.status === "approval" ? "Approval required" : item.detail ?? item.status}</span>
+                      </div>)}
+                      {run.errorMessage && <div className="approval-note">{run.errorMessage}</div>}
+                    </details>
                   ))}
-                  {toolActivities.some(item => item.status === "approval") && (
-                    <div className="approval-note">
-                      This action requires human approval. Interactive approval/resume is reserved for a later controller iteration.
-                    </div>
-                  )}
-                </div>
+                </section>
               )}
 
               {streaming && (

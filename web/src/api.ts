@@ -1,4 +1,4 @@
-import type { ChatMessage, Conversation, ForgeDiff, ForgeEvent, ForgeRepository, GithubBranch, GithubRepository, SessionInfo } from "./types";
+import type { ChatMessage, Conversation, ConversationRun, ForgeDiff, ForgeEvent, ForgeRepository, GithubBranch, GithubRepository, RunAudit, SessionInfo } from "./types";
 
 async function readError(response: Response, fallback: string): Promise<never> {
   try {
@@ -119,6 +119,18 @@ export function streamRun(runId: string, onEvent: (event: ForgeEvent) => void, o
 
   source.onerror = onError;
   return () => source.close();
+}
+
+export async function listConversationRuns(conversationId: string): Promise<ConversationRun[]> {
+  const response = await fetch(`/api/conversations/${conversationId}/runs`, { credentials: "include" });
+  if (!response.ok) await readError(response, "Unable to load run history");
+  return response.json();
+}
+
+export async function getRunAudit(runId: string): Promise<RunAudit> {
+  const response = await fetch(`/api/runs/${runId}/audit`, { credentials: "include" });
+  if (!response.ok) await readError(response, "Unable to load run activity");
+  return response.json();
 }
 
 export async function listConversationMessages(conversationId: string): Promise<ChatMessage[]> {

@@ -39,6 +39,9 @@ export class AgentController {
     const context = new ModelContext(this.registry);
     const activeContext = describeActiveContext(input.principal);
     if (activeContext) context.add({ role: "system", content: activeContext });
+    for (const item of input.history ?? []) {
+      if (item.content.trim()) context.add({ role: item.role, content: item.content });
+    }
     context.add({ role: "user", content: input.message });
     const maxSteps = input.maxSteps ?? 8;
 

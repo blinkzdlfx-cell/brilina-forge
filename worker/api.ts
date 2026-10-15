@@ -267,10 +267,23 @@ async function executeRun(
       { shouldStop: () => request.signal.aborted }
     );
 
-    const result = await controller.run({
-      runId,
-      conversationId,
-      principal: {
+    const persistedMessages = await listConversationMessages(conversationId, userId, workspaceId);
+    let historyBudget = 16_000;
+    const history = persistedMessages
+      .filter(item => item.runId !== runId && (item.role === "user" || item.role === "assistant"))
+      .slice(-20)
+      .map(item => ({ role: item.role as "user" | "assistant", content: item.content.slice(0, 4_000) }))
+      .reverse()
+      .filter(item => {
+        if (historyBudget <= 0) return false;
+        const content = item.content.slice(0, historyBudget);
+        historyBudget -= content.length;
+        item.content = content;
+        return Boolean(content.trim());
+      })
+      .reverse();
+
+    const result = await controller.run({ runId, conversationId, history, principal: {
         userId,
         workspaceId,
         repositoryFullName: repositoryFullName ?? undefined,
