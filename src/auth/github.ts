@@ -129,9 +129,10 @@ async function fetchGithubUser(accessToken: string): Promise<GithubUser> {
     headers: {
       Accept: "application/vnd.github+json",
       Authorization: `Bearer ${accessToken}`,
-      "X-GitHub-Api-Version": "2022-11-28"
+      "X-GitHub-Api-Version": "2022-11-28",
+      "User-Agent": "Brilina-Forge"
     }
   });
-  if (!response.ok) throw new Error("GitHub identity lookup failed");
+  if (!response.ok) throw new Error(`GitHub identity lookup failed (${response.status})`);
   return await response.json() as GithubUser;
 }
