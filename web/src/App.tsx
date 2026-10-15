@@ -28,7 +28,7 @@ const demoMessages: ChatMessage[] = [
 ];
 
 type ToolActivity = { callId: string; toolName: string; status: "requested" | "running" | "completed" | "approval" | "rejected" | "failed"; detail?: string; resultSummary?: { operation?: string; branch?: string; path?: string | null; commitUrl?: string; readBackVerified?: boolean } };
-type RunActivity = { runId: string; status: RunStatus; createdAt: string; tools: ToolActivity[]; errorMessage?: string | null };
+type RunActivity = { runId: string; status: RunStatus; createdAt: string; tools: ToolActivity[]; errorMessage?: string | null; provider?: string | null; model?: string | null };
 function summarizeWriteResult(result: unknown): ToolActivity["resultSummary"] {
   if (!result || typeof result !== "object" || Array.isArray(result)) return undefined;
   const value = result as Record<string, unknown>;
@@ -43,7 +43,7 @@ function summarizeWriteResult(result: unknown): ToolActivity["resultSummary"] {
 }
 
 function activityFromAudit(audit: RunAudit): RunActivity {
-  return { runId: audit.id, status: audit.status, createdAt: audit.createdAt, errorMessage: audit.errorMessage, tools: audit.toolCalls.map(call => ({
+  return { runId: audit.id, status: audit.status, createdAt: audit.createdAt, errorMessage: audit.errorMessage, provider: audit.provider, model: audit.model, tools: audit.toolCalls.map(call => ({
     callId: call.id, toolName: call.toolName,
     status: call.status === "authorized" || call.status === "running" ? "running" : call.status === "completed" ? "completed" : call.status === "failed" ? "failed" : call.status === "rejected" ? "rejected" : "requested",
     detail: call.errorMessage ?? undefined,
@@ -485,7 +485,7 @@ export function App() {
                     <details className="tool-activity" key={run.runId} open={run.status === "running" || run.status === "queued"}>
                       <summary className="run-history-summary">
                         <span className={`tool-state ${run.status === "completed" ? "completed" : run.status === "failed" || run.status === "interrupted" ? "failed" : run.status === "running" ? "running" : "requested"}`} />
-                        <span>Run · {new Date(run.createdAt).toLocaleString()}</span><span className="tool-status">{run.status}</span>
+                        <span>Run · {new Date(run.createdAt).toLocaleString()}</span>{run.provider && run.model && <span className="tool-status">{run.provider} · {run.model}</span>}<span className="tool-status">{run.status}</span>
                       </summary>
                       {run.tools.length === 0 && <div className="diff-empty">No tool activity recorded for this run.</div>}
                       {run.tools.map(item => <div className="tool-activity-row" key={item.callId}>
