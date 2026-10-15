@@ -38,6 +38,8 @@ Do not add new product behavior to the legacy Fastify server. Do not add a secon
 
 **Outcome:** one real model can make a useful, reviewable code change from the web UI.
 
+**Progress checkpoint (2026-10-15):** the existing `createGithubWriteTools(service)` factory was registered in the Worker run registry in commit `3ca281261a4efa4c9fdae8404899d218be2a8ea3`. GitHub Actions run 237 passed the focused build, typecheck, Phase 1 tests, Worker tests, Wrangler dry-run and security audit. Live end-to-end write/read-back/diff acceptance is still open; do not mark Phase 1 complete.
+
 - Verify GitHub authentication, repository/branch binding, provider configuration and Neon persistence.
 - Use one real provider first, behind the provider-neutral adapter.
 - Complete scoped GitHub read/write tools: work branch, create/update file, current blob SHA/conflict handling, read-back, diff and commit metadata.
