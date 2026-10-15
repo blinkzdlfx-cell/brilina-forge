@@ -191,3 +191,53 @@ test("controller bounds oversized tool results before adding them to run history
   assert.ok((saved.preview?.length ?? 0) < 32_000);
 });
 
+test("controller caps the number of tool steps even when a caller requests more", async () => {
+  const registry = new ToolRegistry();
+  registry.register(readTool);
+  const audit = new InMemoryAgentAuditStore();
+  const decisions = Array.from({ length: 10 }, (_, index) => ({
+    type: "tool_call" as const,
+    call: { id: "bounded-step-" + index, name: readTool.name, arguments: { path: "README.md" } }
+  }));
+  const controller = new AgentController(new FakeModel(decisions), registry, audit);
+
+  const result = await controller.run({
+    conversationId: "conversation-step-limit",
+    principal: { userId: "user-1", workspaceId: "workspace-1" },
+    message: "Keep working.",
+    maxSteps: 999
+  });
+
+  assert.equal(result.status, "failed");
+  assert.equal(result.errorMessage, "Agent step limit exceeded");
+  assert.equal(audit.toolCalls.length, 8);
+});
+
+test("controller enforces a total tool-result context budget across a run", async () => {
+  const largeTool: ForgeTool<{ path: string }, { content: string }> = {
+    ...readTool,
+    async execute() { return { content: "x".repeat(40_000) }; }
+  };
+  const registry = new ToolRegistry();
+  registry.register(largeTool);
+  const audit = new InMemoryAgentAuditStore();
+  const decisions = [
+    { type: "tool_call" as const, call: { id: "large-1", name: largeTool.name, arguments: { path: "one.txt" } } },
+    { type: "tool_call" as const, call: { id: "large-2", name: largeTool.name, arguments: { path: "two.txt" } } },
+    { type: "tool_call" as const, call: { id: "large-3", name: largeTool.name, arguments: { path: "three.txt" } } },
+    { type: "final" as const, content: "Finished with bounded context." }
+  ];
+  const controller = new AgentController(new FakeModel(decisions), registry, audit);
+
+  const result = await controller.run({
+    conversationId: "conversation-total-context",
+    principal: { userId: "user-1", workspaceId: "workspace-1" },
+    message: "Read the files."
+  });
+
+  assert.equal(result.status, "completed");
+  const totalCharacters = audit.toolCalls.reduce((total, call) => total + JSON.stringify(call.result).length, 0);
+  assert.ok(totalCharacters <= 66_000);
+  assert.ok(audit.toolCalls.some(call => (call.result as { truncated?: boolean }).truncated));
+});
+
