@@ -119,6 +119,7 @@ export function App() {
     }
 
     let cancelled = false;
+    const requestId = ++branchRequestId.current;
     setSelectedForgeRepoId(active.repositoryId);
     setSelectedBranch(active.branchName ?? "");
     const githubRepo = repositories.find(item => item.full_name === active.repositoryFullName);
