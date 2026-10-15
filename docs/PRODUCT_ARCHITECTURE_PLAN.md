@@ -1,6 +1,6 @@
 # Brilina Forge — Product Architecture and Phase Rebaseline
 
-**Status:** Architecture proposal for owner review; no application code or database schema has been changed by this planning pass.  
+**Status:** Neon Postgres and the direct-to-main, test-before-advance workflow are owner-approved. Other architecture details remain a working plan to validate against the source. No application code or database schema has been changed by this planning pass.  
 **Planning baseline:** 2026-10-15.  
 **Purpose:** Agree on the whole product architecture before extending the current minimal implementation, so we avoid piecemeal redesign and unnecessary migration work.
 
@@ -121,7 +121,7 @@ Tool-routing instructions can guide the model, but are not sufficient on their o
 
 ## 6. Database decision: Neon Postgres vs Cloudflare D1
 
-**Recommendation: keep the existing Neon Postgres database for Forge's core application state. Do not migrate to D1 in this rebaseline. Revisit only if measured needs justify it.**
+**Decision: keep the existing Neon Postgres database for Forge's core application state. Do not migrate to D1 in this rebaseline. Revisit only if measured needs justify it.**
 
 SQL is a query language, not a single database engine. PostgreSQL is a relational database engine that uses SQL. Cloudflare D1 is a managed database built on SQLite and uses SQLite-compatible SQL semantics. They are not interchangeable merely because both support SQL.
 
@@ -154,7 +154,9 @@ SQL is a query language, not a single database engine. PostgreSQL is a relationa
 - Treat D1 migration as a planned project with schema conversion, data export/import, row-count/content checks, application tests and rollback—not as a provider toggle.
 - Use GitHub for source/checkpoints; store metadata and bounded event/result records in Postgres. Add object storage only when real artifacts exceed reasonable database-record use.
 
-**Database gate:** keep Neon unless a measured requirement shows that D1's integration or cost advantage outweighs migration risk and its specific limits. Do not operate Neon and D1 as dual writable sources of truth.
+**Database decision: APPROVED by the owner on 2026-10-15.** Keep Neon as the primary database. Do not migrate to D1 or introduce a second database in the current work.
+
+A future backup database/backup layer may be considered for resilience, but it is out of scope until the primary system, backup objectives, restore procedure and consistency model are established. It must not become a second writable source of truth by accident. A longer-term product idea is to let each customer retain stronger ownership/control of their own database and connected services; this is a future product/business requirement, not an implementation requirement for the current personal-use build.
 
 ## 7. Persistence, files and checkpoints
 
@@ -268,4 +270,4 @@ Do not decide these from preference alone:
 
 ## 12. Implementation protocol
 
-For each increment: inspect source and tests → state one goal and acceptance criteria → implement only that increment → run checks → review the diff → record exact evidence and SHA → stop for review. Do not merge a PR, change production data, migrate databases, or claim a live verification without explicit authorization and evidence.
+For each increment, work directly on `main` as explicitly requested by the owner: inspect source and tests → state one goal and acceptance criteria → implement only that increment → run the relevant tests/build → inspect the diff → fix failures and repeat until the increment passes → record the exact result, test evidence and commit SHA → only then begin the next increment. Do not create a PR as the default workflow. Do not skip tests because work is on main. If a change cannot be verified, stop and report the blocker rather than moving forward. Production data changes, database migrations and production deployments still require explicit authorization.
