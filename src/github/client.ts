@@ -26,6 +26,7 @@ export class GithubClient {
         Accept: "application/vnd.github+json",
         Authorization: `Bearer ${this.accessToken}`,
         "X-GitHub-Api-Version": API_VERSION,
+        "User-Agent": "Brilina-Forge",
         ...(init.headers ?? {})
       }
     });
@@ -40,6 +41,7 @@ export class GithubClient {
         Accept: "application/vnd.github+json",
         Authorization: `Bearer ${this.accessToken}`,
         "X-GitHub-Api-Version": API_VERSION,
+        "User-Agent": "Brilina-Forge",
         "Content-Type": "application/json"
       },
       body: JSON.stringify({ query, variables })
