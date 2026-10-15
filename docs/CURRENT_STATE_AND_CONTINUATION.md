@@ -1,3 +1,9 @@
+## Shared UI foundation (2026-10-15)
+
+- **Decision:** keep the current React/Vite architecture and introduce a small centralized design system before considering a full component-library migration. Shared CSS tokens define surfaces, text, borders, primary color, radii, focus ring, shadows, and motion. Existing controls now share hover, focus, disabled, and reduced-motion behavior; mobile repository/branch controls have improved layout. This is a foundation, not a claim that shadcn/ui components have been installed.
+- **Branch selector hardening:** branch picker availability is based on the selected GitHub repository, not only an internal Forge sync ID; branch loading responses are guarded against stale conversation responses.
+- **Verification status:** code committed to main. Build/CI and live visual acceptance still need evidence; do not mark Batch 1 complete until the app is tested.
+
 # Current State and Continuation Plan
 
 
