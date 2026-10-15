@@ -10,7 +10,7 @@ This document captures the owner's requested behavior and is a working source of
 
 Brilina Forge must behave as an AI coding workspace and orchestrator, not a generic chatbot with tools attached. The UI must expose and support real task execution, selected repository/branch scope, progress, review, interruption, and recovery.
 
-Use a **Cloud Code-style conversation and task-progress experience** as the primary UI reference: a readable conversation with a compact, expandable/collapsible activity surface showing what the agent is currently doing and what it did. Keep the experience focused; do not add complexity just for visual novelty.
+Use a **Claude Code-style conversation and task-progress experience** as the primary UI reference: a readable conversation with a compact, expandable/collapsible activity surface showing what the agent is currently doing and what it did. Keep the experience focused; do not add complexity just for visual novelty.
 
 ## 1. Project-aware memory and compaction — design first
 
@@ -56,7 +56,7 @@ For every coding/action task, the orchestrator should:
 
 ## 3. Workspace UI redesign
 
-Redesign the UI around task execution and review, using the Cloud Code-style interaction pattern. Preserve existing useful functionality and avoid a purely cosmetic redesign.
+Redesign the UI around task execution and review, using the Claude Code-style interaction pattern. Preserve existing useful functionality and avoid a purely cosmetic redesign.
 
 ### Sidebar, conversations, and workspace
 - Clear conversation history and workspace navigation.
@@ -135,7 +135,7 @@ Recommended sequence:
 2. Reproduce and fix repository/branch selection and scope propagation.
 3. Improve orchestrator task planning, relevant-file inspection, evidence-based tool reporting, and run/result handling.
 4. Implement durable ordered run events plus safe stop/continue/replay behavior needed by the activity UI.
-5. Redesign the frontend around the Cloud Code-style conversation and expandable task-activity experience, repository controls, and review panel.
+5. Redesign the frontend around the Claude Code-style conversation and expandable task-activity experience, repository controls, and review panel.
 6. Design and then implement project memory/cache/compaction after the design questions above are resolved.
 7. Implement session-expiry/reconnect/logout UX after the core orchestrator and UI work.
 8. Run focused tests, typecheck, production build, Worker tests, security checks, and safe end-to-end checks for each increment. Then perform owner-assisted browser acceptance where required.
