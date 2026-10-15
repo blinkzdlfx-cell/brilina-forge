@@ -77,6 +77,7 @@ export function App() {
   const closeStream = useRef<(() => void) | null>(null);
   const branchRequestId = useRef(0);
   const diffRequestId = useRef(0);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -166,7 +167,11 @@ export function App() {
 
   const title = useMemo(() => active?.title ?? "New Forge conversation", [active]);
   const selectedGithubRepo = repositories.find(item => item.id === selectedRepoId) ?? null;
-  const contextPending = loadingRepos || loadingBranches || (selectedRepoId !== null && (!selectedForgeRepoId || !selectedBranch));
+  const contextPending = loadingRepos || loadingBranches || !selectedRepoId || !selectedForgeRepoId || !selectedBranch;
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "auto", block: "end" });
+  }, [messages, streaming]);
 
   async function loadDiff(base: string, head: string) {
     const requestId = ++diffRequestId.current;
@@ -593,6 +598,13 @@ export function App() {
 
 {error && <div className="error-banner">{error}</div>}
 
+            <div ref={messagesEndRef} className="scroll-anchor" />
+          </div>
+        </section>
+
+        <footer className="composer-dock">
+          <div className="composer-shell">
+            {error && <div className="error-banner composer-error" role="alert">{error}</div>}
             <div className="composer-wrap">
               <textarea
                 value={composer}
@@ -603,21 +615,40 @@ export function App() {
                     void send();
                   }
                 }}
-                placeholder="Ask Forge to inspect, plan, or change your code…"
+                placeholder={contextPending ? (!selectedRepoId ? "Select a repository above to begin…" : "Preparing repository context…") : "Message Brilina Forge…"}
                 rows={3}
                 disabled={running || contextPending}
+                aria-label="Message Brilina Forge"
               />
-               <div className="composer-footer">
-                 <span className="composer-status">{contextPending ? "Preparing repository context…" : "Enter to send · Shift + Enter for a new line"}</span>
-                 <button className="send-button" disabled={!composer.trim() || running || contextPending} onClick={() => void send()}>
-                   {running ? "Running…" : "Send"}
-                 </button>
-               </div>
+              <div className="composer-footer">
+                <span className="composer-status">
+                  {contextPending
+                    ? (!selectedRepoId ? "Select a repository and working branch to start." : "Preparing repository context…")
+                    : "Enter to send · Shift + Enter for a new line"}
+                </span>
+                <button
+                  className="send-button icon-send-button"
+                  type="button"
+                  aria-label={running ? "Forge is working" : "Send message"}
+                  title={running ? "Forge is working" : "Send message"}
+                  disabled={!composer.trim() || running || contextPending}
+                  onClick={() => void send()}
+                >
+                  {running ? (
+                    <svg className="send-spinner" viewBox="0 0 24 24" aria-hidden="true">
+                      <circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeDasharray="36 18" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M12 19V5M6.5 10.5 12 5l5.5 5.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </button>
+              </div>
             </div>
-
             <p className="disclaimer">Forge can make mistakes. Review proposed changes before implementation.</p>
           </div>
-        </section>
+        </footer>
       </main>
     </div>
   );
