@@ -69,7 +69,11 @@ test("write_file delegates the full file update and returns a reviewable commit 
         content: { path: "src/app.ts", sha: "blob-2", html_url: "https://github.com/acme/site/blob/brilina/feature/src/app.ts" },
         commit: { sha: "commit-2", html_url: "https://github.com/acme/site/commit/commit-2", message: "Update app" }
       };
-    }
+    },
+    getFile: async () => ({
+      path: "src/app.ts", sha: "readback-blob-2", encoding: "base64", content: btoa("new"),
+      name: "app.ts", size: 3, html_url: "https://github.com/acme/site/blob/brilina/feature/src/app.ts"
+    })
   } as unknown as GithubService;
 
   const write = createGithubWriteTools(service).find(tool => tool.name === "github.write_file");
@@ -88,6 +92,8 @@ test("write_file delegates the full file update and returns a reviewable commit 
   assert.equal(result.branch, "brilina/feature");
   assert.equal(result.commitSha, "commit-2");
   assert.equal(result.commitUrl, "https://github.com/acme/site/commit/commit-2");
+  assert.equal(result.readBackVerified, true);
+  assert.equal(result.readBackSha, "readback-blob-2");
 });
 
 test("branch creation tool is scoped to the selected repository", async () => {
@@ -133,4 +139,27 @@ test("a branch created during the current run becomes an authorized work branch"
     content: "new",
     branch: "brilina/feature"
   }), true);
+});
+
+
+test("write_file fails verification when GitHub read-back differs from requested content", async () => {
+  const service = {
+    writeFile: async () => ({
+      content: { path: "src/app.ts", sha: "blob-2", html_url: "https://github.com/acme/site/blob/brilina/feature/src/app.ts" },
+      commit: { sha: "commit-2", html_url: "https://github.com/acme/site/commit/commit-2", message: "Update app" }
+    }),
+    getFile: async () => ({
+      path: "src/app.ts", sha: "readback-blob-3", encoding: "base64", content: btoa("different"),
+      name: "app.ts", size: 9, html_url: "https://github.com/acme/site/blob/brilina/feature/src/app.ts"
+    })
+  } as unknown as GithubService;
+
+  const write = createGithubWriteTools(service).find(tool => tool.name === "github.write_file");
+  assert.ok(write);
+  await assert.rejects(
+    () => write.execute(context, {
+      owner: "acme", repo: "site", path: "src/app.ts", content: "expected", branch: "brilina/feature"
+    }),
+    /GitHub write verification failed/
+  );
 });
