@@ -3,7 +3,7 @@
  > **Phase numbering note (2026-10-15):** The owner-approved working sequence is defined in [ROADMAP.md](ROADMAP.md) and [Product Architecture Plan](PRODUCT_ARCHITECTURE_PLAN.md). Phase 0 is the baseline audit; Phase 1 is core GitHub coding; Phase 2 is runtime reliability/recovery. Historical phase records are retained.
 
 
-**Last source/document audit:** 2026-10-15, source snapshot at main `1a57e347ef88a9aa15affe7b7d48c21def2fbbc5`. This is an inspection baseline, not proof of live application behavior. CI for that SHA passed: `npm ci`, `npm run build`, `npm run typecheck:phase1`, `npm run test:phase1`, `npm run test:worker`, `npx wrangler@4.68.0 deploy --dry-run`, and dependency audit. The broad `npm test` suite and live browser/provider/GitHub coding workflow were not run in this audit.
+**Latest implementation checkpoint:** 2026-10-15, commit `3ca281261a4efa4c9fdae8404899d218be2a8ea3` on `main`. Phase 0 source audit began at `1a57e347ef88a9aa15affe7b7d48c21def2fbbc5`. CI run 237 passed for the implementation checkpoint: `npm ci`, `npm run build`, `npm run typecheck:phase1`, `npm run test:phase1`, `npm run test:worker`, Wrangler deploy dry-run, and dependency audits. This is automated evidence, not proof of live browser/provider/GitHub coding behavior. The broad `npm test` suite and live coding workflow have not been run in this checkpoint.
 
 ## Product in plain English
 
@@ -59,7 +59,7 @@ A step-by-step guide covering GitHub App setup, Neon, Cloudflare Workers AI, Wor
 
 ## Immediate priority
 
-**Phase 0 audit is underway.** The current source review found two key discrepancies to resolve: the Worker run path does not appear to register the GitHub write tools despite earlier docs saying they exist, and run events are emitted over SSE but are not shown as a durable ordered event log in the inspected migrations. After recording the full baseline, Phase 1's immediate task is to make one real AI coding action through GitHub work end to end. Do not continue expanding the companion until a real model can read relevant files, make controlled edits through GitHub, return a reviewable diff/commit, and persist the result.
+**Phase 0 source audit is substantially recorded; live/database deployment verification remains open.** The first Phase 1 code increment now registers the existing scoped GitHub write-tool factory in the Worker runtime, and CI passed. Next, verify the deployed or local runtime exposes the write tools and complete one controlled AI-triggered file write/read-back/diff on a non-default work branch. The durable run-event/recovery design remains a later Phase 2 concern. Do not continue expanding the companion until a real model can read relevant files, make controlled edits through GitHub, return a reviewable diff/commit, and persist the result.
 
 ## Phase 1 implementation checklist
 
@@ -67,7 +67,8 @@ A step-by-step guide covering GitHub App setup, Neon, Cloudflare Workers AI, Wor
 - [ ] Run available build and test commands; record exact output.
 - [ ] Verify GitHub OAuth, repository selection, branch selection, conversation binding, and Neon persistence.
 - [ ] Configure one real AI provider and verify a real request with tool calls.
-- [ ] Reconcile GitHub write-tool implementations with the current Worker registration path; verify branch/create/update/upsert tools are actually available to the controller, then test current-blob-SHA updates and default-branch protection.
+- [x] Register `createGithubWriteTools(service)` in the Worker agent registry (commit `3ca281261a4efa4c9fdae8404899d218be2a8ea3`; CI run 237 passed).
+- [ ] Live-verify that the deployed/local Worker exposes the branch/create/update/upsert tools; complete a real AI-triggered write, read-back and reviewable diff on a non-default work branch.
 - [ ] Add scoped authorization so tools only modify the conversation's selected repository and an explicitly selected work branch.
 - [ ] Ensure writes are sequential for each path and handle conflicts safely.
 - [ ] Complete and verify the branch/commit workflow, diff/read-back, audit events, output bounds, and clear error results.
@@ -77,8 +78,8 @@ A step-by-step guide covering GitHub App setup, Neon, Cloudflare Workers AI, Wor
 
 ## Phase 0 audit findings (2026-10-15)
 
-1. **Current main SHA:** `1a57e347ef88a9aa15affe7b7d48c21def2fbbc5` at the time of this audit. GitHub Actions run 233 passed the listed focused checks and Worker dry-run; no production deploy or end-to-end browser run was performed.
-2. **Write-tool registration mismatch:** `worker/api.ts` currently creates a registry, registers `createGithubReadTools(service)`, and registers `createCompanionExecTool(...)`. The inspected function does not register the GitHub write tools. The next code task must confirm the intended write tool files/tests and register the correct tools safely; do not assume PR #7 means the production Worker exposes them.
+1. **Current main SHA at the implementation checkpoint:** `3ca281261a4efa4c9fdae8404899d218be2a8ea3`. GitHub Actions run 237 passed the listed focused checks and Worker dry-run; no production deployment or end-to-end browser run was performed.
+2. **Write-tool registration increment:** fixed in commit `3ca281261a4efa4c9fdae8404899d218be2a8ea3` by importing and registering `createGithubWriteTools(service)` beside the GitHub read tools in `worker/api.ts`. CI passed. This confirms build/type/focused test coverage, but it does not yet prove the deployed Worker offers the tools or that a real AI-triggered write succeeds end to end.
 3. **Approval is not resumable:** the controller emits `approval.required`, then marks the tool call rejected and throws. There is no persisted approval-and-resume path in the inspected controller contract.
 4. **Durable event history is missing or not yet identified:** migrations include runs, tool calls, usage, conversation messages and companion work results, but the inspected migration list does not show a dedicated ordered run-events table. SSE observer events should not be assumed replayable after disconnect.
 5. **Stale-run PR is not on main:** PR #10 remains open and proposes a guessed 10-minute stale-run cutoff. It is not merged and is not accepted as an implementation decision. Determine heartbeat/lease/timeout behavior before choosing a stale threshold.
@@ -92,7 +93,7 @@ A step-by-step guide covering GitHub App setup, Neon, Cloudflare Workers AI, Wor
 4. **Companion context:** inspect the run ID/conversation ID contract before wiring command execution.
 5. **Neon query contracts:** verify driver return shapes, including stale-work timeout counts, with focused tests.
 6. **Security:** model output is untrusted input. Validate tool arguments, scope repository writes, protect tokens, redact logs, limit retries and output, and require consent for consequential operations.
-7. **Build/test status:** no current local build or test run was performed as part of this documentation update. Historic counts are not current verification.
+7. **Build/test status:** CI run 237 passed focused build/type/test checks for commit `3ca281261a4efa4c9fdae8404899d218be2a8ea3`. The broad recursive `npm test` suite was not run on that SHA, and no live browser/provider/GitHub write verification was performed. Historic counts are not current verification.
 
 ## Architectural decisions
 
