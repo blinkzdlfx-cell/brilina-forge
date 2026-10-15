@@ -26,5 +26,14 @@
       "/auth/*",
       "/health"
     ]
+  },
+  "vars": {
+    "GITHUB_CLIENT_ID": "Iv23lieC3tc05OfuPNZR",
+    "PUBLIC_BASE_URL": "https://brilina-forge.blinkzdlfx.workers.dev",
+    "GITHUB_CALLBACK_URL": "https://brilina-forge.blinkzdlfx.workers.dev/auth/github/callback",
+    "COOKIE_SECURE": "true",
+    "AI_PROVIDER_BASE_URL": "https://api.cloudflare.com/client/v4/accounts/8b694686fda6c12625423d5055aa84b1/ai/v1",
+    "AI_PROVIDER_MODEL": "@cf/zai-org/glm-4.7-flash",
+    "AI_PROVIDER_TIMEOUT_MS": "120000"
   }
 }
