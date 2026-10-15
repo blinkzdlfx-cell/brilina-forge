@@ -54,7 +54,15 @@ function activityFromAudit(audit: RunAudit): RunActivity {
 
 export function App() {
   const [session, setSession] = useState<SessionInfo | null>(null);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return window.localStorage.getItem("brilina-forge:sidebar-collapsed") === "true"; }
+    catch { return false; }
+  });
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 760px)").matches);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const [loadingConversation, setLoadingConversation] = useState(false);
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [repositories, setRepositories] = useState<GithubRepository[]>([]);
   const [branches, setBranches] = useState<GithubBranch[]>([]);
@@ -68,7 +76,7 @@ export function App() {
   const [selectedRepoId, setSelectedRepoId] = useState<number | null>(null);
   const [selectedForgeRepoId, setSelectedForgeRepoId] = useState<string | null>(null);
   const [selectedBranch, setSelectedBranch] = useState("");
-  const [loadingRepos, setLoadingRepos] = useState(true);
+  const [loadingRepos, setLoadingRepos] = useState(false);
   const [diff, setDiff] = useState<ForgeDiff | null>(null);
   const [diffBase, setDiffBase] = useState("");
   const [compareOpen, setCompareOpen] = useState(false);
@@ -77,7 +85,9 @@ export function App() {
   const closeStream = useRef<(() => void) | null>(null);
   const branchRequestId = useRef(0);
   const diffRequestId = useRef(0);
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const chatScrollRef = useRef<HTMLElement | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  const shouldStickToBottomRef = useRef(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -90,7 +100,7 @@ export function App() {
         if (!cancelled) setError("Unable to reach the Forge backend.");
       })
       .finally(() => {
-        if (!cancelled) setLoadingRepos(false);
+        if (!cancelled) setSessionLoading(false);
       });
     return () => { cancelled = true; };
   }, []);
@@ -98,30 +108,78 @@ export function App() {
   useEffect(() => () => { closeStream.current?.(); }, []);
 
   useEffect(() => {
+    const media = window.matchMedia("(max-width: 760px)");
+    const updateViewport = () => {
+      setIsMobile(media.matches);
+      if (!media.matches) setMobileSidebarOpen(false);
+    };
+    updateViewport();
+    media.addEventListener("change", updateViewport);
+    return () => media.removeEventListener("change", updateViewport);
+  }, []);
+
+  useEffect(() => {
+    if (isMobile) return;
+    try { window.localStorage.setItem("brilina-forge:sidebar-collapsed", String(collapsed)); } catch { /* storage may be unavailable */ }
+  }, [collapsed, isMobile]);
+
+  useEffect(() => {
+    if (!active?.id) return;
+    try { window.localStorage.setItem("brilina-forge:last-conversation", active.id); } catch { /* storage may be unavailable */ }
+  }, [active?.id]);
+
+  useEffect(() => {
+    if (!mobileSidebarOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileSidebarOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [mobileSidebarOpen]);
+
+  useEffect(() => {
+    const element = composerRef.current;
+    if (!element) return;
+    element.style.height = "auto";
+    element.style.height = `${Math.min(element.scrollHeight, 180)}px`;
+  }, [composer]);
+
+  useEffect(() => {
     if (!session?.authenticated) {
       setConversations([]);
       setRepositories([]);
       setActive(null);
       setMessages(demoMessages);
+      setLoadingRepos(false);
       return;
     }
 
+    setLoadingRepos(true);
     void Promise.all([listConversations(), listGithubRepositories()])
       .then(([items, repoItems]) => {
         setConversations(items);
         setRepositories(repoItems);
-        if (items[0]) setActive(items[0]);
+        let lastConversationId: string | null = null;
+        try { lastConversationId = window.localStorage.getItem("brilina-forge:last-conversation"); } catch { /* storage may be unavailable */ }
+        if (lastConversationId === "__new__") {
+          setActive(null);
+        } else {
+          setActive(items.find(item => item.id === lastConversationId) ?? items[0] ?? null);
+        }
       })
-      .catch(err => setError(err instanceof Error ? err.message : "Unable to load Forge workspace data."));
+      .catch(err => setError(err instanceof Error ? err.message : "Unable to load Forge workspace data."))
+      .finally(() => setLoadingRepos(false));
   }, [session?.authenticated]);
 
   useEffect(() => {
     if (!active) {
+      setLoadingConversation(false);
       setMessages(demoMessages);
       return;
     }
 
     let cancelled = false;
+    setLoadingConversation(true);
     const requestId = ++branchRequestId.current;
     setSelectedForgeRepoId(active.repositoryId);
     setSelectedBranch(active.branchName ?? "");
@@ -157,9 +215,13 @@ export function App() {
         if (cancelled) return;
         setMessages(history.length ? history : demoMessages);
         setRunActivities(audits.filter((audit): audit is RunAudit => audit !== null).map(activityFromAudit));
+        setLoadingConversation(false);
       })
       .catch(err => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Unable to load conversation history and run activity");
+        if (!cancelled) {
+          setLoadingConversation(false);
+          setError(err instanceof Error ? err.message : "Unable to load conversation history and run activity");
+        }
       });
 
     return () => { cancelled = true; };
@@ -167,11 +229,30 @@ export function App() {
 
   const title = useMemo(() => active?.title ?? "New Forge conversation", [active]);
   const selectedGithubRepo = repositories.find(item => item.id === selectedRepoId) ?? null;
-  const contextPending = loadingRepos || loadingBranches || !selectedRepoId || !selectedForgeRepoId || !selectedBranch;
+  const sidebarCompact = collapsed && !isMobile;
+  const contextPending = sessionLoading || loadingRepos || loadingBranches || !selectedRepoId || !selectedForgeRepoId || !selectedBranch;
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "auto", block: "end" });
-  }, [messages, streaming]);
+    if (!shouldStickToBottomRef.current) return;
+    const element = chatScrollRef.current;
+    if (element) element.scrollTop = element.scrollHeight;
+  }, [messages, streaming, diff, runActivities]);
+
+  function toggleSidebar() {
+    if (isMobile) setMobileSidebarOpen(open => !open);
+    else setCollapsed(value => !value);
+  }
+
+  function closeMobileSidebar() {
+    setMobileSidebarOpen(false);
+  }
+
+  function jumpToLatest() {
+    shouldStickToBottomRef.current = true;
+    setShowJumpToLatest(false);
+    const element = chatScrollRef.current;
+    if (element) element.scrollTop = element.scrollHeight;
+  }
 
   async function loadDiff(base: string, head: string) {
     const requestId = ++diffRequestId.current;
@@ -283,6 +364,10 @@ export function App() {
 
   function selectConversation(conversation: Conversation) {
     if (running) return;
+    setMobileSidebarOpen(false);
+    setComposer("");
+    shouldStickToBottomRef.current = true;
+    setShowJumpToLatest(false);
     setActive(conversation);
     setMessages(demoMessages);
     setRunActivities([]);
@@ -292,6 +377,11 @@ export function App() {
 
   function newChat() {
     if (running) return;
+    setMobileSidebarOpen(false);
+    setComposer("");
+    shouldStickToBottomRef.current = true;
+    setShowJumpToLatest(false);
+    try { window.localStorage.setItem("brilina-forge:last-conversation", "__new__"); } catch { /* storage may be unavailable */ }
     setActive(null);
     setMessages(demoMessages);
     setRunActivities([]);
@@ -379,11 +469,35 @@ export function App() {
       });
     } catch (err) {
       setRunning(false);
+      setComposer(message);
       setError(err instanceof Error ? err.message : "Run failed");
     }
   }
 
-  if (!loadingRepos && session && !session.authenticated) {
+  if (sessionLoading) {
+    return (
+      <div className="forge-app boot-state" role="status" aria-live="polite">
+        <img src="/brand/brilina-forge-mark.svg" alt="" />
+        <strong>Loading Brilina Forge</strong>
+        <span>Checking your GitHub session…</span>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="forge-app sign-in">
+        <div className="sign-in-card">
+          <img src="/brand/brilina-forge-logo.svg" alt="Brilina Forge" />
+          <h1>Forge is temporarily unavailable</h1>
+          <p>{error ?? "Unable to connect to the Forge backend."}</p>
+          <button className="sign-in-button" onClick={() => window.location.reload()}>Retry connection</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session.authenticated) {
     return (
       <div className="forge-app sign-in">
         <div className="sign-in-card">
@@ -399,20 +513,29 @@ export function App() {
 
   return (
     <div className="forge-app">
-      <aside className={`sidebar ${collapsed ? "collapsed" : ""}`}>
+      {isMobile && mobileSidebarOpen && (
+        <button className="sidebar-backdrop" type="button" aria-label="Close navigation menu" onClick={closeMobileSidebar} />
+      )}
+      <aside id="forge-sidebar" className={`sidebar ${sidebarCompact ? "collapsed" : ""} ${isMobile && mobileSidebarOpen ? "mobile-open" : ""}`}>
         <div className="brand-row">
           <img src="/brand/brilina-forge-mark.svg" className="brand-mark" alt="Brilina Forge" />
-          {!collapsed && <img src="/brand/brilina-forge-logo.svg" className="brand-logo" alt="Brilina Forge" />}
-          <button className="icon-button sidebar-toggle" onClick={() => setCollapsed(value => !value)} aria-label="Toggle sidebar">
-            {collapsed ? "›" : "‹"}
+          {!sidebarCompact && <img src="/brand/brilina-forge-logo.svg" className="brand-logo" alt="Brilina Forge" />}
+          <button
+            className="icon-button sidebar-toggle"
+            type="button"
+            onClick={toggleSidebar}
+            aria-label={isMobile ? "Close sidebar" : sidebarCompact ? "Expand sidebar" : "Collapse sidebar"}
+            title={isMobile ? "Close sidebar" : sidebarCompact ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {isMobile ? "×" : sidebarCompact ? "›" : "‹"}
           </button>
         </div>
 
         <button className="new-chat" onClick={newChat} disabled={running}>
-          <span>＋</span>{!collapsed && "New chat"}
+          <span>＋</span>{!sidebarCompact && "New chat"}
         </button>
 
-        {!collapsed && (
+        {!sidebarCompact && (
           <>
             <div className="section-label">Conversations</div>
             <div className="conversation-list">
@@ -475,6 +598,19 @@ export function App() {
             </div>
             <div className="topbar-actions">
               <button
+                className="icon-button mobile-menu-button"
+                type="button"
+                onClick={toggleSidebar}
+                aria-label={mobileSidebarOpen ? "Close navigation" : "Open navigation"}
+                aria-expanded={mobileSidebarOpen}
+                aria-controls="forge-sidebar"
+                title={mobileSidebarOpen ? "Close navigation" : "Open navigation"}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              </button>
+              <button
                 className={`toolbar-button compare-toggle ${compareOpen ? "active" : ""}`}
                 type="button"
                 onClick={() => setCompareOpen(value => !value)}
@@ -518,16 +654,31 @@ export function App() {
           )}
         </header>
 
-        <section className="chat">
+        <section
+          className="chat"
+          ref={chatScrollRef}
+          onScroll={() => {
+            const element = chatScrollRef.current;
+            if (element) {
+              const distance = element.scrollHeight - element.scrollTop - element.clientHeight;
+              const nearBottom = distance < 120;
+              shouldStickToBottomRef.current = nearBottom;
+              setShowJumpToLatest(!nearBottom);
+            }
+          }}
+        >
           <div className="chat-inner">
-            <div className="welcome">
-              <img src="/brand/brilina-forge-mark.svg" alt="" />
-              <h1>Turn ideas into working software.</h1>
-              <p>{selectedGithubRepo ? `Working from ${selectedGithubRepo.full_name}.` : "Select a repository and branch, then describe the change."}</p>
-            </div>
+            {messages.every(message => message.id === "welcome") && !streaming && runActivities.length === 0 && (
+              <div className="welcome">
+                <img src="/brand/brilina-forge-mark.svg" alt="" />
+                <h1>Turn ideas into working software.</h1>
+                <p>{selectedGithubRepo ? `Working from ${selectedGithubRepo.full_name}.` : "Select a repository and branch, then describe the change."}</p>
+              </div>
+            )}
 
+            {loadingConversation && <div className="conversation-loading" role="status">Loading conversation…</div>}
             <div className="messages">
-              {messages.map(message => (
+              {messages.filter(message => message.id !== "welcome").map(message => (
                 <article key={message.id} className={`message ${message.role}`}>
                   {message.role === "assistant" && <img src="/brand/brilina-forge-mark.svg" alt="" />}
                   <div className="message-body">
@@ -596,10 +747,13 @@ export function App() {
               </div>
             )}
 
-{error && <div className="error-banner">{error}</div>}
-
-            <div ref={messagesEndRef} className="scroll-anchor" />
+            <div className="scroll-anchor" />
           </div>
+          {showJumpToLatest && (
+            <button className="jump-to-latest" type="button" onClick={jumpToLatest}>
+              ↓ Jump to latest
+            </button>
+          )}
         </section>
 
         <footer className="composer-dock">
@@ -607,6 +761,7 @@ export function App() {
             {error && <div className="error-banner composer-error" role="alert">{error}</div>}
             <div className="composer-wrap">
               <textarea
+                ref={composerRef}
                 value={composer}
                 onChange={event => setComposer(event.target.value)}
                 onKeyDown={event => {
@@ -616,7 +771,7 @@ export function App() {
                   }
                 }}
                 placeholder={contextPending ? (!selectedRepoId ? "Select a repository above to begin…" : "Preparing repository context…") : "Message Brilina Forge…"}
-                rows={3}
+                rows={1}
                 disabled={running || contextPending}
                 aria-label="Message Brilina Forge"
               />
