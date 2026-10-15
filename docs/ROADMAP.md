@@ -18,7 +18,7 @@ Brilina Forge is a private, browser-based AI coding workspace. GitHub is the sou
 - Local commands, when implemented, run only through a separate Node.js companion on the user's own computer.
 - No mock data to make incomplete functionality appear real.
 - Keep existing UI and infrastructure unless inspection proves a change is necessary.
-- No new branch for routine project work unless the owner explicitly asks. Work directly on the agreed branch and preserve any local uncommitted changes.
+- All Forge implementation changes must be made on a named working branch, never directly on the repository default branch. Use the default branch as the target unless the owner selects another target. Open a pull request by default and merge only after explicit owner confirmation. Documentation updates that establish this workflow should also remain on a reviewable branch until approved.
 
 ## Mandatory verification and phase-transition policy
 
@@ -60,7 +60,7 @@ This is a checkpoint, not a separate product phase.
    - expose the resulting branch/commit and review link to the UI.
 4. Keep repository access scoped to the repository bound to the conversation and to the signed-in user's GitHub permissions.
 5. Add tool schemas, input validation, authorization, audit events, bounded output, and clear failure handling.
-6. Require explicit confirmation for consequential write actions as appropriate. Never silently push to the default branch.
+6. Never silently write to the default branch. Use a separate working branch and expose actual GitHub changes for review. Require explicit confirmation for consequential write actions. Open a pull request by default and merge only after explicit owner confirmation. Required verification checks must pass before merge by default; if checks fail or are unavailable, explain the evidence and require a separate explicit owner override before enabling a merge.
 7. Update the UI to show the plan/activity, changed files, diff, success/failure, and next action.
 8. Ensure the model receives only relevant files and tool results, not the entire repository by default.
 
@@ -75,7 +75,7 @@ From the deployed or locally running web app:
 - reload the app and confirm the result/history remains available;
 - confirm errors are visible and no success is claimed when a tool fails.
 
-**Gate:** one real end-to-end code change is completed and reviewed. Reading files or returning suggested code in chat alone does not complete Phase 1.
+**Gate:** one real end-to-end code change is completed and reviewed on a non-default working branch; the real diff/read-back and verification evidence are visible; a pull request targets the selected target branch; and no merge occurs without explicit confirmation. Failed or unavailable checks block merge by default unless the owner explicitly overrides after seeing the status. Reading files or returning suggested code in chat alone does not complete Phase 1.
 
 ## Phase 2 — verification and repair loop
 
