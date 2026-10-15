@@ -404,16 +404,12 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
           refreshTokenExpiresAt: result.refreshTokenExpiresAt
         });
         const headers = new Headers({
-          "Content-Type": "application/json",
+          Location: new URL("/", config.publicBaseUrl).toString(),
           "Cache-Control": "no-store"
         });
         headers.append("Set-Cookie", clearCookie(OAUTH_STATE_COOKIE));
         headers.append("Set-Cookie", sessionCookie(session.id));
-        return new Response(JSON.stringify({
-          authenticated: true,
-          githubUser: result.user,
-          tokenExpiresAt: result.expiresAt ?? null
-        }), { headers });
+        return new Response(null, { status: 302, headers });
       } catch (error) {
         console.error(error);
         return json({ error: "github_auth_failed" }, 401);
