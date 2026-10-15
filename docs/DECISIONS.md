@@ -1,6 +1,6 @@
 # Brilina Forge — Architecture Decisions
 
-This file preserves architectural decisions and their history. The current delivery order is defined by [ROADMAP.md](ROADMAP.md). Historical ADR phase numbers are not the current product roadmap.
+This file preserves architectural decisions and their history. The active delivery order is defined by [ROADMAP.md](ROADMAP.md). Historical ADR phase numbers are not the current product roadmap.
 
 ## ADR-001 — GitHub is canonical; execution is on the user's machine
 
@@ -60,8 +60,33 @@ The production API and static frontend are served by the native Cloudflare Worke
 
 ## ADR-015 — GitHub coding is the first user-visible delivery goal
 
-**Current decision (2026-10-14):** the delivery order is the five phases in `docs/ROADMAP.md`. Phase 1 is real AI-assisted GitHub code writing and review. Phase 2 is GitHub Actions verification/repair; Phase 3 is the local companion; Phase 4 is Cloudflare diagnostics; Phase 5 is provider/team expansion and hardening.
+The delivery order was previously set to five product phases: Phase 1 GitHub coding, Phase 2 GitHub Actions verification/repair, Phase 3 local companion, Phase 4 Cloudflare diagnostics, and Phase 5 providers/teams/hardening. This records the historical decision and is superseded by the phase rebaseline proposed in ADR-017 and described in `docs/ROADMAP.md`.
 
-This supersedes earlier delivery-order notes that prioritized the chat UI, provider adapter, or companion as standalone milestones before the user could complete a real GitHub coding task. It does not delete the historical implementation work or change the production architecture.
+Phase 1 still requires a real AI-triggered GitHub file write on an authorized non-default work branch, read-back, and a reviewable diff/commit. Do not automatically merge or deploy production changes.
 
-Phase 1 must not depend on the companion. GitHub writes must be typed, validated, scoped to the conversation repository and a work branch, SHA-aware, audited, bounded, and reviewable. Do not automatically merge or deploy production changes.
+## ADR-016 — Database platform evaluation (proposed 2026-10-15)
+
+**Status: recommendation pending owner approval.**
+
+Recommendation: retain the existing Neon Postgres database for Forge's core state and do not migrate to Cloudflare D1 as part of the current rebaseline.
+
+SQL is a language, not a single database product. PostgreSQL uses SQL; D1 is built on SQLite and follows SQLite SQL semantics. D1 is more directly integrated with Workers, but the current Free plan limits, per-database size limit, SQL compatibility differences and migration cost do not establish a clear benefit over the already configured Neon project. Neon is currently small relative to its announced Free storage allowance, but quotas must be checked in the account and monitored.
+
+No dual-write architecture. Any future D1 migration requires a separately approved plan covering schema conversion, versioned migrations, data export/import, content/row-count verification, integration tests, rollback and restore evidence.
+
+## ADR-017 — Product architecture and phase rebaseline (proposed 2026-10-15)
+
+**Status: proposal documented for owner review; not yet owner-approved.**
+
+The new proposed sequence is:
+0. Architecture, baseline and data decision.
+1. Reliable core GitHub coding workflow.
+2. Autonomous runtime reliability and recovery.
+3. GitHub Actions verification and bounded repair.
+4. Optional local Node.js companion.
+5. Cloudflare diagnostics and production troubleshooting.
+6. Providers, collaboration and hardening.
+
+This rebaseline adds an explicit runtime reliability phase before automated repair and moves provider/team expansion to the final hardening phase. It incorporates established patterns from OpenAI Agents, Anthropic session/event flows and permissions, Google ADK resumability, Cline checkpoints/tasks, OpenCode tool permissions/provider abstraction, and Kilo Code autonomous modes/snapshots. It does not authorize a broad rewrite or adoption of a new agent framework.
+
+See [Product Architecture Plan](PRODUCT_ARCHITECTURE_PLAN.md) for the comparison, target boundaries, free-tier evaluation, database analysis and phase gates.
