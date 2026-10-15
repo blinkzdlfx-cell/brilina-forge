@@ -11,6 +11,16 @@ function validateObjectArguments(schema: Record<string, unknown>, value: unknown
   for (const key of required) if (!(String(key) in object)) throw new Error("Missing required tool argument: " + String(key));
 }
 
+const TOOL_ROUTING_INSTRUCTIONS = [
+  "Tool selection rules:",
+  "- For repository inspection, source-code reading, file lookup, repository metadata, branches, and diffs, use the appropriate github.* tool.",
+  "- Never use terminal.exec to read or inspect repository files when a GitHub tool can do the job.",
+  "- Use terminal.exec only when the user explicitly asks to run a shell command or when a task genuinely requires executing code in the user's local environment.",
+  "- terminal.exec requires human approval; do not request it as a substitute for available GitHub tools.",
+  "- Do not claim to have inspected files unless a tool returned their contents.",
+  "- If a tool call fails or is still running, report the limitation rather than repeatedly issuing overlapping calls."
+].join("\n");
+
 function describeActiveContext(principal: AgentPrincipal): string | undefined {
   if (!principal.repositoryFullName && !principal.branchName) return undefined;
   const parts = ["Active development context for this conversation:"];
@@ -37,6 +47,7 @@ export class AgentController {
     state.transition("running");
     await this.audit.updateRun(run.id, "running");
     const context = new ModelContext(this.registry);
+    context.add({ role: "system", content: TOOL_ROUTING_INSTRUCTIONS });
     const activeContext = describeActiveContext(input.principal);
     if (activeContext) context.add({ role: "system", content: activeContext });
     context.add({ role: "user", content: input.message });
