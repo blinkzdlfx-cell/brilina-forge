@@ -183,10 +183,24 @@ async function githubService(request: Request): Promise<GithubService> {
 
 function publicRunFailure(error: unknown): string {
   if (error instanceof AiProviderError) return `The AI provider request failed (${error.details.kind}).`;
-  if (error instanceof Error && /blocked by policy|authorization denied|approval is required|Unknown tool|step limit/i.test(error.message)) {
-    return error.message;
+
+  const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
+  const providerStatus = /AI provider request failed with status \\d+ \\((authentication|rate_limited|overloaded|timeout|invalid_request|server_error|transport)\\)/i.exec(message);
+  if (providerStatus) return `The AI provider request failed (${providerStatus[1].toLowerCase()}).`;
+  if (/AI provider request exceeded \\d+ms/i.test(message)) return "The AI provider request timed out.";
+  const githubStatus = /GitHub (?:REST|GraphQL) request failed(?: with status (\\d+))?/i.exec(message);
+  if (githubStatus) {
+    return githubStatus[1]
+      ? `GitHub rejected the request (HTTP ${githubStatus[1]}). Check repository permissions and branch access.`
+      : "The GitHub API request failed. Check repository access and try again.";
   }
-  return "The run failed before it produced a response.";
+  if (/^(?:Tool is blocked by policy|Tool authorization denied|Human approval is required)(?:: [a-z0-9_.-]+)?$/i.test(message) ||
+      /^Unknown tool: [a-z0-9_.-]+$/i.test(message) ||
+      /^Missing required tool argument: [a-zA-Z0-9_]+$/i.test(message) ||
+      /^(?:Tool arguments must be an object|Agent step limit exceeded)$/i.test(message)) {
+    return message;
+  }
+  return "The agent run failed. The underlying error was recorded in the run audit.";
 }
 
 type RunEvent = { type: string; [key: string]: unknown };
@@ -295,7 +309,7 @@ async function executeRun(
     } else if (result.status === "cancelled") {
       emit({ type: "run.failed", runId, message: "Run cancelled" });
     } else {
-      emit({ type: "run.failed", runId, message: "Agent run did not complete" });
+      emit({ type: "run.failed", runId, message: publicRunFailure(result.errorMessage) });
     }
   } catch (error) {
     console.error("Agent run failed", error);
