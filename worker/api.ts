@@ -185,10 +185,10 @@ function publicRunFailure(error: unknown): string {
   if (error instanceof AiProviderError) return `The AI provider request failed (${error.details.kind}).`;
 
   const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
-  const providerStatus = /AI provider request failed with status \\d+ \\((authentication|rate_limited|overloaded|timeout|invalid_request|server_error|transport)\\)/i.exec(message);
+  const providerStatus = /AI provider request failed with status \d+ \((authentication|rate_limited|overloaded|timeout|invalid_request|server_error|transport)\)/i.exec(message);
   if (providerStatus) return `The AI provider request failed (${providerStatus[1].toLowerCase()}).`;
-  if (/AI provider request exceeded \\d+ms/i.test(message)) return "The AI provider request timed out.";
-  const githubStatus = /GitHub (?:REST|GraphQL) request failed(?: with status (\\d+))?/i.exec(message);
+  if (/AI provider request exceeded \d+ms/i.test(message)) return "The AI provider request timed out.";
+  const githubStatus = /GitHub (?:REST|GraphQL) request failed(?: with status (\d+))?/i.exec(message);
   if (githubStatus) {
     return githubStatus[1]
       ? `GitHub rejected the request (HTTP ${githubStatus[1]}). Check repository permissions and branch access.`
