@@ -2,6 +2,9 @@
 
 ## Product objective
 
+> **Phase numbering note (2026-10-15):** The active proposed phase sequence is defined in [ROADMAP.md](ROADMAP.md) and the [Product Architecture Plan](PRODUCT_ARCHITECTURE_PLAN.md). The sequence has been rebaselined to insert runtime reliability as Phase 2. This proposal is pending owner approval; historical phase records are retained.
+
+
 Brilina Forge is a private browser-based AI coding workspace for the owner and a small trusted group. It should let a user connect GitHub, choose a repository and work branch, ask an AI to inspect and change code, review the diff/commit, and later verify changes using real test/build results.
 
 This is not just a chatbot with a terminal attached. The system coordinates a controlled software-development workflow.
@@ -27,22 +30,23 @@ The Worker does not run shell commands. The browser is not a terminal. Do not mi
 5. The model requests typed tools to read or write files through GitHub.
 6. Forge validates authorization/policy, executes the tools, and audits the results.
 7. Forge reads back changes and displays a diff, branch, and commit.
-8. In Phase 2, Forge runs checks through GitHub Actions and can use real logs for bounded repair attempts.
-9. In Phase 3, optional local commands run through a separately authenticated Node.js companion.
-10. In Phase 4, supported Cloudflare logs can be correlated with source to diagnose production issues.
-11. In Phase 5, Forge expands to additional providers and invited team workspaces.
+8. In Phase 3, Forge runs checks through GitHub Actions and can use real logs for bounded repair attempts.
+9. In Phase 4, optional local commands run through a separately authenticated Node.js companion.
+10. In Phase 5, supported Cloudflare logs can be correlated with source to diagnose production issues.
+11. In Phase 6, Forge expands to additional providers and invited team workspaces.
 
 ## Delivery order
 
-Follow [ROADMAP.md](ROADMAP.md). The five product phases are:
+Follow [ROADMAP.md](ROADMAP.md) and [PRODUCT_ARCHITECTURE_PLAN.md](PRODUCT_ARCHITECTURE_PLAN.md). The proposed current product phases are:
+0. Architecture, baseline and data decision.
+1. Reliable core GitHub coding workflow.
+2. Autonomous runtime reliability and recovery.
+3. GitHub Actions verification and bounded repair.
+4. Optional local Node.js companion.
+5. Cloudflare diagnostics and production troubleshooting.
+6. Providers, collaboration and hardening.
 
-1. Usable AI coding through GitHub — immediate priority.
-2. GitHub Actions verification and bounded repair.
-3. Local Node.js companion.
-4. Cloudflare production diagnostics.
-5. Additional providers, team collaboration, and hardening.
-
-Older files named `PHASE_1_...` through `PHASE_7_...` record historical implementation work and use a previous numbering scheme. They are not the current product roadmap and do not prove live verification.
+Historical technical Phase 0–7 documents and branches preserve earlier implementation history; they are not the active product roadmap. The new phase sequence is a proposal pending owner approval.
 
 ## Phase 1 non-negotiables
 
