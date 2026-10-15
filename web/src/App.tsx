@@ -71,6 +71,7 @@ export function App() {
   const [loadingRepos, setLoadingRepos] = useState(true);
   const [diff, setDiff] = useState<ForgeDiff | null>(null);
   const [diffBase, setDiffBase] = useState("");
+  const [compareOpen, setCompareOpen] = useState(false);
   const [loadingDiff, setLoadingDiff] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const closeStream = useRef<(() => void) | null>(null);
@@ -430,23 +431,7 @@ export function App() {
             <span>{(active?.branchName ?? selectedBranch) || "No branch selected"}</span>
           </div>
 <div className="top-actions">
-              <SelectField
-                id="compare-base"
-                label="Compare base"
-                value={diffBase}
-                onChange={setDiffBase}
-                placeholder={loadingBranches ? "Loading branches…" : "Select base"}
-                disabled={!selectedForgeRepoId || loadingBranches || running || branches.length === 0}
-                options={branches.map(branch => ({ value: branch.name, label: branch.name }))}
-              />
-              <button
-                className="icon-button diff-button"
-                disabled={!diffBase || !selectedBranch || loadingDiff}
-                onClick={() => void loadDiff(diffBase, selectedBranch)}
-                aria-label="Compare branches"
-              >
-                ⇄
-              </button>
+            <div className="workspace-controls">
               <SelectField
                 id="repository-select"
                 label="Repository"
@@ -456,29 +441,69 @@ export function App() {
                 disabled={loadingRepos || running}
                 options={repositories.map(repository => ({ value: String(repository.id), label: repository.full_name }))}
               />
-            <SelectField
-              id="branch-select"
-              label="Branch"
-              value={selectedBranch}
-              onChange={value => void handleBranchChange(value)}
-              placeholder={loadingBranches ? "Loading branches…" : branches.length ? "Select branch" : "No branches loaded"}
-              disabled={!selectedForgeRepoId || loadingBranches || running || branches.length === 0}
-              helperText={
-                loadingBranches ? "Loading available branches…" :
-                !selectedRepoId ? "Choose a repository first." :
-                !selectedForgeRepoId ? "Repository connection is not ready." :
-                branches.length === 0 ? "No branches loaded. Check the error message." :
-                `${branches.length} branches available`
-              }
-              options={branches.map(branch => ({
-                value: branch.name,
-                label: `${branch.name}${branch.protected ? " · protected" : ""}`
-              }))}
-            />
-            {session?.githubUser?.avatar_url
-              ? <img className="avatar" src={session.githubUser.avatar_url} alt="" />
-              : <button className="avatar" aria-label="Forge workspace">F</button>}
+              <SelectField
+                id="branch-select"
+                label="Working branch"
+                value={selectedBranch}
+                onChange={value => void handleBranchChange(value)}
+                placeholder={loadingBranches ? "Loading branches…" : branches.length ? "Select branch" : "No branches loaded"}
+                disabled={!selectedForgeRepoId || loadingBranches || running || branches.length === 0}
+                helperText={
+                  loadingBranches ? "Loading branches…" :
+                  !selectedRepoId ? "Choose a repository first." :
+                  !selectedForgeRepoId ? "Connecting repository…" :
+                  branches.length === 0 ? "No branches loaded. Check the error message." :
+                  `${branches.length} branches available`
+                }
+                options={branches.map(branch => ({
+                  value: branch.name,
+                  label: `${branch.name}${branch.protected ? " · protected" : ""}`
+                }))}
+              />
+            </div>
+            <div className="topbar-actions">
+              <button
+                className={`toolbar-button compare-toggle ${compareOpen ? "active" : ""}`}
+                type="button"
+                onClick={() => setCompareOpen(value => !value)}
+                aria-expanded={compareOpen}
+                aria-controls="branch-compare-controls"
+                disabled={!selectedForgeRepoId || branches.length < 2 || running}
+              >
+                <span aria-hidden="true">⇄</span> Compare
+              </button>
+              {session?.githubUser?.avatar_url
+                ? <img className="avatar" src={session.githubUser.avatar_url} alt="" />
+                : <button className="avatar" aria-label="Forge workspace">F</button>}
+            </div>
           </div>
+          {compareOpen && (
+            <div className="compare-toolbar" id="branch-compare-controls">
+              <div className="compare-toolbar-copy">
+                <strong>Compare branches</strong>
+                <span>Review changes against your working branch.</span>
+              </div>
+              <div className="compare-toolbar-controls">
+                <SelectField
+                  id="compare-base"
+                  label="Base branch"
+                  value={diffBase}
+                  onChange={setDiffBase}
+                  placeholder="Choose base"
+                  disabled={!selectedForgeRepoId || loadingBranches || running || branches.length === 0}
+                  options={branches.filter(branch => branch.name !== selectedBranch).map(branch => ({ value: branch.name, label: branch.name }))}
+                />
+                <button
+                  className="toolbar-button compare-submit"
+                  disabled={!diffBase || !selectedBranch || diffBase === selectedBranch || loadingDiff}
+                  onClick={() => void loadDiff(diffBase, selectedBranch)}
+                  type="button"
+                >
+                  {loadingDiff ? "Comparing…" : "Compare changes"}
+                </button>
+              </div>
+            </div>
+          )}
         </header>
 
         <section className="chat">
