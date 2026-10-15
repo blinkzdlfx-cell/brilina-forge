@@ -73,6 +73,8 @@ export function App() {
   const [loadingDiff, setLoadingDiff] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const closeStream = useRef<(() => void) | null>(null);
+  const branchRequestId = useRef(0);
+  const diffRequestId = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -163,18 +165,24 @@ export function App() {
   const selectedGithubRepo = repositories.find(item => item.id === selectedRepoId) ?? null;
 
   async function loadDiff(base: string, head: string) {
-    if (!selectedGithubRepo || !base || !head) {
+    const requestId = ++diffRequestId.current;
+    if (!selectedGithubRepo || !base || !head || base === head) {
       setDiff(null);
+      setLoadingDiff(false);
       return;
     }
     setLoadingDiff(true);
+    setError(null);
     try {
-      setDiff(await compareBranches(selectedGithubRepo.owner.login, selectedGithubRepo.name, base, head));
+      const result = await compareBranches(selectedGithubRepo.owner.login, selectedGithubRepo.name, base, head);
+      if (requestId === diffRequestId.current) setDiff(result);
     } catch (err) {
-      setDiff(null);
-      setError(err instanceof Error ? err.message : "Unable to load the branch comparison");
+      if (requestId === diffRequestId.current) {
+        setDiff(null);
+        setError(err instanceof Error ? err.message : "Unable to load the branch comparison");
+      }
     } finally {
-      setLoadingDiff(false);
+      if (requestId === diffRequestId.current) setLoadingDiff(false);
     }
   }
 
@@ -186,14 +194,21 @@ export function App() {
   }
 
   async function handleRepositoryChange(value: string) {
+    const requestId = ++branchRequestId.current;
+    diffRequestId.current += 1;
+    setDiff(null);
+    setDiffBase("");
+    setLoadingDiff(false);
     const githubId = value ? Number(value) : null;
     setError(null);
     setSelectedRepoId(githubId);
     setBranches([]);
     setSelectedForgeRepoId(null);
     setSelectedBranch("");
+    setLoadingBranches(githubId !== null);
 
     if (githubId === null) {
+      setLoadingBranches(false);
       await applyConversationContext(null, null);
       return;
     }
@@ -207,6 +222,7 @@ export function App() {
         syncGithubRepository(repository),
         listGithubBranches(repository.owner.login, repository.name)
       ]);
+      if (requestId !== branchRequestId.current) return;
       setSelectedForgeRepoId(forgeRepo.id);
       setBranches(branchItems);
       const defaultBranch = branchItems.some(item => item.name === repository.default_branch)
@@ -215,13 +231,19 @@ export function App() {
       setSelectedBranch(defaultBranch);
       if (active) await applyConversationContext(forgeRepo.id, defaultBranch || null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to select repository");
+      if (requestId === branchRequestId.current) setError(err instanceof Error ? err.message : "Unable to select repository");
     } finally {
-      setLoadingRepos(false);
+      if (requestId === branchRequestId.current) {
+        setLoadingRepos(false);
+        setLoadingBranches(false);
+      }
     }
   }
 
   async function handleBranchChange(value: string) {
+    diffRequestId.current += 1;
+    setDiff(null);
+    setLoadingDiff(false);
     setSelectedBranch(value);
     if (!active || !selectedForgeRepoId) return;
     try {
