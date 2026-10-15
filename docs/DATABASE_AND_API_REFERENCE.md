@@ -25,7 +25,7 @@ The migration enables pgcrypto for UUID generation and creates lookup indexes, i
 ### 002_conversation_messages.sql
 Creates conversation_messages with conversation ID, optional run ID, role (user/assistant/system/tool), content, optional tool name, JSON metadata and creation timestamp. Conversation deletion cascades; run deletion nulls the run reference. Indexes support chronological history and run lookup.
 
-There is no migration 003. The `runs.provider` / `runs.model` columns were part of migration 001; they are not a later addition.
+Migration `003_companion_work_results.sql` creates the durable `companion_work_results` table. The `runs.provider` / `runs.model` columns were part of migration 001; they are not a later addition.
 
 See db/migrations/*.sql for authoritative constraints and foreign keys.
 
