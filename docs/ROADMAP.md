@@ -36,6 +36,10 @@ Do not add new product behavior to the legacy Fastify server. Do not add a secon
 
 **Gate:** finish the current main SHA, source/runtime/database audit, exact checks, verified gaps and accepted architecture decisions. Neon is approved; do not reopen the D1 decision without measured new evidence. No broad refactor before this gate.
 
+## Immediate increment — repository branch selector restoration (2026-10-15)
+
+Code commit `58376fe3469def9bdf84ed5e4c747bce4239acae` updates `web/src/App.tsx` to fetch branch options when reopening a conversation, expose branch loading state, and ignore stale async results after switching. Review the commit diff before proceeding. **Automated tests and live browser acceptance are not confirmed yet**; do not mark this fix complete until the frontend build/CI and the acceptance steps in [the detailed plan](ORCHESTRATOR_UI_AND_MEMORY_PLAN.md) pass.
+
 ## Phase 1 — reliable core GitHub coding workflow
 
 **Outcome:** one real model can make a useful, reviewable code change from the web UI.
