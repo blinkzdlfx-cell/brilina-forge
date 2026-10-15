@@ -229,3 +229,60 @@ button, input, select, textarea { font: inherit; }\nbutton, select, summary { -w
   .context-select { flex: 1 1 90px; }
   .avatar { flex: 0 0 auto; }
 }
+
+/* Shared workspace controls: one consistent interaction and responsive contract. */
+.context-select { min-width: 0; }
+.context-select select {
+  width: 100%;
+  min-width: 0;
+  max-width: 210px;
+  min-height: 40px;
+  appearance: auto;
+  -webkit-appearance: menulist;
+  color: var(--forge-text);
+  border-color: var(--forge-border-strong);
+  border-radius: var(--forge-radius-sm);
+  background-color: var(--forge-surface);
+}
+.context-select select:hover:not(:disabled) { border-color: var(--forge-primary); }
+.context-select select:disabled { opacity: .62; cursor: not-allowed; background: var(--forge-surface-muted); }
+.field-helper {
+  display: block;
+  max-width: 210px;
+  color: var(--forge-text-muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+.new-chat:hover:not(:disabled), .send-button:hover:not(:disabled), .sign-in-button:hover:not(:disabled) {
+  background: var(--forge-primary-hover);
+}
+.new-chat:active:not(:disabled), .send-button:active:not(:disabled), .sign-in-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.error-banner { line-height: 1.5; overflow-wrap: anywhere; }
+.conversation-item:focus-visible, .icon-button:focus-visible, .new-chat:focus-visible,
+.send-button:focus-visible, .sign-in-button:focus-visible {
+  outline: none;
+  box-shadow: var(--forge-focus-ring);
+}
+.composer-wrap:focus-within { border-color: var(--forge-border-strong); box-shadow: var(--forge-shadow-md); }
+@media (max-width: 760px) {
+  .topbar { height: auto; min-height: 66px; padding: 10px 12px; align-items: flex-start; gap: 10px; }
+  .context { display: none; }
+  .top-actions { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 9px; align-items: end; }
+  .context-select select { width: 100%; max-width: none; min-height: 42px; padding: 8px 9px; font-size: 12px; }
+  .context-select span { font-size: 9px; }
+  .field-helper { max-width: none; }
+  .diff-button { min-height: 42px; width: 42px; justify-self: end; }
+  .avatar { justify-self: end; align-self: center; }
+  .chat-inner { padding-top: 36px; }
+  .welcome { margin-bottom: 34px; }
+  .composer-wrap { margin-top: 30px; }
+}
+@media (max-width: 420px) {
+  .top-actions { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .context-select select { font-size: 11px; }
+  .run-history { margin-left: 0; }
+  .tool-activity { margin-left: 0; }
+}
+
