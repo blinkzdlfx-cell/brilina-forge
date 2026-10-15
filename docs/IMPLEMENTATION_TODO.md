@@ -160,3 +160,21 @@ This ledger is based on source and documentation inspection. A listed capability
 
 Record any step that fails before starting Batch 2. A green build alone does not satisfy this gate.
 
+## Batch 1 UI — cross-component responsive behavior pass (2026-10-16)
+
+**Code checkpoints:** `4f4894da25ee46af73ad916a671161d81d560e17` (workspace state/navigation); `ccef060ffb2b2157bb5233e9a285a27280f46f7f` (responsive layout); `3441ba92d5a14b3e43912b6d6c15ce0cf78eb12d` (mobile drawer accessibility/focus); `a8986b4d98bf67be511a568331ae5d997ee6f36c` (history hydration race fix); `7f7b175adf62418460249ae9732fa99f608df25c` (behavior contract).
+
+- [x] Replace isolated sidebar behavior with one viewport-aware contract: persisted desktop collapse preference, mobile drawer, backdrop, close button, Escape-to-close, close-on-navigation, and automatic close when switching to desktop width.
+- [x] Keep the conversation list independently scrollable so workspace/account controls remain in the sidebar hierarchy.
+- [x] Restore the last conversation after refresh; preserve an explicitly requested empty New chat across refresh.
+- [x] Add explicit session-loading and backend-unavailable states instead of briefly showing the workspace before authentication resolves.
+- [x] Remove the empty-chat welcome hero from conversations with real messages; show a conversation-loading state while history restores.
+- [x] Prevent late conversation-history responses from overwriting a just-sent message or newly created run state.
+- [x] Keep the transcript as the conversation scroll owner; follow streamed output only while near the bottom and provide a Jump to latest action when the user scrolls up.
+- [x] Make the composer grow with text, retain a draft if sending fails, and clear drafts when deliberately switching chats.
+- [x] Consolidate transcript/composer error presentation and add a cross-component behavior/owner acceptance contract in `docs/UI_BEHAVIOR_CONTRACT.md`.
+- [ ] Verify the complete matrix in `docs/UI_BEHAVIOR_CONTRACT.md` on the live deployment at desktop and phone widths. CI/build alone does not satisfy this item.
+- [ ] Confirm the deployed Cloudflare Worker actually contains the latest `main` commit; a CI run or Wrangler dry-run does not prove deployment.
+
+**Verification boundary:** the UI code and behavior contract are committed. Live browser behavior, keyboard/focus behavior on actual devices, and the production deployment remain unverified until the owner test matrix is completed.
+
