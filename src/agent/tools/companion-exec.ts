@@ -31,7 +31,7 @@ export function createCompanionExecTool(options: CompanionExecOptions): ForgeToo
     inputSchema: {
       type: "object",
       required: ["command"],
-      properties: { command: { type: "string" } }
+      properties: { command: { type: "string", minLength: 1, maxLength: 12000 } }, additionalProperties: false
     },
     policy: "approval-required",
     async authorize(context, args) {
