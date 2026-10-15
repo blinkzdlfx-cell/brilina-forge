@@ -87,6 +87,8 @@ export function App() {
   const diffRequestId = useRef(0);
   const chatScrollRef = useRef<HTMLElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  const mobileMenuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const sidebarToggleRef = useRef<HTMLButtonElement | null>(null);
   const shouldStickToBottomRef = useRef(true);
 
   useEffect(() => {
@@ -130,11 +132,15 @@ export function App() {
 
   useEffect(() => {
     if (!mobileSidebarOpen) return;
+    sidebarToggleRef.current?.focus();
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setMobileSidebarOpen(false);
     };
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      if (window.matchMedia("(max-width: 760px)").matches) mobileMenuButtonRef.current?.focus();
+    };
   }, [mobileSidebarOpen]);
 
   useEffect(() => {
@@ -520,15 +526,22 @@ export function App() {
       {isMobile && mobileSidebarOpen && (
         <button className="sidebar-backdrop" type="button" aria-label="Close navigation menu" onClick={closeMobileSidebar} />
       )}
-      <aside id="forge-sidebar" className={`sidebar ${sidebarCompact ? "collapsed" : ""} ${isMobile && mobileSidebarOpen ? "mobile-open" : ""}`}>
+      <aside
+        id="forge-sidebar"
+        aria-label="Workspace navigation"
+        aria-hidden={isMobile && !mobileSidebarOpen}
+        className={`sidebar ${sidebarCompact ? "collapsed" : ""} ${isMobile && mobileSidebarOpen ? "mobile-open" : ""}`
+      }>
         <div className="brand-row">
           <img src="/brand/brilina-forge-mark.svg" className="brand-mark" alt="Brilina Forge" />
           {!sidebarCompact && <img src="/brand/brilina-forge-logo.svg" className="brand-logo" alt="Brilina Forge" />}
           <button
+            ref={sidebarToggleRef}
             className="icon-button sidebar-toggle"
             type="button"
             onClick={toggleSidebar}
             aria-label={isMobile ? "Close sidebar" : sidebarCompact ? "Expand sidebar" : "Collapse sidebar"}
+            aria-expanded={isMobile ? mobileSidebarOpen : !sidebarCompact}
             title={isMobile ? "Close sidebar" : sidebarCompact ? "Expand sidebar" : "Collapse sidebar"}
           >
             {isMobile ? "×" : sidebarCompact ? "›" : "‹"}
@@ -602,6 +615,7 @@ export function App() {
             </div>
             <div className="topbar-actions">
               <button
+                ref={mobileMenuButtonRef}
                 className="icon-button mobile-menu-button"
                 type="button"
                 onClick={toggleSidebar}
