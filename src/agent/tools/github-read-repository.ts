@@ -9,7 +9,8 @@ export function createGithubGetRepositoryTool(service: GithubService): ForgeTool
     inputSchema: {
       type: "object",
       required: ["owner", "repo"],
-      properties: { owner: { type: "string" }, repo: { type: "string" } }
+      properties: { owner: { type: "string", minLength: 1, maxLength: 100 }, repo: { type: "string", minLength: 1, maxLength: 100 } },
+      additionalProperties: false
     },
     policy: "allowed",
     async authorize(context, args) { return scopedToConversation(context, args); },
