@@ -27,13 +27,27 @@ const demoMessages: ChatMessage[] = [
   }
 ];
 
-type ToolActivity = { callId: string; toolName: string; status: "requested" | "running" | "completed" | "approval" | "rejected" | "failed"; detail?: string };
+type ToolActivity = { callId: string; toolName: string; status: "requested" | "running" | "completed" | "approval" | "rejected" | "failed"; detail?: string; resultSummary?: { operation?: string; branch?: string; path?: string | null; commitUrl?: string; readBackVerified?: boolean } };
 type RunActivity = { runId: string; status: RunStatus; createdAt: string; tools: ToolActivity[]; errorMessage?: string | null };
+function summarizeWriteResult(result: unknown): ToolActivity["resultSummary"] {
+  if (!result || typeof result !== "object" || Array.isArray(result)) return undefined;
+  const value = result as Record<string, unknown>;
+  if (value.success !== true || typeof value.commitUrl !== "string") return undefined;
+  return {
+    ...(typeof value.operation === "string" ? { operation: value.operation } : {}),
+    ...(typeof value.branch === "string" ? { branch: value.branch } : {}),
+    ...(typeof value.path === "string" || value.path === null ? { path: value.path as string | null } : {}),
+    commitUrl: value.commitUrl,
+    ...(typeof value.readBackVerified === "boolean" ? { readBackVerified: value.readBackVerified } : {})
+  };
+}
+
 function activityFromAudit(audit: RunAudit): RunActivity {
   return { runId: audit.id, status: audit.status, createdAt: audit.createdAt, errorMessage: audit.errorMessage, tools: audit.toolCalls.map(call => ({
     callId: call.id, toolName: call.toolName,
     status: call.status === "authorized" || call.status === "running" ? "running" : call.status === "completed" ? "completed" : call.status === "failed" ? "failed" : call.status === "rejected" ? "rejected" : "requested",
-    detail: call.errorMessage ?? undefined
+    detail: call.errorMessage ?? undefined,
+    resultSummary: summarizeWriteResult(call.result)
   })) };
 }
 
@@ -275,7 +289,7 @@ export function App() {
         break;
       case "tool.requested": upsertTool(runId, event.callId, event.toolName, { status: "requested" }); break;
       case "tool.started": upsertTool(runId, event.callId, event.toolName, { status: "running" }); break;
-      case "tool.completed": upsertTool(runId, event.callId, event.toolName, { status: "completed" }); break;
+      case "tool.completed": upsertTool(runId, event.callId, event.toolName, { status: "completed", resultSummary: event.resultSummary }); break;
       case "approval.required": upsertTool(runId, event.callId, event.toolName, { status: "approval" }); break;
       case "tool.rejected": upsertTool(runId, event.callId, event.toolName, { status: "rejected", detail: event.reason }); break;
       case "assistant.delta":
@@ -477,6 +491,13 @@ export function App() {
                       {run.tools.map(item => <div className="tool-activity-row" key={item.callId}>
                         <span className={`tool-state ${item.status}`} /><span>{item.toolName}</span>
                         <span className="tool-status">{item.status === "approval" ? "Approval required" : item.detail ?? item.status}</span>
+                        {item.resultSummary && <span className="tool-result-summary">
+                          {item.resultSummary.operation && <span>{item.resultSummary.operation}</span>}
+                          {item.resultSummary.path && <code>{item.resultSummary.path}</code>}
+                          {item.resultSummary.branch && <span>on {item.resultSummary.branch}</span>}
+                          {item.resultSummary.readBackVerified && <span>GitHub read-back verified</span>}
+                          {item.resultSummary.commitUrl && <a href={item.resultSummary.commitUrl} target="_blank" rel="noreferrer">View commit</a>}
+                        </span>}
                       </div>)}
                       {run.errorMessage && <div className="approval-note">{run.errorMessage}</div>}
                     </details>
