@@ -201,6 +201,7 @@ export function App() {
     diffRequestId.current += 1;
     setDiff(null);
     setDiffBase("");
+    setCompareOpen(false);
     setLoadingDiff(false);
     const githubId = value ? Number(value) : null;
     setError(null);
@@ -248,6 +249,7 @@ export function App() {
     setDiff(null);
     setLoadingDiff(false);
     setSelectedBranch(value);
+    if (diffBase === value) setDiffBase("");
     if (!active || !selectedForgeRepoId) return;
     try {
       const updated = await updateConversationContext(active.id, {
@@ -425,7 +427,7 @@ export function App() {
       </aside>
 
       <main className="main">
-        <header className="topbar">
+        <header className={`topbar ${compareOpen ? "compare-open" : ""}`}>
           <div className="context">
             <strong>{title}</strong>
             <span>{(active?.branchName ?? selectedBranch) || "No branch selected"}</span>
