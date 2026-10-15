@@ -162,7 +162,7 @@ Record any step that fails before starting Batch 2. A green build alone does not
 
 ## Batch 1 UI — cross-component responsive behavior pass (2026-10-16)
 
-**Code checkpoints:** `4f4894da25ee46af73ad916a671161d81d560e17` (workspace state/navigation); `ccef060ffb2b2157bb5233e9a285a27280f46f7f` (responsive layout); `3441ba92d5a14b3e43912b6d6c15ce0cf78eb12d` (mobile drawer accessibility/focus); `a8986b4d98bf67be511a568331ae5d997ee6f36c` (history hydration race fix); `7f7b175adf62418460249ae9732fa99f608df25c` (behavior contract).
+**Code checkpoints:** `4f4894da25ee46af73ad916a671161d81d560e17` (workspace state/navigation); `ccef060ffb2b2157bb5233e9a285a27280f46f7f` (responsive layout); `a8986b4d98bf67be511a568331ae5d997ee6f36c` (history hydration race fix); `3441ba92d5a14b3e43912b6d6c15ce0cf78eb12d` (mobile drawer accessibility/focus); `5a14697653f6f882d62f09913fb535bb8bcad00e` (send-to-latest behavior); `d79c5dd1f17998d7b13de4b5ca6a51d83ebe04a2` (mobile keyboard focus trap); `7f7b175adf62418460249ae9732fa99f608df25c` (behavior contract).
 
 - [x] Replace isolated sidebar behavior with one viewport-aware contract: persisted desktop collapse preference, mobile drawer, backdrop, close button, Escape-to-close, close-on-navigation, and automatic close when switching to desktop width.
 - [x] Keep the conversation list independently scrollable so workspace/account controls remain in the sidebar hierarchy.
@@ -173,6 +173,7 @@ Record any step that fails before starting Batch 2. A green build alone does not
 - [x] Keep the transcript as the conversation scroll owner; follow streamed output only while near the bottom and provide a Jump to latest action when the user scrolls up.
 - [x] Make the composer grow with text, retain a draft if sending fails, and clear drafts when deliberately switching chats.
 - [x] Consolidate transcript/composer error presentation and add a cross-component behavior/owner acceptance contract in `docs/UI_BEHAVIOR_CONTRACT.md`.
+- [x] Keep keyboard focus inside the mobile navigation drawer while open and restore focus to the menu trigger when it closes.
 - [ ] Verify the complete matrix in `docs/UI_BEHAVIOR_CONTRACT.md` on the live deployment at desktop and phone widths. CI/build alone does not satisfy this item.
 - [ ] Confirm the deployed Cloudflare Worker actually contains the latest `main` commit; a CI run or Wrangler dry-run does not prove deployment.
 
