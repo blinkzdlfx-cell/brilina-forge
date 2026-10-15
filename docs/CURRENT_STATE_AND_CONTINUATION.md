@@ -1,9 +1,9 @@
 # Current State and Continuation Plan
 
-> **Phase numbering note (2026-10-15):** The active proposed phase sequence is defined in [ROADMAP.md](ROADMAP.md) and the [Product Architecture Plan](PRODUCT_ARCHITECTURE_PLAN.md). The sequence has been rebaselined to insert runtime reliability as Phase 2. This proposal is pending owner approval; historical phase records are retained.
+ > **Phase numbering note (2026-10-15):** The owner-approved working sequence is defined in [ROADMAP.md](ROADMAP.md) and [Product Architecture Plan](PRODUCT_ARCHITECTURE_PLAN.md). Phase 0 is the baseline audit; Phase 1 is core GitHub coding; Phase 2 is runtime reliability/recovery. Historical phase records are retained.
 
 
-**Last documentation reconciliation:** 2026-10-14. This file is the evidence-based status ledger. It records source/document inspection, not proof of a live deployment. Update it with exact commit SHA and test results after each implementation checkpoint.
+**Last source/document audit:** 2026-10-15, source snapshot at main `1a57e347ef88a9aa15affe7b7d48c21def2fbbc5`. This is an inspection baseline, not proof of live application behavior. CI for that SHA passed: `npm ci`, `npm run build`, `npm run typecheck:phase1`, `npm run test:phase1`, `npm run test:worker`, `npx wrangler@4.68.0 deploy --dry-run`, and dependency audit. The broad `npm test` suite and live browser/provider/GitHub coding workflow were not run in this audit.
 
 ## Product in plain English
 
@@ -24,22 +24,22 @@ Brilina Forge is a private browser-based AI coding workspace. The user connects 
 | Native Worker API | `worker/index.ts`, `worker/api.ts` | Implemented in code; production route behavior not independently verified |
 | GitHub authentication/service | GitHub OAuth/session modules and `GithubService` exist | Implemented in code; live OAuth not verified |
 | Neon persistence | Session, conversation, run, audit, usage and companion repositories exist. On 2026-10-14, the Neon management connection listed the existing project/database and a read-only SQL query succeeded; 11 public application tables were present. | Database reachable through management tooling; deployed Worker `DATABASE_URL` and end-to-end app persistence remain unverified |
-| Agent Controller | Typed tool registry, authorization, policy and audit code exist | Implemented in code; complete user workflow not verified |
-| AI provider | Deterministic model and OpenAI-compatible adapter exist | Adapter code exists; live provider call and tool-calling behavior not verified |
+| Agent Controller | Typed tool registry, authorization, policy and audit code exist. The controller treats `approval-required` as an error/rejection and terminates the run rather than persisting an approval and resuming the exact call. | Implemented in code; durable approval/resume not implemented |
+| AI provider | `createProviderRuntime()` selects the OpenAI-compatible adapter only when an API key is configured; otherwise it selects the deterministic development provider. | Adapter code exists; live provider call and tool-calling behavior not verified; deterministic mode must not be mistaken for live AI |
 | GitHub read tools | Repository metadata/context, branches, tree, file read, diff | Implemented in code |
-| GitHub write tools | PR #7 is merged as `41bee365a05c89b999ad38f9501cca039d637868`. Work-branch creation plus file create/update/upsert operations are registered in the Worker tool path. Writes use current blob SHAs and reject the repository default branch. | **Main CI run 203 passed; Cloudflare deployment and live acceptance pending** |
+| GitHub write tools | Earlier PR #7 added write tools, but the inspected current `worker/api.ts` registers only `createGithubReadTools()` plus the companion execution tool. The write tools are not visibly registered in this current run path. | **Phase 1 blocker: tool registration and real end-to-end write path must be reconciled before live acceptance** |
 | UI-to-agent code change | No verified end-to-end change from chat to GitHub commit | **Not verified; primary Phase 1 target** |
 | GitHub Actions repair loop | APIs/workflows may provide a foundation; complete AI-driven diagnose/fix/retest loop not verified | Proposed active Phase 3 |
 | Local companion | Partial Worker/database dispatch scaffolding exists; no complete executable companion verified | Proposed active Phase 4 |
 | Approval/resume | Controller currently rejects approval-required tools rather than persisting and resuming the same pending call | Incomplete; required before risky companion execution |
 | Device identity | `worker/api.ts` contains isolate-local device assignment state | Not durable across Worker isolates; fix before relying on device identity |
-| Run lifecycle/SSE | A run can be claimed/executed while its SSE response is open | Recovery, disconnect, duplicate subscriber, cancellation and replay guarantees not established |
+| Run lifecycle/SSE | Worker run execution is coupled to the open request/SSE signal; current `runs` and `tool_calls` records are persisted, but the inspected migrations do not define an ordered durable run-event table. | Recovery, disconnect, replay and duplicate side-effect guarantees not established |
 | Cloudflare diagnostics | No verified end-to-end log-to-source-fix flow | Proposed active Phase 5 |
 | Teams/multiple providers | Architecture can accommodate them; complete team workflow not verified | Proposed active Phase 6 |
 
-## Automated verification snapshot (2026-10-14)
+## Automated verification snapshot (2026-10-15)
 
-GitHub Actions run 203 passed on main commit `41bee365a05c89b999ad38f9501cca039d637868`: frontend build, focused Phase 1 TypeScript check, focused Phase 1 tests, Worker tests, Wrangler dry-run, and dependency audits. The Wrangler command is a dry-run, not a production deployment confirmation. The broad recursive `npm test` suite was also attempted and failed on unrelated legacy issues: `src/server.ts` has an existing parse/type-check problem near line 660, and several local-companion tests ended with unresolved promises. Those failures are not evidence that the new GitHub write tests failed; the focused Phase 1 suite passed.
+GitHub Actions run 233 passed on main commit `1a57e347ef88a9aa15affe7b7d48c21def2fbbc5`: `npm ci`, frontend build (`npm run build`), `npm run typecheck:phase1`, `npm run test:phase1`, `npm run test:worker`, Wrangler deploy dry-run, and `npm audit --audit-level=high` (security job ran the audit twice). This is automated CI evidence only, not live browser/provider/GitHub coding verification. The Wrangler command is a dry-run, not a production deployment confirmation. The broad recursive `npm test` suite was also attempted and failed on unrelated legacy issues: `src/server.ts` has an existing parse/type-check problem near line 660, and several local-companion tests ended with unresolved promises. Those failures are not evidence that the new GitHub write tests failed; the focused Phase 1 suite passed.
 
 ## Mandatory completion and phase-transition rule
 
@@ -59,7 +59,7 @@ A step-by-step guide covering GitHub App setup, Neon, Cloudflare Workers AI, Wor
 
 ## Immediate priority
 
-**Proposed Phase 0:** approve the architecture rebaseline and record the source/runtime/database baseline. After that gate, **Phase 1 remains the immediate product gate: enable real AI coding through GitHub.** Do not continue expanding the companion until a real model can read relevant files, make controlled edits through GitHub, return a reviewable diff/commit, and persist the result.
+**Phase 0 audit is underway.** The current source review found two key discrepancies to resolve: the Worker run path does not appear to register the GitHub write tools despite earlier docs saying they exist, and run events are emitted over SSE but are not shown as a durable ordered event log in the inspected migrations. After recording the full baseline, Phase 1's immediate task is to make one real AI coding action through GitHub work end to end. Do not continue expanding the companion until a real model can read relevant files, make controlled edits through GitHub, return a reviewable diff/commit, and persist the result.
 
 ## Phase 1 implementation checklist
 
@@ -67,13 +67,22 @@ A step-by-step guide covering GitHub App setup, Neon, Cloudflare Workers AI, Wor
 - [ ] Run available build and test commands; record exact output.
 - [ ] Verify GitHub OAuth, repository selection, branch selection, conversation binding, and Neon persistence.
 - [ ] Configure one real AI provider and verify a real request with tool calls.
-- [ ] Merge and verify the typed GitHub branch/create/update/upsert tools added in draft PR #7; confirm current-blob-SHA updates and default-branch protection with tests.
+- [ ] Reconcile GitHub write-tool implementations with the current Worker registration path; verify branch/create/update/upsert tools are actually available to the controller, then test current-blob-SHA updates and default-branch protection.
 - [ ] Add scoped authorization so tools only modify the conversation's selected repository and an explicitly selected work branch.
 - [ ] Ensure writes are sequential for each path and handle conflicts safely.
 - [ ] Complete and verify the branch/commit workflow, diff/read-back, audit events, output bounds, and clear error results.
 - [ ] Add UI activity and diff/result presentation.
 - [ ] Test a small real repository change end to end.
 - [ ] Record exact branch, SHA, commands, test results, live verification, and known gaps.
+
+## Phase 0 audit findings (2026-10-15)
+
+1. **Current main SHA:** `1a57e347ef88a9aa15affe7b7d48c21def2fbbc5` at the time of this audit. GitHub Actions run 233 passed the listed focused checks and Worker dry-run; no production deploy or end-to-end browser run was performed.
+2. **Write-tool registration mismatch:** `worker/api.ts` currently creates a registry, registers `createGithubReadTools(service)`, and registers `createCompanionExecTool(...)`. The inspected function does not register the GitHub write tools. The next code task must confirm the intended write tool files/tests and register the correct tools safely; do not assume PR #7 means the production Worker exposes them.
+3. **Approval is not resumable:** the controller emits `approval.required`, then marks the tool call rejected and throws. There is no persisted approval-and-resume path in the inspected controller contract.
+4. **Durable event history is missing or not yet identified:** migrations include runs, tool calls, usage, conversation messages and companion work results, but the inspected migration list does not show a dedicated ordered run-events table. SSE observer events should not be assumed replayable after disconnect.
+5. **Stale-run PR is not on main:** PR #10 remains open and proposes a guessed 10-minute stale-run cutoff. It is not merged and is not accepted as an implementation decision. Determine heartbeat/lease/timeout behavior before choosing a stale threshold.
+6. **Migration documentation discrepancy:** `db/migrations/003_companion_work_results.sql` exists, while `DATABASE_AND_API_REFERENCE.md` incorrectly states there is no migration 003. This is a documentation inconsistency, not a request to apply a migration.
 
 ## Known engineering risks to preserve in later phases
 
