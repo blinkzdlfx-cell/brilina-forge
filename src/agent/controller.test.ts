@@ -64,3 +64,21 @@ test("controller returns a normal assistant answer without calling any tools", a
   assert.equal(audit.toolCalls.length, 0);
   assert.equal(audit.runs[0].status, "completed");
 });
+
+
+test("controller preserves the underlying failure message for safe reporting", async () => {
+  const registry = new ToolRegistry();
+  const audit = new InMemoryAgentAuditStore();
+  const controller = new AgentController(new FakeModel([]), registry, audit);
+
+  const result = await controller.run({
+    conversationId: "conversation-failure",
+    principal: { userId: "user-1", workspaceId: "workspace-1" },
+    message: "Test a failing model request."
+  });
+
+  assert.equal(result.status, "failed");
+  assert.equal(result.errorMessage, "Fake model has no more decisions");
+  assert.equal(audit.runs[0].status, "failed");
+  assert.equal(audit.runs[0].errorMessage, "Fake model has no more decisions");
+});
