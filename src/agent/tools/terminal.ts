@@ -24,7 +24,7 @@ export function createTerminalCreateSessionTool(service: ExecutionService): Forg
     inputSchema: {
       type: "object",
       required: ["conversationId"],
-      properties: { conversationId: { type: "string" } }
+      properties: { conversationId: { type: "string", minLength: 8, maxLength: 64 } }, additionalProperties: false
     },
     policy: "approval-required",
     async authorize(context, args) {
@@ -47,7 +47,7 @@ export function createTerminalExecTool(service: ExecutionService): ForgeTool<{ s
     inputSchema: {
       type: "object",
       required: ["sessionId", "command"],
-      properties: { sessionId: { type: "string" }, command: { type: "string" } }
+      properties: { sessionId: { type: "string", minLength: 8, maxLength: 64 }, command: { type: "string", minLength: 1, maxLength: 12000 } }, additionalProperties: false
     },
     policy: "approval-required",
     async authorize(context, args) { return ownsSession(service, args.sessionId, context.principal); },
@@ -65,7 +65,7 @@ export function createTerminalReadTool(service: ExecutionService): ForgeTool<{ s
     inputSchema: {
       type: "object",
       required: ["sessionId"],
-      properties: { sessionId: { type: "string" } }
+      properties: { sessionId: { type: "string", minLength: 8, maxLength: 64 } }, additionalProperties: false
     },
     policy: "allowed",
     async authorize(context, args) { return ownsSession(service, args.sessionId, context.principal); },
