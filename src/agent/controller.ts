@@ -4,11 +4,70 @@ import { RunStateMachine } from "./run-state.js";
 import type { AgentAuditStore, AgentModel, AgentObserver, AgentPrincipal, AgentRunInput, AgentRunLifecycle, AgentRunResult } from "./types.js";
 import { ToolRegistry } from "./registry.js";
 
+function validateSchemaValue(schema: Record<string, unknown>, value: unknown, path: string): void {
+  const type = schema.type;
+
+  if (type === "object") {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw new Error(path === "arguments" ? "Tool arguments must be an object" : "Invalid type for tool argument");
+    }
+    const object = value as Record<string, unknown>;
+    const properties = schema.properties && typeof schema.properties === "object" && !Array.isArray(schema.properties)
+      ? schema.properties as Record<string, unknown>
+      : {};
+    const required = Array.isArray(schema.required) ? schema.required : [];
+
+    for (const key of required) {
+      if (typeof key === "string" && !Object.prototype.hasOwnProperty.call(object, key)) {
+        throw new Error("Missing required tool argument: " + key);
+      }
+    }
+
+    if (schema.additionalProperties === false && Object.keys(object).some(key => !Object.prototype.hasOwnProperty.call(properties, key))) {
+      throw new Error("Unexpected tool argument");
+    }
+
+    for (const [key, propertySchema] of Object.entries(properties)) {
+      if (!Object.prototype.hasOwnProperty.call(object, key) || !propertySchema || typeof propertySchema !== "object" || Array.isArray(propertySchema)) continue;
+      validateSchemaValue(propertySchema as Record<string, unknown>, object[key], key);
+    }
+    return;
+  }
+
+  if (type === "string") {
+    if (typeof value !== "string") throw new Error("Invalid type for tool argument");
+    if (typeof schema.minLength === "number" && value.length < schema.minLength) throw new Error("Tool argument is below its minimum length");
+    if (typeof schema.maxLength === "number" && value.length > schema.maxLength) throw new Error("Tool argument exceeds its maximum length");
+  } else if (type === "integer") {
+    if (typeof value !== "number" || !Number.isInteger(value)) throw new Error("Invalid type for tool argument");
+  } else if (type === "number") {
+    if (typeof value !== "number" || !Number.isFinite(value)) throw new Error("Invalid type for tool argument");
+  } else if (type === "boolean") {
+    if (typeof value !== "boolean") throw new Error("Invalid type for tool argument");
+  } else if (type === "array") {
+    if (!Array.isArray(value)) throw new Error("Invalid type for tool argument");
+    if (typeof schema.minItems === "number" && value.length < schema.minItems) throw new Error("Tool argument has too few items");
+    if (typeof schema.maxItems === "number" && value.length > schema.maxItems) throw new Error("Tool argument has too many items");
+    if (schema.items && typeof schema.items === "object" && !Array.isArray(schema.items)) {
+      for (const item of value) validateSchemaValue(schema.items as Record<string, unknown>, item, path);
+    }
+  } else if (type === "null" && value !== null) {
+    throw new Error("Invalid type for tool argument");
+  }
+
+  if (Array.isArray(schema.enum) && !schema.enum.some(option => Object.is(option, value))) {
+    throw new Error("Tool argument is not an allowed value");
+  }
+
+  if (typeof value === "number") {
+    if (typeof schema.minimum === "number" && value < schema.minimum) throw new Error("Tool argument is below its minimum");
+    if (typeof schema.maximum === "number" && value > schema.maximum) throw new Error("Tool argument exceeds its maximum");
+  }
+}
+
 function validateObjectArguments(schema: Record<string, unknown>, value: unknown): asserts value is Record<string, unknown> {
-  if (schema.type === "object" && (!value || typeof value !== "object" || Array.isArray(value))) throw new Error("Tool arguments must be an object");
-  const object = value as Record<string, unknown>;
-  const required = Array.isArray(schema.required) ? schema.required : [];
-  for (const key of required) if (!(String(key) in object)) throw new Error("Missing required tool argument: " + String(key));
+  validateSchemaValue(schema, value, "arguments");
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Tool arguments must be an object");
 }
 
 function describeActiveContext(principal: AgentPrincipal): string | undefined {
