@@ -26,9 +26,9 @@ This ledger is based on source and documentation inspection. A listed capability
 
 - [x] Read active roadmap, architecture plan, requirements, collaboration handoff, current-state ledger, testing/security docs, package scripts, CI workflow, schema migrations, and the principal agent/GitHub/AI/Worker/UI paths.
 - [x] Establish existing integration boundaries and known gaps above.
-- [ ] Run and record the current CI/build/test evidence for this exact baseline; separate focused suite results from the full legacy suite.
-- [ ] Reconcile inaccurate/stale current-state documentation with the inspected source.
-- [ ] Verify branch-selector code in CI and provide the owner a consolidated browser acceptance card.
+- [x] Run and record the current CI/build/test evidence for the current implementation checkpoint; focused Phase 1/Worker suites, build, typecheck, dry-run and security audit passed on code SHA `a825640e33c7284ad0cd60ea56a731950c7289ec`. The broad legacy `npm test` suite was not run.
+- [x] Reconcile inaccurate/stale current-state documentation with the inspected source; `docs/CURRENT_STATE_AND_CONTINUATION.md` now records the current implementation checkpoint and live gaps.
+- [x] Verify branch-selector code in CI and prepare the consolidated browser acceptance card; owner browser acceptance remains pending.
 
 **Gate:** factual baseline and current source/documentation agree; branch selector remains explicitly unverified until owner browser testing.
 
@@ -50,7 +50,7 @@ This ledger is based on source and documentation inspection. A listed capability
 - [x] Add/adjust automated tests for tool registration, selected repository/ref scope, concurrent run isolation, write success/read-back, conflicts, GitHub errors, and failure-state reporting.
 - [x] Verify the existing conversation branch selector and comparison selector have reliable loading, stale-request handling, and visible errors; latest responses are guarded against stale repo/diff requests. Persistence of comparison-base choice remains a possible follow-up.
 - [ ] Update run activity/UI where needed so planned, requested, completed, rejected, and failed work are not conflated; retain prior activity per conversation.
-- [ ] Update roadmap/current-state docs with exact SHA, tests and unresolved live checks.
+- [x] Update the implementation TODO and current-state ledger with code SHA, CI evidence, changed areas and unresolved live checks.
 
 **Owner acceptance gate:** in the deployed app, on a repository and non-default work branch explicitly approved for testing, ask Forge to make a small, safe edit to a test file. Confirm a real configured AI provider was used; GitHub contains the changed content and commit on the intended branch; the UI shows the correct branch/file/diff/commit; the conversation and run history survive reload; and an unauthorized branch/repository attempt is rejected. Do not use production files or the default branch for the write test.
 
