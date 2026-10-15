@@ -4,7 +4,7 @@ This is the active product delivery roadmap. Follow phases in order; do not buil
 
 **Planning status (2026-10-15):** the owner approved retaining Neon Postgres and working directly on `main`, with testing and evidence recorded after each increment before proceeding. The broad architecture plan is the working baseline; Phase 0 still requires an actual source/runtime/database audit and evidence ledger. No database migration is planned.
 
-**Owner-approved next-work requirements (2026-10-15):** see [Orchestrator, Project Memory, and Workspace UI Plan](ORCHESTRATOR_UI_AND_MEMORY_PLAN.md). It records the requested coding-task orchestrator behavior, repository/branch selector repair, Cloud Code-style expandable activity UI, durable stop/continue, repo-scoped project-memory and compaction design (discussion required before implementation), review panel, and post-core session-expiry/reconnect/logout work. These are requirements, not claims of implementation.
+**Owner-approved next-work requirements (2026-10-15):** see [Orchestrator, Project Memory, and Workspace UI Plan](ORCHESTRATOR_UI_AND_MEMORY_PLAN.md). It records the requested coding-task orchestrator behavior, repository/branch selector repair, Claude Code-style expandable activity UI, durable stop/continue, repo-scoped project-memory and compaction design (discussion required before implementation), review panel, and post-core session-expiry/reconnect/logout work. These are requirements, not claims of implementation.
 
 ## Product goal
 
