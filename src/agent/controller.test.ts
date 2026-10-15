@@ -99,3 +99,68 @@ test("controller preserves the underlying failure message for safe reporting", a
   assert.equal(audit.runs[0].status, "failed");
   assert.equal(audit.runs[0].errorMessage, "Fake model has no more decisions");
 });
+
+
+test("controller rejects tool arguments with invalid property types before execution", async () => {
+  let executed = false;
+  const typedTool: ForgeTool<{ path: string }> = {
+    ...readTool,
+    inputSchema: {
+      type: "object",
+      required: ["path"],
+      properties: { path: { type: "string", minLength: 1, maxLength: 100 } },
+      additionalProperties: false
+    },
+    async execute() { executed = true; return { content: "should not run" }; }
+  };
+  const registry = new ToolRegistry();
+  registry.register(typedTool);
+  const audit = new InMemoryAgentAuditStore();
+  const controller = new AgentController(
+    new FakeModel([{ type: "tool_call", call: { id: "call-invalid-type", name: typedTool.name, arguments: { path: 42 } } }]),
+    registry,
+    audit
+  );
+
+  const result = await controller.run({
+    conversationId: "c",
+    principal: { userId: "u", workspaceId: "w" },
+    message: "read"
+  });
+
+  assert.equal(result.status, "failed");
+  assert.equal(executed, false);
+  assert.equal(audit.toolCalls[0].status, "failed");
+});
+
+test("controller rejects unexpected tool properties when schema disallows them", async () => {
+  let executed = false;
+  const strictTool: ForgeTool<{ path: string }> = {
+    ...readTool,
+    inputSchema: {
+      type: "object",
+      required: ["path"],
+      properties: { path: { type: "string" } },
+      additionalProperties: false
+    },
+    async execute() { executed = true; return { content: "should not run" }; }
+  };
+  const registry = new ToolRegistry();
+  registry.register(strictTool);
+  const audit = new InMemoryAgentAuditStore();
+  const controller = new AgentController(
+    new FakeModel([{ type: "tool_call", call: { id: "call-extra-property", name: strictTool.name, arguments: { path: "README.md", unexpected: true } } }]),
+    registry,
+    audit
+  );
+
+  const result = await controller.run({
+    conversationId: "c",
+    principal: { userId: "u", workspaceId: "w" },
+    message: "read"
+  });
+
+  assert.equal(result.status, "failed");
+  assert.equal(executed, false);
+  assert.equal(audit.toolCalls[0].status, "failed");
+});
