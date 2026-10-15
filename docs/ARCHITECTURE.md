@@ -43,13 +43,9 @@ Cloudflare observability -> production diagnostic evidence
 
 ## Phase-based architecture
 
-- **Phase 1:** real AI + GitHub read/write tools + branch/commit/diff + usable UI.
-- **Phase 2:** GitHub Actions status/log retrieval, diagnosis, bounded repair, and reliable run lifecycle.
-- **Phase 3:** authenticated local companion, durable device/work identity, command policy, approval/resume, cancellation and result reporting.
-- **Phase 4:** Cloudflare observability/log integration, redaction, source correlation and approved fixes.
-- **Phase 5:** additional providers, small-team access controls, regression testing and hardening.
+The proposed active sequence is Phase 0 architecture/baseline/data decision; Phase 1 core GitHub coding; Phase 2 runtime reliability/recovery; Phase 3 GitHub Actions verification/repair; Phase 4 local companion; Phase 5 Cloudflare diagnostics; and Phase 6 providers/teams/hardening. This proposal is pending owner approval.
 
-See `ROADMAP.md` for acceptance criteria and `CURRENT_STATE_AND_CONTINUATION.md` for evidence-based status.
+See `ROADMAP.md` and `PRODUCT_ARCHITECTURE_PLAN.md` for acceptance criteria and `CURRENT_STATE_AND_CONTINUATION.md` for evidence-based status.
 
 ## GitHub write-tool contract
 
