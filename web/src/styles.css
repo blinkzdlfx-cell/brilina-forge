@@ -37,7 +37,12 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; min-height: 100vh; }
-button, input, select, textarea { font: inherit; }\nbutton, select, summary { -webkit-tap-highlight-color: transparent; }\nbutton:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-visible, summary:focus-visible { outline: none; box-shadow: var(--forge-focus-ring); }\nbutton { transition: background-color var(--forge-motion-fast), border-color var(--forge-motion-fast), color var(--forge-motion-fast), box-shadow var(--forge-motion-fast), transform var(--forge-motion-fast); }\nbutton:disabled { cursor: not-allowed; }\n::selection { background: #dadafb; color: #20215e; }
+button, input, select, textarea { font: inherit; }
+button, select, summary { -webkit-tap-highlight-color: transparent; }
+button:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-visible, summary:focus-visible { outline: none; box-shadow: var(--forge-focus-ring); }
+button { transition: background-color var(--forge-motion-fast), border-color var(--forge-motion-fast), color var(--forge-motion-fast), box-shadow var(--forge-motion-fast), transform var(--forge-motion-fast); }
+button:disabled { cursor: not-allowed; }
+::selection { background: #dadafb; color: #20215e; }
 
 .forge-app { min-height: 100vh; display: flex; background: var(--forge-bg); color: var(--forge-text); }
 .sidebar { width: 268px; background: #fff; border-right: 1px solid #e7e7ec; display: flex; flex-direction: column; padding: 18px 14px; transition: width .18s ease; }
