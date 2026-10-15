@@ -60,6 +60,14 @@ If verification requires the owner's browser/account/device, a live deployed UI,
 
 The documentation reconciliation branch `chatgpt/reconcile-project-state` was fast-forwarded into `main` on 2026-10-14. Its changes were documentation-only. The roadmap is now organized around five product phases, with Phase 1 (real AI coding through GitHub) as the immediate priority. No application code or tests were changed/run by that documentation merge.
 
+## Owner-approved workflow (2026-10-15)
+
+- Work directly on `main`; pull requests are not the default for this personal project.
+- Make one bounded change at a time. Inspect the current source first, then implement, test, inspect the diff, and record the commit SHA and results.
+- If a test or build fails, stay on that increment and fix it before proceeding. Never report a failed/unrun check as passing.
+- Keep Neon Postgres as the primary database. No D1 migration is planned.
+- Do not bundle multiple unverified changes, perform a production deployment, or make destructive database changes without explicit authorization.
+
 ## Priority
 
-Do not work on all phases simultaneously. First make a real model write a reviewable change to a selected GitHub work branch. Then add GitHub Actions verification, the companion, Cloudflare diagnostics, and finally team/provider expansion.
+Complete Phase 0 by auditing the current `main` source, provider path, tool registry, run lifecycle, UI event handling, database schema and current tests. Record a factual baseline first. Then implement the smallest Phase 1 increment: a real AI-driven GitHub coding action that can be read back and reviewed. Do not begin Phase 2 or add extra features until the Phase 1 acceptance gate passes.
