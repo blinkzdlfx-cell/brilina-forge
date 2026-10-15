@@ -609,7 +609,7 @@ export function App() {
               />
                <div className="composer-footer">
                  <span className="composer-status">{contextPending ? "Preparing repository context…" : "Enter to send · Shift + Enter for a new line"}</span>
-                 <button className="send-button" disabled={!composer.trim() || running || contextPending} onClick={() => void send()}
+                 <button className="send-button" disabled={!composer.trim() || running || contextPending} onClick={() => void send()}>
                    {running ? "Running…" : "Send"}
                  </button>
                </div>
