@@ -197,7 +197,7 @@ function publicRunFailure(error: unknown): string {
   if (/^(?:Tool is blocked by policy|Tool authorization denied|Human approval is required)(?:: [a-z0-9_.-]+)?$/i.test(message) ||
       /^Unknown tool: [a-z0-9_.-]+$/i.test(message) ||
       /^Missing required tool argument: [a-zA-Z0-9_]+$/i.test(message) ||
-      /^(?:Tool arguments must be an object|Agent step limit exceeded)$/i.test(message)) {
+      /^(?:Tool arguments must be an object|Invalid type for tool argument|Unexpected tool argument|Tool argument is not an allowed value|Tool argument is below its minimum(?: length)?|Tool argument exceeds its maximum(?: length)?|Tool argument has too few items|Tool argument has too many items|Agent step limit exceeded)$/i.test(message)) {
     return message;
   }
   return "The agent run failed. The underlying error was recorded in the run audit.";
