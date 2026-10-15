@@ -1,7 +1,7 @@
 import { ModelContext } from "./context.js";
 import { authorizeTool, evaluateToolPolicy } from "./policy.js";
 import { RunStateMachine } from "./run-state.js";
-import type { AgentAuditStore, AgentModel, AgentObserver, AgentPrincipal, AgentRunInput, AgentRunLifecycle, AgentRunResult } from "./types.js";
+import type { AgentAuditStore, AgentModel, AgentObserver, AgentPrincipal, AgentRunInput, AgentRunLifecycle, AgentRunResult, ToolResultSummary } from "./types.js";
 import { ToolRegistry } from "./registry.js";
 
 function validateSchemaValue(schema: Record<string, unknown>, value: unknown, path: string): void {
@@ -68,6 +68,19 @@ function validateSchemaValue(schema: Record<string, unknown>, value: unknown, pa
 function validateObjectArguments(schema: Record<string, unknown>, value: unknown): asserts value is Record<string, unknown> {
   validateSchemaValue(schema, value, "arguments");
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Tool arguments must be an object");
+}
+
+function summarizeToolResult(result: unknown): ToolResultSummary | undefined {
+  if (!result || typeof result !== "object" || Array.isArray(result)) return undefined;
+  const value = result as Record<string, unknown>;
+  if (value.success !== true || typeof value.commitUrl !== "string") return undefined;
+  return {
+    ...(typeof value.operation === "string" ? { operation: value.operation } : {}),
+    ...(typeof value.branch === "string" ? { branch: value.branch } : {}),
+    ...(typeof value.path === "string" || value.path === null ? { path: value.path as string | null } : {}),
+    commitUrl: value.commitUrl,
+    ...(typeof value.readBackVerified === "boolean" ? { readBackVerified: value.readBackVerified } : {})
+  };
 }
 
 function describeActiveContext(principal: AgentPrincipal): string | undefined {
@@ -148,7 +161,7 @@ export class AgentController {
           await this.audit.updateToolCall(toolCallId, "running");
           const result = await tool.execute({ principal: input.principal, runId: run.id }, decision.call.arguments);
           await this.audit.updateToolCall(toolCallId, "completed", result);
-          this.observer?.emit({ type: "tool.completed", toolName: tool.name, callId });
+          this.observer?.emit({ type: "tool.completed", toolName: tool.name, callId, resultSummary: summarizeToolResult(result) });
           context.add({ role: "tool", toolCallId: decision.call.id, content: JSON.stringify(result) });
         } catch (error) {
           const message = error instanceof Error ? error.message : "Tool execution failed";
