@@ -66,7 +66,7 @@ Phase 1 still requires a real AI-triggered GitHub file write on an authorized no
 
 ## ADR-016 — Database platform evaluation (proposed 2026-10-15)
 
-**Status: recommendation pending owner approval.**
+**Status: APPROVED by the owner on 2026-10-15.**
 
 Recommendation: retain the existing Neon Postgres database for Forge's core state and do not migrate to Cloudflare D1 as part of the current rebaseline.
 
@@ -90,3 +90,24 @@ The new proposed sequence is:
 This rebaseline adds an explicit runtime reliability phase before automated repair and moves provider/team expansion to the final hardening phase. It incorporates established patterns from OpenAI Agents, Anthropic session/event flows and permissions, Google ADK resumability, Cline checkpoints/tasks, OpenCode tool permissions/provider abstraction, and Kilo Code autonomous modes/snapshots. It does not authorize a broad rewrite or adoption of a new agent framework.
 
 See [Product Architecture Plan](PRODUCT_ARCHITECTURE_PLAN.md) for the comparison, target boundaries, free-tier evaluation, database analysis and phase gates.
+
+
+## ADR-018 — Direct-to-main, test-before-advance workflow (approved 2026-10-15)
+
+**Status: APPROVED by the owner.**
+
+For this personal project, implementation work is committed directly to `main`; pull requests are not the default delivery mechanism. The safety mechanism is small increments plus mandatory tests and recorded evidence, not skipping verification.
+
+For each increment:
+1. Inspect the current code, tests and current `main` SHA before editing.
+2. State one bounded goal and observable acceptance criteria.
+3. Change only what is needed for that increment.
+4. Run relevant unit/integration tests and build checks; run live checks when the behavior requires them.
+5. Inspect the diff and fix any failures. Do not advance while the increment is failing or unverified.
+6. Commit the successful increment to `main` and record SHA, files, commands, results and remaining limitations in the roadmap/current-state log.
+
+Do not create a PR as the default. Do not bypass tests, claim a live check that was not performed, or bundle multiple unverified changes together. Production deployments, destructive data changes and database migrations remain separate approval-gated actions.
+
+## ADR-019 — Future customer-controlled data and backup options (deferred)
+
+The longer-term product direction may allow customers to own/control their own database and connected services, including optional personal integrations. A separate backup database or backup layer may also be considered for resilience. Neither is part of the current implementation scope. First make the Neon-backed primary path reliable and define backup/restore objectives; later design customer ownership and backup isolation deliberately. Do not implement dual writes or imply that a second database automatically provides a tested backup.
