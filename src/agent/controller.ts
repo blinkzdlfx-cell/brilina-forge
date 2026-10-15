@@ -141,6 +141,7 @@ export class AgentController {
     const requestedSteps = input.maxSteps ?? 8;
     const maxSteps = Number.isInteger(requestedSteps) ? Math.min(8, Math.max(1, requestedSteps)) : 8;
     let remainingToolResultBudget = MAX_RUN_TOOL_CONTEXT_CHARS;
+    const seenToolCallIds = new Set<string>();
 
     try {
       for (let step = 0; step < maxSteps; step++) {
@@ -156,6 +157,11 @@ export class AgentController {
           await this.audit.updateRun(run.id, "completed");
           return { runId: run.id, status: "completed", response: decision.content };
         }
+
+        if (typeof decision.call.id !== "string" || decision.call.id.trim().length === 0 || decision.call.id.length > 200 || seenToolCallIds.has(decision.call.id)) {
+          throw new Error("Invalid or duplicate tool call id");
+        }
+        seenToolCallIds.add(decision.call.id);
 
         const tool = this.registry.get(decision.call.name);
         if (!tool) throw new Error("Unknown tool: " + decision.call.name);
