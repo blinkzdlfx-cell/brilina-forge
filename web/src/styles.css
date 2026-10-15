@@ -407,3 +407,11 @@ button:disabled { cursor: not-allowed; }
   .composer-wrap { margin-top: 26px; }
   .run-history { margin-left: 0; }
 }
+
+/* Keep the optional comparison row out of the layout until it is opened. */
+.topbar { grid-template-areas: "context controls"; }
+.topbar.compare-open { grid-template-areas: "context controls" ". compare"; }
+@media (max-width: 900px) {
+  .topbar { grid-template-areas: "context" "controls"; }
+  .topbar.compare-open { grid-template-areas: "context" "controls" "compare"; }
+}
