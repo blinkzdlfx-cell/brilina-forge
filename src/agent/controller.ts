@@ -71,20 +71,25 @@ function validateObjectArguments(schema: Record<string, unknown>, value: unknown
 }
 
 const MAX_TOOL_RESULT_CHARS = 32_000;
+const MAX_RUN_TOOL_CONTEXT_CHARS = 64_000;
 
-function boundToolResult(result: unknown): unknown {
+function boundToolResult(result: unknown, maxCharacters = MAX_TOOL_RESULT_CHARS): unknown {
   let serialized: string;
   try {
     serialized = JSON.stringify(result);
   } catch {
     return { truncated: true, preview: "[Tool result could not be serialized]" };
   }
-  if (serialized.length <= MAX_TOOL_RESULT_CHARS) return result;
+  const limit = Math.max(0, Math.min(MAX_TOOL_RESULT_CHARS, maxCharacters));
+  if (serialized.length <= limit) return result;
+  if (limit < 256) {
+    return { truncated: true, originalCharacters: serialized.length, preview: "[Tool result omitted: run context budget exhausted]" };
+  }
   const suffix = "\\n...[tool result truncated to protect model context and run history]";
   return {
     truncated: true,
     originalCharacters: serialized.length,
-    preview: serialized.slice(0, MAX_TOOL_RESULT_CHARS - suffix.length - 100) + suffix
+    preview: serialized.slice(0, limit - suffix.length - 100) + suffix
   };
 }
 
@@ -133,7 +138,9 @@ export class AgentController {
       if (item.content.trim()) context.add({ role: item.role, content: item.content });
     }
     context.add({ role: "user", content: input.message });
-    const maxSteps = input.maxSteps ?? 8;
+    const requestedSteps = input.maxSteps ?? 8;
+    const maxSteps = Number.isInteger(requestedSteps) ? Math.min(8, Math.max(1, requestedSteps)) : 8;
+    let remainingToolResultBudget = MAX_RUN_TOOL_CONTEXT_CHARS;
 
     try {
       for (let step = 0; step < maxSteps; step++) {
@@ -178,7 +185,8 @@ export class AgentController {
           this.observer?.emit({ type: "tool.started", toolName: tool.name, callId });
           await this.audit.updateToolCall(toolCallId, "running");
           const result = await tool.execute({ principal: input.principal, runId: run.id }, decision.call.arguments);
-          const boundedResult = boundToolResult(result);
+          const boundedResult = boundToolResult(result, Math.min(MAX_TOOL_RESULT_CHARS, remainingToolResultBudget));
+          remainingToolResultBudget = Math.max(0, remainingToolResultBudget - JSON.stringify(boundedResult).length);
           await this.audit.updateToolCall(toolCallId, "completed", boundedResult);
           this.observer?.emit({ type: "tool.completed", toolName: tool.name, callId, resultSummary: summarizeToolResult(result) });
           context.add({ role: "tool", toolCallId: decision.call.id, content: JSON.stringify(boundedResult) });
