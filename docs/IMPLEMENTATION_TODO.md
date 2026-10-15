@@ -130,18 +130,21 @@ This ledger is based on source and documentation inspection. A listed capability
 
 ## Batch 1 — shared UI foundation and live-test gate (2026-10-15)
 
-**Status:** shared UI implementation committed; workspace layout refinement committed; latest automated CI is running; owner live test pending.
+**Status:** viewport-anchored chat layout and repository-context authorization fix committed; automated CI and owner live test pending.
 
 - Added `web/src/components/ui/SelectField.tsx` as a shared accessible control for repository, branch, and compare-base selection.
 - Reused the shared control for repository, working-branch, and comparison-base selection so loading, disabled, option, and focus behavior stays consistent.
 - Separated the everyday Repository + Working branch controls from branch comparison. The base-branch dropdown now appears inside an expandable **Compare** toolbar, avoiding the appearance of two always-visible branch dropdowns.
 - Added visible branch-control helper text so the user can distinguish loading, no repository, disconnected repository, and available-branch states.
 - Extended shared CSS tokens and interaction styles for controls, focus, disabled states, composer focus, and responsive mobile layout.
-- Refined the workspace header, comparison toolbar, chat spacing, composer, and conversation navigation; comparison state resets safely when the repository changes.
+- Refined the workspace header and comparison toolbar. The transcript is now the only scrolling region; repository/branch controls stay above it and the composer stays docked at the bottom.
+- Reworked the composer into a ChatGPT-style input card with an icon-only send button, running spinner, mobile safe-area spacing, and automatic scroll-to-latest behavior.
+- Sending is disabled until a repository and working branch are selected and bound to the conversation.
+- Fixed the `github.get_repository_context` authorization design: it now derives owner/repository from the conversation-bound repository rather than asking the model to repeat owner/repo arguments. Added a regression test and included it in the Phase 1 test command.
 - Normalized five literal escaped line-break sequences in `web/src/styles.css` into actual newlines so the affected global CSS rules parse as intended.
 - Preserved React/Vite, Cloudflare Worker Static Assets, Neon, and the existing GitHub API division.
 
-**Important framework note:** the current repository still does not have Tailwind CSS or the shadcn/ui package/tooling installed. These commits establish reusable UI primitives and consistency without adding unverified dependencies or leaving `package-lock.json` out of sync. Do not describe shadcn/ui as installed. The next framework step should be a deliberate dependency-and-lockfile change after this live acceptance pass, rather than a partial install.
+**Important framework note:** Tailwind CSS and shadcn/ui are still not installed. shadcn/ui components are generated into the repository as source code; Cloudflare should build the committed components rather than attempting to generate UI at deployment time. A proper shadcn/Tailwind setup requires a tested dependency and lockfile change, separate from the viewport and authorization fixes.
 
 ### Batch 1 owner test checklist
 
@@ -149,10 +152,10 @@ This ledger is based on source and documentation inspection. A listed capability
 2. Confirm the GitHub session remains connected.
 3. Open **Repository** and choose a repository.
 4. Wait for branch loading to finish. The branch control should show the available-branch count below it.
-5. Open **Branch** and choose a branch other than `main`, if available. Confirm the selected branch appears in the header.
+5. Open **Working branch** and choose a branch other than `main`, if available. Confirm the selected branch appears in the header and the header stays visible while scrolling the transcript.
 6. Tap **Compare** to open the comparison toolbar. Choose a different **Base branch**, tap **Compare changes**, and confirm a diff panel appears or a clear error is shown. Close the toolbar again to confirm the everyday workspace remains uncluttered.
 7. Start a new chat and send a harmless question such as `Summarize the current repository without changing files.`
-8. Confirm the reply and run activity appear. Do not ask the agent to write files during this UI smoke test.
+8. Confirm the reply and run activity appear, and verify the input card remains fixed at the bottom while the transcript scrolls. Do not ask the agent to write files during this UI smoke test.
 9. Check that the controls fit the phone screen and that loading/error/disabled states are understandable.
 
 Record any step that fails before starting Batch 2. A green build alone does not satisfy this gate.
