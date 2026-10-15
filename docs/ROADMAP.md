@@ -12,7 +12,7 @@ Brilina Forge is a private browser-based AI software-development workspace. A us
 
 - **UI and hosted API:** existing React/Vite application served by the native Cloudflare Worker + Workers Static Assets.
 - **Canonical source code:** GitHub branches, files, commits, diffs and pull requests.
-- **Forge state:** existing Neon Postgres project; proposed recommendation is to keep it and not migrate to D1 unless measured evidence justifies the migration.
+- **Forge state:** existing Neon Postgres project; owner approved retaining Neon. Do not migrate to D1 unless measured new evidence justifies a separately planned migration.
 - **Agent runtime:** a small typed controller, provider adapter, tool registry, policy layer and durable run/event lifecycle.
 - **Verification:** GitHub Actions.
 - **Optional execution:** separate local Node.js companion; no shell in the Worker and no browser terminal.
@@ -32,7 +32,7 @@ Do not add new product behavior to the legacy Fastify server. Do not add a secon
 - Review free-tier constraints, export/restore procedure and the possible use of Cloudflare Workflows for durable execution. Workflows remains a candidate until a measured proof of concept supports a decision.
 - Preserve the historical technical Phase 0–7 records and older branches; do not delete or merge them blindly.
 
-**Gate:** record the current main SHA, source/runtime/database audit, exact checks, verified gaps and the accepted architecture decisions. Neon is already approved; do not reopen the D1 decision without measured new evidence. No broad refactor before this gate.
+**Gate:** finish the current main SHA, source/runtime/database audit, exact checks, verified gaps and accepted architecture decisions. Neon is approved; do not reopen the D1 decision without measured new evidence. No broad refactor before this gate.
 
 ## Phase 1 — reliable core GitHub coding workflow
 
