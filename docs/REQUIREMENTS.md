@@ -1,10 +1,13 @@
 # Brilina Forge — Product Requirements
 
+> **Phase numbering note (2026-10-15):** The active proposed phase sequence is defined in [ROADMAP.md](ROADMAP.md) and the [Product Architecture Plan](PRODUCT_ARCHITECTURE_PLAN.md). The sequence has been rebaselined to insert runtime reliability as Phase 2. This proposal is pending owner approval; historical phase records are retained.
+
+
 ## Product objective
 
 A private, browser-based AI coding workspace that uses GitHub as the source of truth, Cloudflare Workers for the hosted application/API, and Neon Postgres for durable Forge state. Build incrementally around the owner's personal workflow before expanding to a small trusted team.
 
-## Phase 1 — GitHub coding (must work first)
+## Core GitHub coding requirements (active Phase 1)
 
 - Authenticate through the configured GitHub App/session flow.
 - Identify the signed-in user and their permitted repositories.
@@ -22,7 +25,20 @@ A private, browser-based AI coding workspace that uses GitHub as the source of t
 - Audit all write operations. Require user confirmation for consequential actions.
 - Pass a real end-to-end test in which the AI changes a real file in a selected repository.
 
-## Phase 2 — verification and repair
+## Autonomous runtime reliability and recovery requirements (active Phase 2)
+
+- Persist explicit run, step, event, tool-call and approval state; browser memory and a live SSE connection must not be the only state store.
+- Enforce atomic/idempotent run claiming and prevent duplicate execution of the same run or side effect.
+- Support ordered event replay after reconnect; distinguish client disconnect from cancellation.
+- Define cancellation, timeouts, bounded retries, retryability and evidence-based stale-work detection.
+- Resume the exact interrupted/pending operation safely; do not replay completed writes or commands blindly.
+- Persist approval requests and decisions, bind them to the exact tool call, audit them, and resume at most once.
+- Record correlation IDs, normalized failures, elapsed time, retry counts and usage where available.
+- Evaluate Cloudflare Workflows against Worker + Neon with a small proof of concept before choosing it.
+
+**Gate:** tests demonstrate accurate state transitions, reconnect/replay and no duplicate side effect after a controlled interruption.
+
+## GitHub Actions verification and repair requirements (active Phase 3)
 
 - Trigger or inspect GitHub Actions workflows for a selected commit/branch.
 - Retrieve workflow/job/step status and relevant logs.
@@ -32,7 +48,7 @@ A private, browser-based AI coding workspace that uses GitHub as the source of t
 - Never automatically merge or deploy production changes.
 - Verify run claim, reconnect, duplicate subscriber, cancellation, timeout, failure and recovery behavior.
 
-## Phase 3 — local Node.js companion
+## Local Node.js companion requirements (active Phase 4)
 
 - Separate companion application runs on the user's computer; no shell on the Worker and no browser terminal.
 - Authenticate and register devices securely with durable ownership and revocation.
@@ -43,7 +59,7 @@ A private, browser-based AI coding workspace that uses GitHub as the source of t
 - Redact sensitive output; support cancellation and cleanup.
 - Never silently switch execution location if the companion is unavailable.
 
-## Phase 4 — Cloudflare diagnostics
+## Cloudflare diagnostics requirements (active Phase 5)
 
 - Connect a Cloudflare account with least-privilege access.
 - Select supported Workers/log sources and retrieve relevant diagnostic evidence.
@@ -53,7 +69,7 @@ A private, browser-based AI coding workspace that uses GitHub as the source of t
 - Propose a fix through the Phase 1 workflow and verify it through Phase 2.
 - Require explicit approval before production deployment.
 
-## Phase 5 — providers, teams, and hardening
+## Providers, teams, and hardening requirements (active Phase 6)
 
 - Add additional AI providers incrementally, based on real API access, model capabilities, quotas, and costs.
 - Report provider errors/usage accurately; do not assume uniform tool calling or structured output.
