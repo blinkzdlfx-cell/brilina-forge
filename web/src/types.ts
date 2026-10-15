@@ -53,7 +53,7 @@ export type ForgeEvent =
   | { type: "assistant.delta"; content: string }
   | { type: "tool.requested"; toolName: string; callId: string }
   | { type: "tool.started"; toolName: string; callId: string }
-  | { type: "tool.completed"; toolName: string; callId: string }
+  | { type: "tool.completed"; toolName: string; callId: string; resultSummary?: { operation?: string; branch?: string; path?: string | null; commitUrl?: string; readBackVerified?: boolean } }
   | { type: "approval.required"; toolName: string; callId: string }
   | { type: "tool.rejected"; toolName: string; callId: string; reason: string }
   | { type: "assistant.completed"; content: string }
