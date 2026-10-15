@@ -134,7 +134,25 @@ export function App() {
     if (!mobileSidebarOpen) return;
     sidebarToggleRef.current?.focus();
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMobileSidebarOpen(false);
+      if (event.key === "Escape") {
+        setMobileSidebarOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const sidebar = document.getElementById("forge-sidebar");
+      const focusable = sidebar?.querySelectorAll<HTMLElement>(
+        'button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
+      );
+      if (!focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => {
