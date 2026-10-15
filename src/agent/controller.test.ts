@@ -42,3 +42,25 @@ test("controller rejects invalid tool arguments", async () => {
   const result = await controller.run({ conversationId: "c", principal: { userId: "u", workspaceId: "w" }, message: "run" });
   assert.equal(result.status, "failed"); assert.equal(audit.toolCalls[0].status, "failed");
 });
+
+
+test("controller returns a normal assistant answer without calling any tools", async () => {
+  const registry = new ToolRegistry();
+  const audit = new InMemoryAgentAuditStore();
+  const controller = new AgentController(
+    new FakeModel([{ type: "final", content: "Here is the explanation. No repository changes were made." }]),
+    registry,
+    audit
+  );
+
+  const result = await controller.run({
+    conversationId: "conversation-chat-only",
+    principal: { userId: "user-1", workspaceId: "workspace-1" },
+    message: "Explain this concept without changing any files."
+  });
+
+  assert.equal(result.status, "completed");
+  assert.equal(result.response, "Here is the explanation. No repository changes were made.");
+  assert.equal(audit.toolCalls.length, 0);
+  assert.equal(audit.runs[0].status, "completed");
+});
