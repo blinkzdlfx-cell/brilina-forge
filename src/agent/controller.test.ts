@@ -164,3 +164,30 @@ test("controller rejects unexpected tool properties when schema disallows them",
   assert.equal(executed, false);
   assert.equal(audit.toolCalls[0].status, "failed");
 });
+
+test("controller bounds oversized tool results before adding them to run history", async () => {
+  const oversizedTool: ForgeTool<{ path: string }, { content: string }> = {
+    ...readTool,
+    async execute() { return { content: "x".repeat(40_000) }; }
+  };
+  const registry = new ToolRegistry();
+  registry.register(oversizedTool);
+  const audit = new InMemoryAgentAuditStore();
+  const controller = new AgentController(new FakeModel([
+    { type: "tool_call", call: { id: "call-large-result", name: oversizedTool.name, arguments: { path: "large.txt" } } },
+    { type: "final", content: "The result was bounded." }
+  ]), registry, audit);
+
+  const result = await controller.run({
+    conversationId: "conversation-large-result",
+    principal: { userId: "user-1", workspaceId: "workspace-1" },
+    message: "Read the large file."
+  });
+
+  assert.equal(result.status, "completed");
+  const saved = audit.toolCalls[0].result as { truncated?: boolean; originalCharacters?: number; preview?: string };
+  assert.equal(saved.truncated, true);
+  assert.equal(saved.originalCharacters, 40_012);
+  assert.ok((saved.preview?.length ?? 0) < 32_000);
+});
+
