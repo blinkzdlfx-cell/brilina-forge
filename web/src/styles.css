@@ -415,3 +415,10 @@ button:disabled { cursor: not-allowed; }
   .topbar { grid-template-areas: "context" "controls"; }
   .topbar.compare-open { grid-template-areas: "context" "controls" "compare"; }
 }
+
+.composer-status { min-width: 0; color: var(--forge-text-muted); font-size: 11px; line-height: 1.4; }
+.composer-wrap textarea:disabled { opacity: .72; cursor: wait; }
+@media (max-width: 480px) {
+  .composer-footer { gap: 10px; align-items: center; }
+  .composer-status { max-width: 72%; font-size: 10px; }
+}
