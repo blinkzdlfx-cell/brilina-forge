@@ -18,17 +18,17 @@
 
 ### D-002 — Inspect, plan, work on a branch, review, and merge only after confirmation
 
-**Decision: Approved in principle; detailed branch/merge mechanics remain to be specified before implementation.**
+**Decision: Approved. Branch, pull-request, and verification rules are specified below.**
 
 The intended workflow is:
 
 1. The AI may inspect the selected repository and relevant files.
 2. The AI prepares and explains a plan before applying file changes.
 3. File changes must not be written directly to the repository's default branch.
-4. When changes are needed, Forge creates or uses an explicitly designated working branch and applies the changes there.
+4. Forge uses the repository default branch as the target by default, while allowing the user to choose a different target branch. Changes are made on a separate working branch based on that target branch.
 5. Forge reads the changed files back and makes the real branch, changed-file list, diff, and available verification evidence reviewable.
 6. The user can inspect the proposed work and perform or request verification.
-7. Forge must not merge the work into its target branch until the user gives explicit confirmation for that merge.
+7. Forge opens a pull request from the working branch into the selected target branch by default. It must not merge until the user explicitly confirms the specific pull request and merge.
 8. If the user declines, the work remains unmerged and the UI explains the available next steps.
 
 **Safety invariants:**
@@ -40,7 +40,7 @@ The intended workflow is:
 - Merge confirmation must clearly identify the source branch, target branch, and change being merged.
 - Failed or incomplete work must never be represented as successfully completed.
 
-**Open details to resolve before implementing this workflow:** how the user selects the target branch, whether merge is performed by a pull request or a controlled GitHub merge operation, what verification is required before the merge action becomes available, and how the user discards or resumes an unmerged working branch.
+**Verification and merge policy:** required checks must pass before merge is enabled by default. Forge must diagnose and attempt to fix failures. If checks remain failing or cannot run, Forge must clearly explain the evidence and allow the owner to explicitly override the verification block; that override must never be inferred from general approval or hidden in the UI. The merge confirmation must identify the PR, source branch, target branch, and verification status. An unmerged branch remains available for review or follow-up; it is not treated as merged.
 
 ### D-003 — Staged implementation and owner approval
 
@@ -90,7 +90,9 @@ These are observations to investigate, not assumed root causes:
 - [x] Record the branch-based edit/review/explicit-merge requirement.
 - [x] Record the staged checkpoint/approval process.
 - [x] Record context-sensitive diff behavior.
-- [ ] Resolve the open product questions that affect the first implementation.
+- [x] Resolve target-branch selection: default branch by default, with user-selectable target.
+- [x] Resolve merge mechanism: pull request by default; merge only after explicit confirmation.
+- [x] Resolve failed verification policy: passing checks required by default, with an explicit, clearly presented owner override.
 - [ ] Record the current live run's sanitized diagnostic evidence if available.
 - [ ] Confirm the test commands and baseline results from the repository's current source.
 - [ ] Owner approves this planning baseline before Checkpoint 1 implementation.
@@ -171,4 +173,4 @@ Use these status labels consistently: **Implemented in code**, **Automated-teste
 
 ## 5. Next action
 
-Do not implement Checkpoint 1 yet. First, ask the owner the remaining product decisions that materially affect the workflow and request approval of this planning baseline. After approval, investigate the failed agent run, collect evidence, propose the smallest fix, and wait for the owner's checkpoint decision before making changes.
+Product decisions affecting branch selection, merge mechanism, and failed verification are now resolved. Next, review this updated planning baseline and reconcile the roadmap. Do not implement Checkpoint 1 until the owner approves the updated planning baseline and its scope. After approval, investigate the failed agent run, collect evidence, propose the smallest fix, and wait for the owner's checkpoint decision before making changes.
