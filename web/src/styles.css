@@ -1,3 +1,30 @@
+/* Brilina Forge UI foundation — shared tokens and accessible interaction defaults. */
+:root {
+  color-scheme: light;
+  --forge-bg: #f7f7fb;
+  --forge-surface: #ffffff;
+  --forge-surface-muted: #f4f4fa;
+  --forge-border: #e4e5ee;
+  --forge-border-strong: #d3d5e2;
+  --forge-text: #171923;
+  --forge-text-muted: #737789;
+  --forge-text-subtle: #9295a4;
+  --forge-primary: #4547a8;
+  --forge-primary-hover: #37398f;
+  --forge-primary-soft: #eeeefd;
+  --forge-success: #398451;
+  --forge-warning: #a66b13;
+  --forge-danger: #a13f43;
+  --forge-radius-sm: 8px;
+  --forge-radius-md: 12px;
+  --forge-radius-lg: 16px;
+  --forge-shadow-sm: 0 2px 8px rgba(27, 29, 58, .04);
+  --forge-shadow-md: 0 12px 34px rgba(27, 29, 58, .07);
+  --forge-focus-ring: 0 0 0 3px rgba(69, 71, 168, .18);
+  --forge-motion-fast: 140ms ease;
+  --forge-motion-normal: 190ms ease;
+}
+
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 
 :root {
@@ -10,9 +37,9 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; min-height: 100vh; }
-button, textarea { font: inherit; }
+button, input, select, textarea { font: inherit; }\nbutton, select, summary { -webkit-tap-highlight-color: transparent; }\nbutton:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-visible, summary:focus-visible { outline: none; box-shadow: var(--forge-focus-ring); }\nbutton { transition: background-color var(--forge-motion-fast), border-color var(--forge-motion-fast), color var(--forge-motion-fast), box-shadow var(--forge-motion-fast), transform var(--forge-motion-fast); }\nbutton:disabled { cursor: not-allowed; }\n::selection { background: #dadafb; color: #20215e; }
 
-.forge-app { min-height: 100vh; display: flex; background: #f7f7fa; }
+.forge-app { min-height: 100vh; display: flex; background: var(--forge-bg); color: var(--forge-text); }
 .sidebar { width: 268px; background: #fff; border-right: 1px solid #e7e7ec; display: flex; flex-direction: column; padding: 18px 14px; transition: width .18s ease; }
 .sidebar.collapsed { width: 76px; align-items: center; }
 .brand-row { min-height: 42px; display: flex; align-items: center; gap: 9px; position: relative; }
@@ -22,7 +49,7 @@ button, textarea { font: inherit; }
 .icon-button { width: 30px; height: 30px; border: 0; background: transparent; color: #737783; cursor: pointer; border-radius: 8px; }
 .icon-button:hover { background: #f0f0f5; color: #111318; }
 
-.new-chat { margin: 24px 0 22px; height: 42px; border: 0; border-radius: 11px; background: #3b3d9c; color: #fff; font-weight: 600; cursor: pointer; }
+.new-chat { margin: 24px 0 22px; height: 42px; border: 0; border-radius: 11px; background: var(--forge-primary); color: #fff; font-weight: 600; cursor: pointer; }
 .collapsed .new-chat { width: 42px; font-size: 20px; }
 .section-label { padding: 0 10px 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .12em; color: #8a8d99; font-weight: 700; }
 .conversation-list { display: grid; gap: 4px; }
@@ -30,7 +57,7 @@ button, textarea { font: inherit; }
 .conversation-item:hover, .conversation-item.active { background: #f0f0f7; color: #2f3185; }
 .empty-list { color: #9a9ca5; padding: 10px; font-size: 13px; }
 .sidebar-spacer { flex: 1; }
-.workspace-card { display: flex; gap: 10px; align-items: center; padding: 12px; border: 1px solid #e7e7ec; border-radius: 12px; }
+.workspace-card { display: flex; gap: 10px; align-items: center; padding: 12px; border: 1px solid var(--forge-border); border-radius: 12px; }
 .workspace-card strong, .workspace-card span { display: block; }
 .workspace-card strong { font-size: 12px; }
 .workspace-card span { font-size: 11px; color: #8a8d99; margin-top: 3px; }
@@ -44,8 +71,8 @@ button, textarea { font: inherit; }
 .top-actions { display: flex; gap: 8px; align-items: center; }
 .context-select { display: grid; gap: 3px; }
 .context-select span { font-size: 9px; text-transform: uppercase; letter-spacing: .08em; color: #8a8d99; font-weight: 700; }
-.context-select select { max-width: 190px; border: 1px solid #dedfe6; background: #fff; border-radius: 9px; padding: 8px 28px 8px 10px; color: #454851; outline: none; }
-.context-select select:focus { border-color: #3b3d9c; box-shadow: 0 0 0 3px #ececf9; }
+.context-select select { max-width: 190px; border: 1px solid #dedfe6; background: #fff; border-radius: var(--forge-radius-sm); padding: 9px 30px 9px 11px; color: #454851; outline: none; min-height: 38px; cursor: pointer; transition: border-color var(--forge-motion-fast), box-shadow var(--forge-motion-fast); }
+.context-select select:focus { border-color: var(--forge-primary); box-shadow: 0 0 0 3px #ececf9; }
 .avatar { width: 32px; height: 32px; border: 0; border-radius: 50%; background: #3b3d9c; color: #fff; font-weight: 700; object-fit: cover; }
 
 .chat { flex: 1; overflow: auto; }
@@ -76,12 +103,12 @@ button, textarea { font: inherit; }
 .message-content.streaming::after { content: "▍"; color: #3b3d9c; animation: caret 1s steps(2) infinite; }
 @keyframes caret { 50% { opacity: 0; } }
 .sign-in { align-items: center; justify-content: center; }
-.sign-in-card { width: min(420px, calc(100% - 32px)); padding: 40px 34px; background: #fff; border: 1px solid #e7e7ec; border-radius: 18px; box-shadow: 0 18px 50px rgba(22,24,40,.08); text-align: center; }
+.sign-in-card { width: min(420px, calc(100% - 32px)); padding: 40px 34px; background: #fff; border: 1px solid #e7e7ec; border-radius: 18px; box-shadow: var(--forge-shadow-md); text-align: center; }
 .sign-in-card img { width: 190px; height: 40px; object-fit: contain; margin-bottom: 22px; }
 .sign-in-card h1 { margin: 0; font-size: 22px; letter-spacing: -.02em; }
 .sign-in-card p { margin: 12px 0 24px; color: #737783; font-size: 13px; line-height: 1.6; }
 .sign-in-button { width: 100%; height: 44px; border: 0; border-radius: 11px; background: #3b3d9c; color: #fff; font-weight: 600; cursor: pointer; }
-.sign-in-button:hover { background: #333586; }
+.sign-in-button:hover { background: var(--forge-primary-hover); }
 .sign-out { margin-left: auto; }
 .diff-button { border: 1px solid #dedfe6; background: #fff; font-size: 15px; }
 .diff-button:disabled { opacity: .4; cursor: not-allowed; }
@@ -118,7 +145,7 @@ button, textarea { font: inherit; }
 @keyframes pulse { 50% { opacity: .35; transform: scale(.75); } }
 
 .error-banner { margin: 20px 0; padding: 11px 13px; border-radius: 10px; background: #fff0f0; color: #8d2c2c; border: 1px solid #f0d0d0; font-size: 13px; }
-.composer-wrap { margin-top: 42px; background: #fff; border: 1px solid #dfe0e7; border-radius: 16px; box-shadow: 0 10px 30px rgba(22,24,40,.06); overflow: hidden; }
+.composer-wrap { margin-top: 42px; background: var(--forge-surface); border: 1px solid var(--forge-border); border-radius: var(--forge-radius-lg); box-shadow: var(--forge-shadow-sm); overflow: hidden; }
 .composer-wrap textarea { width: 100%; resize: vertical; min-height: 86px; border: 0; outline: 0; padding: 17px; color: #111318; background: transparent; }
 .composer-footer { display: flex; align-items: center; justify-content: space-between; padding: 9px 11px 11px 15px; border-top: 1px solid #eeeef2; color: #92949e; font-size: 11px; }
 .send-button { border: 0; border-radius: 9px; background: #3b3d9c; color: #fff; padding: 8px 14px; font-weight: 600; cursor: pointer; }
@@ -152,3 +179,53 @@ button, textarea { font: inherit; }
 .tool-result-summary code { overflow-wrap: anywhere; color: #383a48; }
 .tool-result-summary a { color: #3b3d9c; font-weight: 600; text-decoration: none; }
 .tool-result-summary a:hover { text-decoration: underline; }
+
+
+/* Shared component primitives: consistent controls, panels, status and chat layout. */
+.new-chat, .sign-in-button, .send-button {
+  border-radius: var(--forge-radius-sm);
+  background: var(--forge-primary);
+  box-shadow: none;
+}
+.new-chat:hover:not(:disabled), .sign-in-button:hover, .send-button:hover:not(:disabled) {
+  background: var(--forge-primary-hover);
+  box-shadow: 0 3px 10px rgba(69, 71, 168, .16);
+}
+.new-chat:active:not(:disabled), .sign-in-button:active, .send-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.new-chat:disabled, .sign-in-button:disabled, .send-button:disabled {
+  opacity: .52;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.context-select select {
+  color: var(--forge-text);
+  border-color: var(--forge-border-strong);
+  box-shadow: var(--forge-shadow-sm);
+}
+.context-select select:hover:not(:disabled) { border-color: #aaaed0; }
+.context-select select:disabled { opacity: .62; cursor: not-allowed; background: #f5f5f8; }
+.context-select select:focus-visible { border-color: var(--forge-primary); box-shadow: var(--forge-focus-ring); }
+.context-select span { color: var(--forge-text-muted); }
+.context-select { min-width: 0; }
+.error-banner { border-radius: var(--forge-radius-md); line-height: 1.5; }
+.message-content { overflow-wrap: anywhere; }
+.composer-wrap:focus-within { border-color: #b7b8e3; box-shadow: var(--forge-focus-ring), var(--forge-shadow-sm); }
+.composer-wrap textarea { display: block; line-height: 1.55; }
+.icon-button { transition: background-color var(--forge-motion-fast), color var(--forge-motion-fast), box-shadow var(--forge-motion-fast); }
+.icon-button:focus-visible { box-shadow: var(--forge-focus-ring); }
+.conversation-item { transition: background-color var(--forge-motion-fast), color var(--forge-motion-fast); }
+.workspace-card, .tool-activity, .diff-panel { box-shadow: var(--forge-shadow-sm); }
+.run-history-summary { gap: 10px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+@media (max-width: 760px) {
+  .topbar { min-height: 78px; height: auto; gap: 10px; align-items: flex-start; padding-top: 12px; padding-bottom: 12px; }
+  .context { min-width: 0; max-width: 34%; overflow-wrap: anywhere; }
+  .top-actions { flex: 1; min-width: 0; gap: 6px; }
+  .context-select select { width: 100%; max-width: 100%; min-width: 0; padding: 8px 22px 8px 8px; font-size: 12px; }
+  .context-select { flex: 1 1 90px; }
+  .avatar { flex: 0 0 auto; }
+}
