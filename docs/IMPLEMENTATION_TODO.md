@@ -130,12 +130,14 @@ This ledger is based on source and documentation inspection. A listed capability
 
 ## Batch 1 — shared UI foundation and live-test gate (2026-10-15)
 
-**Status:** implementation committed; automated CI is running; owner live test pending.
+**Status:** shared UI implementation committed; workspace layout refinement committed; latest automated CI is running; owner live test pending.
 
 - Added `web/src/components/ui/SelectField.tsx` as a shared accessible control for repository, branch, and compare-base selection.
-- Reused the shared control in all three workspace context fields so loading, disabled, option, and focus behavior stays consistent.
+- Reused the shared control for repository, working-branch, and comparison-base selection so loading, disabled, option, and focus behavior stays consistent.
+- Separated the everyday Repository + Working branch controls from branch comparison. The base-branch dropdown now appears inside an expandable **Compare** toolbar, avoiding the appearance of two always-visible branch dropdowns.
 - Added visible branch-control helper text so the user can distinguish loading, no repository, disconnected repository, and available-branch states.
 - Extended shared CSS tokens and interaction styles for controls, focus, disabled states, composer focus, and responsive mobile layout.
+- Refined the workspace header, comparison toolbar, chat spacing, composer, and conversation navigation; comparison state resets safely when the repository changes.
 - Normalized five literal escaped line-break sequences in `web/src/styles.css` into actual newlines so the affected global CSS rules parse as intended.
 - Preserved React/Vite, Cloudflare Worker Static Assets, Neon, and the existing GitHub API division.
 
@@ -148,7 +150,7 @@ This ledger is based on source and documentation inspection. A listed capability
 3. Open **Repository** and choose a repository.
 4. Wait for branch loading to finish. The branch control should show the available-branch count below it.
 5. Open **Branch** and choose a branch other than `main`, if available. Confirm the selected branch appears in the header.
-6. Open **Compare base**, select a different branch, then tap the compare button. Confirm a diff panel appears or a clear error is shown.
+6. Tap **Compare** to open the comparison toolbar. Choose a different **Base branch**, tap **Compare changes**, and confirm a diff panel appears or a clear error is shown. Close the toolbar again to confirm the everyday workspace remains uncluttered.
 7. Start a new chat and send a harmless question such as `Summarize the current repository without changing files.`
 8. Confirm the reply and run activity appear. Do not ask the agent to write files during this UI smoke test.
 9. Check that the controls fit the phone screen and that loading/error/disabled states are understandable.
