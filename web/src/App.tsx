@@ -166,6 +166,7 @@ export function App() {
 
   const title = useMemo(() => active?.title ?? "New Forge conversation", [active]);
   const selectedGithubRepo = repositories.find(item => item.id === selectedRepoId) ?? null;
+  const contextPending = loadingRepos || loadingBranches || (selectedRepoId !== null && (!selectedForgeRepoId || !selectedBranch));
 
   async function loadDiff(base: string, head: string) {
     const requestId = ++diffRequestId.current;
@@ -348,6 +349,10 @@ export function App() {
   async function send() {
     const message = composer.trim();
     if (!message || running) return;
+    if (contextPending) {
+      setError("Wait for the selected repository and working branch to finish loading before sending.");
+      return;
+    }
 
     setError(null);
     setComposer("");
@@ -600,10 +605,11 @@ export function App() {
                 }}
                 placeholder="Ask Forge to inspect, plan, or change your code…"
                 rows={3}
-                disabled={running}
+                disabled={running || contextPending}
               />
                <div className="composer-footer">
-                 <button className="send-button" disabled={!composer.trim() || running} onClick={() => void send()}>
+                 <span className="composer-status">{contextPending ? "Preparing repository context…" : "Enter to send · Shift + Enter for a new line"}</span>
+                 <button className="send-button" disabled={!composer.trim() || running || contextPending} onClick={() => void send()}
                    {running ? "Running…" : "Send"}
                  </button>
                </div>
