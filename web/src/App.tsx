@@ -213,8 +213,12 @@ export function App() {
       .then(async ([history, runs]) => {
         const audits = await Promise.all(runs.map(run => getRunAudit(run.id).catch(() => null)));
         if (cancelled) return;
-        setMessages(history.length ? history : demoMessages);
-        setRunActivities(audits.filter((audit): audit is RunAudit => audit !== null).map(activityFromAudit));
+        setMessages(current => current.some(message => message.id !== "welcome")
+          ? current
+          : history.length ? history : demoMessages);
+        setRunActivities(current => current.length
+          ? current
+          : audits.filter((audit): audit is RunAudit => audit !== null).map(activityFromAudit));
         setLoadingConversation(false);
       })
       .catch(err => {
@@ -531,7 +535,7 @@ export function App() {
           </button>
         </div>
 
-        <button className="new-chat" onClick={newChat} disabled={running}>
+        <button className="new-chat" onClick={newChat} disabled={running} aria-label={sidebarCompact ? "New chat" : undefined} title={sidebarCompact ? "New chat" : undefined}>
           <span>＋</span>{!sidebarCompact && "New chat"}
         </button>
 
