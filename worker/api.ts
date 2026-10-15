@@ -569,6 +569,34 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
       const conversation = await getConversationForUser(conversationId, userId, workspaceId);
       if (!conversation) return json({ error: "conversation_not_found" }, 404);
 
+      // Recover abandoned runs before rejecting a new message. Worker requests can
+      // disappear after a client disconnects or an isolate is terminated, leaving
+      // the database row in queued/running forever. Keep this threshold above the
+      // normal provider/tool timeout so legitimate longer runs are not interrupted.
+      const staleRuns = await getSql().query(
+        "WITH stale AS (\n" +
+        "  UPDATE runs\n" +
+        "  SET status = 'interrupted',\n" +
+        "      finished_at = now(),\n" +
+        "      error_message = 'Run interrupted after exceeding the stale-run timeout'\n" +
+        "  WHERE conversation_id = $1\n" +
+        "    AND status IN ('queued', 'running')\n" +
+        "    AND COALESCE(started_at, created_at) < now() - interval '10 minutes'\n" +
+        "  RETURNING id\n" +
+        "), stale_tools AS (\n" +
+        "  UPDATE tool_calls\n" +
+        "  SET status = 'failed',\n" +
+        "      finished_at = now(),\n" +
+        "      error_message = 'Parent run interrupted after exceeding the stale-run timeout'\n" +
+        "  WHERE run_id IN (SELECT id FROM stale)\n" +
+        "    AND status IN ('requested', 'authorized', 'running')\n" +
+        "  RETURNING id\n" +
+        ")\n" +
+        "SELECT id FROM stale",
+        [conversationId]
+      ) as Record<string, unknown>[];
+      if (staleRuns.length) console.warn("Recovered stale Forge runs", staleRuns.map(row => row.id));
+
       const existing = await getSql().query(
         "SELECT id FROM runs WHERE conversation_id = $1 AND status IN ('queued','running') LIMIT 1",
         [conversationId]

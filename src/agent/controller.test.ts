@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { AgentController } from "./controller.js";
 import { FakeModel, InMemoryAgentAuditStore } from "./fakes.js";
 import { ToolRegistry } from "./registry.js";
-import type { ForgeTool } from "./types.js";
+import type { AgentModel, ModelInput, ForgeTool } from "./types.js";
 
 const readTool: ForgeTool<{ path: string }, { content: string }> = {
   name: "github.read_file", description: "Read a selected repository file.",
@@ -81,4 +81,26 @@ test("controller preserves the underlying failure message for safe reporting", a
   assert.equal(result.errorMessage, "Fake model has no more decisions");
   assert.equal(audit.runs[0].status, "failed");
   assert.equal(audit.runs[0].errorMessage, "Fake model has no more decisions");
+});
+
+
+test("controller gives the model explicit repository-first tool-selection instructions", async () => {
+  let captured: ModelInput | undefined;
+  const model: AgentModel = {
+    async next(input) {
+      captured = input;
+      return { type: "final", content: "Done." };
+    }
+  };
+  const controller = new AgentController(model, new ToolRegistry(), new InMemoryAgentAuditStore());
+  const result = await controller.run({
+    conversationId: "conversation-tool-guidance",
+    principal: { userId: "user-1", workspaceId: "workspace-1", repositoryFullName: "owner/repo" },
+    message: "Inspect the repository."
+  });
+
+  assert.equal(result.status, "completed");
+  const systemMessages = captured?.messages.filter(message => message.role === "system") ?? [];
+  assert.ok(systemMessages.some(message => message.content.includes("Never use terminal.exec to read or inspect repository files")));
+  assert.ok(systemMessages.some(message => message.content.includes("use the appropriate github.* tool")));
 });
