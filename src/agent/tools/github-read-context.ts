@@ -72,19 +72,28 @@ export function createGithubReadFileTool(service: GithubService): ForgeTool<{ ow
   };
 }
 
-export function createGithubGetRepositoryContextTool(service: GithubService): ForgeTool<{ owner: string; repo: string }> {
+function boundRepository(fullName: string | undefined): { owner: string; repo: string } | null {
+  const parts = fullName?.trim().split("/");
+  if (!parts || parts.length !== 2 || !parts[0]?.trim() || !parts[1]?.trim()) return null;
+  return { owner: parts[0].trim(), repo: parts[1].trim() };
+}
+
+export function createGithubGetRepositoryContextTool(service: GithubService): ForgeTool<Record<string, never>> {
   return {
     name: "github.get_repository_context",
-    description: "Read aggregated context for the selected repository: metadata, default branch, branches, and file tree.",
+    description: "Read aggregated context for the repository already selected for this conversation: metadata, default branch, branches, and file tree. Do not provide owner or repo; Forge binds this tool to the selected repository.",
     inputSchema: {
       type: "object",
-      required: ["owner", "repo"],
-      properties: { owner: { type: "string" }, repo: { type: "string" } },
+      properties: {},
       additionalProperties: false
     },
     policy: "allowed",
-    async authorize(context, args) { return scopedToConversation(context, args); },
-    async execute(_context, args) { return service.getRepositoryContext(args.owner, args.repo); }
+    async authorize(context) { return boundRepository(context.principal.repositoryFullName) !== null; },
+    async execute(context) {
+      const repository = boundRepository(context.principal.repositoryFullName);
+      if (!repository) throw new Error("Select a repository for this conversation before requesting repository context");
+      return service.getRepositoryContext(repository.owner, repository.repo);
+    }
   };
 }
 
