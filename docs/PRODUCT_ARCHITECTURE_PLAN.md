@@ -1,3 +1,5 @@
+> **Source-of-truth notice (2026-10-16):** This detailed plan is retained as supporting architecture history/reference. Current product requirements are in [PRODUCT_SPEC.md](PRODUCT_SPEC.md), current delivery sequencing/status is in [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md), and agent instructions are in [AGENT_WORKFLOW.md](AGENT_WORKFLOW.md). Those consolidated documents take precedence if anything conflicts.
+
 # Brilina Forge — Product Architecture and Phase Rebaseline
 
 **Status:** Neon Postgres and the direct-to-main, test-before-advance workflow are owner-approved. Other architecture details remain a working plan to validate against the source. No application code or database schema has been changed by this planning pass.  
