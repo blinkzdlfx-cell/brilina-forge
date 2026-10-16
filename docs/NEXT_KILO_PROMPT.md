@@ -1,88 +1,32 @@
-# Next Kilo Prompt — Brilina Forge Phase 1
+# Next Kilo Code Task — Brilina Forge
 
-Use this prompt in Kilo Code after pulling the latest `main`. The goal is to make the existing Forge UI usable for real AI-assisted code changes through GitHub. Do not begin the local companion yet.
-
----
-
-You are working on Brilina Forge. The owner uses Kilo Code for implementation and ChatGPT for architecture orchestration. GitHub is the source of truth. The app is hosted as a native Cloudflare Worker serving the React static site and API; Neon remains the database.
+**Start with Batch 1 in `docs/IMPLEMENTATION_PLAN.md`: Tailwind CSS + shadcn/ui foundation.** Do not begin the full UI migration, backend reliability work, or later batches in the same increment.
 
 ## Read first
-
 1. `README.md`
-2. `docs/ROADMAP.md`
-3. `docs/CURRENT_STATE_AND_CONTINUATION.md`
-4. `docs/ARCHITECTURE.md`
-5. `docs/REQUIREMENTS.md`
-6. `docs/AI_COLLABORATION.md`
-7. Relevant implementation and test files.
+2. `docs/PRODUCT_SPEC.md`
+3. `docs/IMPLEMENTATION_PLAN.md`
+4. `docs/AGENT_WORKFLOW.md`
+5. The relevant source/config/tests and any supporting technical reference needed for Batch 1.
 
-## Mandatory verification rule — do not infer completion from docs
+## First response before editing
+- Confirm repository, branch, HEAD SHA, and `git status`; preserve all local changes.
+- Inspect package.json and lockfile, React/Vite/Tailwind versions, tsconfig aliases, Vite config, current CSS, existing UI components, and build/test scripts.
+- Report the smallest safe setup plan, exact files expected to change, compatibility considerations, acceptance criteria, and checks to run.
+- Do not assume old documentation accurately describes the current checkout.
+- Do not install dependencies or edit files until this inspection and proposed plan are reported.
 
-Every time you assess whether a feature or phase is complete, verify BOTH the implementation and the documentation. Inspect the actual source path and registered tool, run focused tests/build checks, and perform a real integration check where possible. A roadmap checkbox, status label, prompt, type/schema, mock, or successful read operation is not proof that a write operation works. Update status documents only after collecting evidence. Record exact files, commit SHA, commands/results, and live-check evidence. If a required check fails or cannot be run, mark the feature partial/blocked/unverified and keep the phase open.
+## Batch 1 implementation goal
+Configure Tailwind and shadcn/ui in a way compatible with the actual project. Establish theme tokens, component aliases/directories, and clear frontend organization. Keep global CSS limited to framework directives, theme tokens, and genuinely global rules. Do not use a handwritten styles.css as the styling system.
 
-**Phase 1 hard gate:** do not proceed to Phase 2 until an actual AI tool call successfully creates or updates a file in an authorized GitHub non-default work branch, reads the file back, and exposes a reviewable diff and commit/branch details in the UI. Inspect the GitHub repository itself to confirm the result. Reading files, reading issues, generating suggested code, or documentation-only changes do not pass this gate. If writing currently fails, debug and fix the Phase 1 write path; do not skip ahead.
+Do not preserve unapproved styling just because it exists, but preserve existing application functionality. Do not migrate every screen yet. Avoid duplicate styling systems, unnecessary dependencies, and unused components.
 
-## First response: inspect and report
+## Verification and handoff
+- Run the relevant install/lockfile checks, build, typecheck, and available focused tests; fix and retest failures.
+- Inspect the final diff for accidental backend changes, unrelated edits, generated artifacts, and secrets.
+- Commit and push directly to `main` unless the owner explicitly changes that agreement. Do not deploy production.
+- Update `docs/IMPLEMENTATION_PLAN.md` only with evidence actually collected.
+- Report starting/final SHA, changed files, exact commands/results, CI evidence, and remaining gaps.
+- Stop at Batch 1's acceptance gate. Do not begin Batch 2 until review confirms the foundation build is verified.
 
-Before editing:
-- Confirm branch, HEAD SHA, and `git status`; preserve all local work.
-- Inspect the real GitHub OAuth -> repository/branch -> conversation -> AI run path.
-- Inspect the tool registry, GitHub service, AI provider adapter, run persistence, and UI diff/result handling.
-- Identify the smallest Phase 1 coding path and missing pieces with exact file paths.
-- Run available build/tests if the environment permits; give exact commands and results.
-- Distinguish implemented, automated-tested, live-verified, partial, and unverified behavior.
-- Do not assume that a configured provider key proves tool calling works.
-- Do not change architecture or start the companion during this inspection.
-
-## Owner-performed manual verification protocol
-
-Some acceptance checks require the owner to use the deployed UI, approve a GitHub permission prompt, test on their own account/device, or inspect a result Kilo cannot access. When that happens, do not guess, silently skip the check, or mark it passed. First complete all safe automated checks. Then stop implementation at a clear checkpoint and give the owner a small, actionable manual test request containing:
-
-1. **Why it needs the owner:** what cannot be verified safely or reliably from the coding environment.
-2. **Exact starting point:** deployed URL or local route, screen/page, repository, and test branch to use. Never ask the owner to paste tokens, passwords, or secrets into chat.
-3. **Exact steps:** numbered actions, with the exact test input or action to perform.
-4. **Expected result:** observable UI text/state and, where relevant, the expected GitHub branch, file, commit, or diff.
-5. **What to report:** ask for PASS or FAIL, the exact error/message, and a screenshot or sanitized details if useful. Do not require sensitive information.
-6. **Failure path:** tell the owner to stop at the failure and report what happened; do not ask them to improvise, repeat destructive actions, or approve a production change.
-
-Wait for the owner's response before marking that manual check live-verified or moving past a gate that depends on it. Record the owner's result as owner-reported manual evidence, distinguish it from independently observed evidence, and investigate failures before asking for a focused retest. If the owner is unavailable or cannot perform the check, mark it **blocked/unverified** and continue only with work that does not depend on claiming that check passed. Bundle related checks into one short checklist where practical; do not interrupt the owner for checks that can be automated safely.
-
-## Phase 1 implementation target
-
-After the inspection report, implement one small, reviewable increment at a time, starting with the missing GitHub write-tool contract. The complete Phase 1 path must eventually support:
-
-1. One real configured AI provider, verified against the actual provider API.
-2. Repository context bound to the authenticated user and selected repository/branch.
-3. Typed create/update-file tools that use GitHub's current blob SHA and handle stale-SHA conflicts.
-4. Branch-scoped changes; never silently write to the default branch.
-5. Safe sequencing for multiple file updates, path/input validation, bounded file/output sizes, audit events, and clear errors.
-6. Read-back and diff generation so the model and user can inspect what changed.
-7. UI feedback for tool activity, changed files, commit/branch, and failure states.
-8. An end-to-end test for a small real change using a repository where the owner has authorized access.
-
-Before coding, report the exact files, goal, tests, risks, and acceptance criteria for the first increment. Wait for owner approval if a schema, authentication, permissions, production execution, or major architecture decision is required.
-
-## Constraints
-
-- Keep the native Worker runtime; do not add new behavior to legacy Fastify routes.
-- Keep Neon; no D1 migration.
-- Do not create a new branch for this task unless the owner asks. Work on the agreed current branch and commit small checkpoints.
-- Do not overwrite local changes.
-- Do not add mock data to simulate successful GitHub writes or AI calls.
-- Do not run shell commands in the Worker or build a browser terminal.
-- Do not start implementing the companion, Cloudflare log integration, multiple providers, or team features before Phase 1 acceptance passes.
-- Never commit secrets or expose tokens to the browser/model.
-- Do not auto-merge code or deploy production changes.
-- Run relevant tests and report actual results; do not claim success based only on source inspection.
-
-## Required completion report
-
-- Branch and SHA
-- Changed files and behavior
-- Tests run and exact results
-- Live checks actually completed
-- Known gaps/risks
-- Evidence that the model wrote a real GitHub file change and the diff/commit can be reviewed
-- Recommended next single increment
-
-Stop after one increment and wait for review.
+Use `docs/AGENT_WORKFLOW.md` for the complete agent contract. Never claim live UI behavior is verified by a build alone.
