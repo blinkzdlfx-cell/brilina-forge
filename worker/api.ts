@@ -19,6 +19,7 @@ import {
 } from "../src/auth/session.js";
 import { createNeonSessionStore } from "../src/db/repositories.js";
 import { GithubApiError, GithubClient } from "../src/github/client.js";
+import { probeGithubMcp } from "../src/github/mcp-diagnostic.js";
 import { GithubService } from "../src/github/service.js";
 import {
   addConversationMessage,
@@ -450,6 +451,27 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
       return new Response(JSON.stringify({ authenticated: false }), {
         headers: { "Content-Type": "application/json", "Set-Cookie": clearCookie("brilina_session"), "Cache-Control": "no-store" }
       });
+    }
+
+    if (path === "/api/github/mcp-diagnostic" && method === "POST") {
+      assertSameOrigin(request);
+      const session = await sessionForRequest(request);
+      try {
+        const diagnostic = await probeGithubMcp(session.accessToken);
+        return json(diagnostic);
+      } catch (error) {
+        const failure = error as Error & { statusCode?: number; diagnostic?: Record<string, unknown> };
+        const status = failure.statusCode === 401 || failure.statusCode === 403 ? failure.statusCode : 502;
+        return json({
+          error: "github_mcp_diagnostic_failed",
+          message: status === 401
+            ? "GitHub rejected the saved authorization. Sign in again and retry."
+            : status === 403
+              ? "GitHub denied access to the hosted MCP server."
+              : "The hosted GitHub MCP diagnostic did not complete.",
+          ...(failure.diagnostic ? { diagnostic: failure.diagnostic } : {})
+        }, status);
+      }
     }
 
     if (path === "/api/session" && method === "GET") {
