@@ -1,3 +1,5 @@
+> **Source-of-truth notice (2026-10-16):** This file is retained as a supporting/historical requirements reference. The current consolidated requirements live in [PRODUCT_SPEC.md](PRODUCT_SPEC.md), and current batch order/status lives in [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md). The consolidated documents take precedence if anything conflicts.
+
 # Brilina Forge — Product Requirements
 
 > **Phase numbering note (2026-10-15):** The active proposed phase sequence is defined in [ROADMAP.md](ROADMAP.md) and the [Product Architecture Plan](PRODUCT_ARCHITECTURE_PLAN.md). The sequence has been rebaselined to insert runtime reliability as Phase 2. This proposal is pending owner approval; historical phase records are retained.
