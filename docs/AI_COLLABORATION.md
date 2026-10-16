@@ -1,3 +1,5 @@
+> **Source-of-truth notice (2026-10-16):** Use [AGENT_WORKFLOW.md](AGENT_WORKFLOW.md) as the current shared coding-agent contract, [PRODUCT_SPEC.md](PRODUCT_SPEC.md) for product requirements, and [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for batch order/status. This file is retained for historical handoff context; the consolidated documents take precedence if anything conflicts.
+
 # AI Collaboration Handoff
 
 This file coordinates Kilo Code and ChatGPT on Brilina Forge. The project owner makes final decisions. GitHub is the shared source of truth; ChatGPT cannot inspect Kilo's unpushed local changes.
