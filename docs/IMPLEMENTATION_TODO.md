@@ -1,3 +1,5 @@
+> **Source-of-truth notice (2026-10-16):** This detailed ledger is retained as historical implementation evidence. Current sequencing, outstanding gates, and status must be maintained in [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md); product requirements are in [PRODUCT_SPEC.md](PRODUCT_SPEC.md); agent instructions are in [AGENT_WORKFLOW.md](AGENT_WORKFLOW.md). Reconcile old checklist items against current source before relying on them; the consolidated documents take precedence if anything conflicts.
+
 # Brilina Forge — Audited TODO and Acceptance Ledger
 
 **Audit baseline:** `main` at `dcbb40ec9d52cc92f0dfb6237de169e1cfedcdf7` (2026-10-15).
