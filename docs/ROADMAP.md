@@ -1,3 +1,5 @@
+> **Source-of-truth notice (2026-10-16):** This file is retained as a historical/supporting roadmap. For current sequencing, status, and acceptance gates, use [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md). For product and architecture requirements, use [PRODUCT_SPEC.md](PRODUCT_SPEC.md). The newer consolidated documents take precedence if anything conflicts.
+
 # Brilina Forge Roadmap
 
 This is the active product delivery roadmap. Follow phases in order; do not build all phases in parallel. The reference comparison, target architecture, database evaluation and detailed acceptance criteria are maintained in [Product Architecture Plan](PRODUCT_ARCHITECTURE_PLAN.md).
