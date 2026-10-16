@@ -22,7 +22,7 @@ Known open/unverified:
 **Goal:** one consistent set of project instructions and an evidence-based starting point.  
 **Work:** establish PRODUCT_SPEC.md, IMPLEMENTATION_PLAN.md, and AGENT_WORKFLOW.md; update README and Kilo entry prompt; mark overlapping docs as supporting/history; preserve technical setup, security, database, testing, and historical evidence. Check current HEAD/status before code implementation.  
 **Gate:** authoritative documents agree, no material owner-approved requirement is lost, and Kilo has one clear entry point.  
-**Status:** documentation is being consolidated; refresh the source baseline from a local clone before coding.
+**Status:** accepted for documentation scope. Verified the new specification, implementation plan, agent workflow, README, and Kilo entry prompt by reading them back from GitHub. Supporting legacy documents now point to the consolidated sources. Documentation commit sequence: `29f433c` → `5d458d1` → `4a4456a` → `7b35373` → `271845a` → `9f06281` → `e2bf52a` → `8e637c7` → `ab45478` → `802008b`. No application code, dependencies, database schema, or deployment was changed. Next: clone the repository, inspect local HEAD/status, then begin Batch 1.
 
 ### Batch 1 — Tailwind + shadcn foundation
 **Goal:** establish styling/component foundation without changing product behavior unnecessarily.  
