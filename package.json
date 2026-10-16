@@ -10,7 +10,7 @@
     "web:build": "npm --prefix web ci && npm --prefix web run build && node scripts/package-web.mjs",
     "start": "npx wrangler@4.68.0 dev --local",
     "test": "node --import tsx --test src/**/*.test.ts worker/**/*.test.ts",
-    "test:phase1": "node --import tsx --test src/agent/controller.test.ts src/agent/tools/github-read-repository.test.ts src/agent/tools/github-write-tools.test.ts src/github/service.test.ts src/github/write-service.test.ts",
+    "test:phase1": "node --import tsx --test src/agent/controller.test.ts src/agent/tools/github-read-repository.test.ts src/agent/tools/github-write-tools.test.ts src/github/service.test.ts src/github/write-service.test.ts src/github/mcp-diagnostic.test.ts",
     "test:worker": "node --import tsx --test worker/*.test.ts",
     "build:backend": "tsc -p tsconfig.json",
     "typecheck:phase1": "tsc -p tsconfig.phase1.json",
