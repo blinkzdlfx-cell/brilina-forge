@@ -103,7 +103,7 @@ Known open/unverified:
 **Work:** add providers based on real capability/quota/cost tests; teams/workspaces and roles; per-workspace integration/secret isolation; retention, recovery, usage visibility.  
 **Acceptance:** provider-specific and multi-user isolation tests pass. Do not add team features before access boundaries are demonstrated.
 
-## 3. Standard batch cycle
+## 4. Standard batch cycle
 1. Read PRODUCT_SPEC.md and AGENT_WORKFLOW.md, then identify the current batch here.
 2. Inspect local branch, HEAD SHA, and working tree; preserve all changes.
 3. State goal, scope, affected files, acceptance criteria, tests, risks, and owner decisions.
@@ -115,7 +115,7 @@ Known open/unverified:
 9. If owner access is required, pause with one consolidated manual test card and wait for the result.
 10. Mark the gate accepted only with evidence; otherwise leave it open and fix/retest.
 
-## 4. Deployment and change safety
+## 5. Deployment and change safety
 - Do not deploy production, perform destructive database changes, migrate databases, or alter authentication/security boundaries without explicit owner authorization.
 - Do not create a new branch or pull request by default; work directly on main as agreed.
 - Never discard or overwrite local uncommitted changes.
