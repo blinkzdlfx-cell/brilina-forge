@@ -20,8 +20,62 @@ test("write tool factory exposes branch creation and create/update/upsert operat
     "github.create_work_branch",
     "github.create_file",
     "github.update_file",
-    "github.write_file"
+    "github.write_file",
+    "github.push_files"
   ]);
+});
+
+test("push_files is repository/branch scoped and returns one verified batch commit", async () => {
+  let received: unknown[] | undefined;
+  const service = {
+    getRepository: async () => ({ default_branch: "main" }),
+    writeFiles: async (...args: unknown[]) => {
+      received = args;
+      return {
+        branch: "brilina/feature",
+        files: [
+          { path: "src/app.ts", sha: "blob-a", htmlUrl: "https://github.com/acme/site/blob/brilina/feature/src/app.ts" },
+          { path: "src/app.css", sha: "blob-b", htmlUrl: "https://github.com/acme/site/blob/brilina/feature/src/app.css" }
+        ],
+        commit: { sha: "commit-batch", html_url: "https://github.com/acme/site/commit/commit-batch", message: "Update app files" },
+        readBackVerified: true
+      };
+    }
+  } as unknown as GithubService;
+  const push = createGithubWriteTools(service).find(tool => tool.name === "github.push_files");
+  assert.ok(push);
+  const selectedContext: ToolExecutionContext = {
+    ...context,
+    principal: { ...context.principal, branchName: "brilina/feature" }
+  };
+  const args = {
+    owner: "acme", repo: "site", branch: "brilina/feature", message: "Update app files",
+    files: [{ path: "src/app.ts", content: "export {};" }, { path: "src/app.css", content: "body {}" }]
+  };
+  assert.equal(await push.authorize(selectedContext, args), true);
+  const result = await push.execute(selectedContext, args) as Record<string, unknown>;
+  assert.deepEqual(received, ["acme", "site", args.files, "Update app files", "brilina/feature"]);
+  assert.equal(result.success, true);
+  assert.equal(result.operation, "batch_written");
+  assert.equal(result.commitSha, "commit-batch");
+  assert.equal(result.readBackVerified, true);
+});
+
+test("push_files rejects duplicate paths and default-branch writes", async () => {
+  const service = { getRepository: async () => ({ default_branch: "main" }) } as unknown as GithubService;
+  const push = createGithubWriteTools(service).find(tool => tool.name === "github.push_files");
+  assert.ok(push);
+  const selectedContext: ToolExecutionContext = {
+    ...context,
+    principal: { ...context.principal, branchName: "brilina/feature" }
+  };
+  assert.equal(await push.authorize(selectedContext, {
+    owner: "acme", repo: "site", branch: "brilina/feature",
+    files: [{ path: "src/app.ts", content: "a" }, { path: "src/app.ts", content: "b" }]
+  }), false);
+  assert.equal(await push.authorize({ ...selectedContext, principal: { ...selectedContext.principal, branchName: "main" } }, {
+    owner: "acme", repo: "site", branch: "main", files: [{ path: "src/app.ts", content: "a" }]
+  }), false);
 });
 
 test("write tools are scoped to the repository selected for the conversation", async () => {
