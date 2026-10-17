@@ -179,6 +179,13 @@ Production execution uses Forge-owned GitHub tools through the existing REST/Gra
 
 **Current state from source inspection:** the Worker already has GitHub OAuth start/callback/logout routes, an opaque brilina_session cookie, Neon-backed sessions, and encrypted GitHub token storage. However, the current session resolver binds one session to one GitHub user/connection, and createPersistentSession upserts github_connections on user_id; this is a one-connection-per-Forge-user model. The public product architecture must move to a stable Forge identity with separately linked authentication identities, GitHub account connections, and GitHub App installations. Do not assume the existing login flow already supports multiple accounts or the final GitHub App model.
 
+### Auth entry UI — guest shell and login navigation (2026-10-17)
+- **Status:** implementation committed to `main`; automated build and live desktop/mobile checks still required.
+- Unauthenticated visitors now remain in the chat workspace shell rather than landing on the login card immediately. Guest sidebar content excludes conversation history, repository controls, settings, and account details.
+- The sidebar provides a labelled Log in action when expanded and an icon with an accessible label/tooltip when collapsed. On mobile, the drawer contains the labelled action and a separate Log in icon remains visible in the top bar while the drawer is closed.
+- Log in opens the dedicated `/login` screen with Continue with GitHub. Guests can compose a draft; sending routes to login and the draft is restored after authentication.
+- This is UI routing only; it does not claim to implement multiple GitHub identities or GitHub App installation support. Keep those in the authentication batches below.
+
 ### Auth Batch 1 — Database and identity model (current priority)
 - Inspect the actual schema, constraints, repository/session queries, and existing tests before designing migrations.
 - Preserve existing users, workspaces, sessions, conversations, repositories, and runs. Do not create duplicate Forge users when linking another GitHub identity.
