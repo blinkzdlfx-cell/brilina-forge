@@ -91,18 +91,37 @@ export async function createConversation(input: {
   title?: string;
   repositoryId?: string;
   branchName?: string;
+  contextType?: "oauth" | "installation";
+  installationRecordId?: string | null;
+  installationRepositoryId?: string | null;
 }): Promise<ForgeConversation> {
-  if (input.repositoryId) {
+  const contextType = input.contextType ?? "oauth";
+  let repositoryId: string | null = input.repositoryId ?? null;
+  let installationRecordId: string | null = null;
+  let installationRepositoryId: string | null = null;
+  if (contextType === "installation") {
+    installationRecordId = input.installationRecordId ?? null;
+    installationRepositoryId = input.installationRepositoryId ?? null;
+    if (!installationRecordId || !installationRepositoryId || repositoryId) {
+      throw Object.assign(new Error("Installation context requires an installation and one of its repositories"), { statusCode: 400 });
+    }
+    const installRows = await getSql().query(
+      "SELECT ir.id FROM github_installation_repositories ir JOIN github_app_installations i ON i.id=ir.installation_record_id JOIN github_installation_access a ON a.installation_record_id=i.id WHERE ir.id=$1 AND i.id=$2 AND a.user_id=$3 AND a.revoked_at IS NULL AND i.suspended_at IS NULL AND i.uninstalled_at IS NULL LIMIT 1",
+      [installationRepositoryId, installationRecordId, input.userId]
+    ) as Record<string, unknown>[];
+    if (!installRows[0]) throw Object.assign(new Error("Installation repository is not authorized for this Forge user"), { statusCode: 403 });
+  } else if (repositoryId) {
+    if (input.installationRecordId || input.installationRepositoryId) throw Object.assign(new Error("OAuth context cannot include installation identifiers"), { statusCode: 400 });
     const repoRows = (await getSql().query(
       "SELECT id FROM repositories WHERE id = $1 AND workspace_id = $2 LIMIT 1",
-      [input.repositoryId, input.workspaceId]
+      [repositoryId, input.workspaceId]
     )) as Record<string, unknown>[];
     if (!repoRows[0]) throw Object.assign(new Error("Repository is not available in this workspace"), { statusCode: 400 });
   }
 
   const rows = (await getSql().query(
-    "INSERT INTO conversations (workspace_id, user_id, repository_id, branch_name, title) VALUES ($1, $2, $3, $4, $5) RETURNING id",
-    [input.workspaceId, input.userId, input.repositoryId ?? null, input.branchName ?? null, input.title ?? "New conversation"]
+    "INSERT INTO conversations (workspace_id, user_id, repository_id, branch_name, title, github_context_type, github_app_installation_id, github_installation_repository_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id",
+    [input.workspaceId, input.userId, repositoryId, input.branchName ?? null, input.title ?? "New conversation", contextType, installationRecordId, installationRepositoryId]
   )) as Record<string, unknown>[];
   if (!rows[0]) throw new Error("Failed to create conversation");
 
