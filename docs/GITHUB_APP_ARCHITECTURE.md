@@ -82,3 +82,8 @@ Before live installation testing, configure the single Brilina Forge GitHub App:
 
 ### Installation callback verification
 A new installation is linked only after a valid signed `installation.created` webhook confirms that the sender GitHub ID matches the GitHub identity bound to the current Forge session. The callback does not trust the `installation_id` query parameter alone. If the webhook has not arrived yet, the state remains unused so the callback can be retried. An `update` callback is accepted only for an installation already linked to the same Forge user. Webhook delivery IDs are idempotent and failed deliveries can be retried.
+
+
+## Final source/temporary-schema checkpoint — 2026-10-17
+
+The current integration head is `32ba5e8af530f27850002cb5d681860a78251dfe` on `feat/auth-github-app-complete`, PR #14. CI run `39062142344` passed build, typecheck, Phase 1 tests, Worker tests, Wrangler dry-run, and dependency audits. Temporary Neon verification confirmed the staged 006+007 schema preserves the legacy unique constraint and compatibility triggers; the 006–008 schema removes only the legacy single-column uniqueness and retains clean connection/session ownership and run snapshots. Production remains unchanged. Follow the exact staged rollout in `docs/CURRENT_STATE_AND_CONTINUATION.md`; live App setup, callback/webhook, account-switching and real AI write/read-back/diff acceptance are still pending.
