@@ -12,7 +12,9 @@ type DialogProps = {
 };
 
 export function Dialog({ open, onOpenChange, title, description, children, className }: DialogProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null);\n  const titleId = useId();\n  const descriptionId = useId();
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  const descriptionId = useId();
 
   useEffect(() => {
     const dialog = dialogRef.current;
