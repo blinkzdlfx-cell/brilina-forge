@@ -1,6 +1,6 @@
 # Brilina Forge — Unified Implementation Plan
 
-**Status:** Active delivery plan; supersedes overlapping roadmaps and TODO lists for sequencing/status. **Last consolidated:** 2026-10-16.  
+**Status:** Active delivery plan; supersedes overlapping roadmaps and TODO lists for sequencing/status. **Last updated:** 2026-10-17.  
 **Delivery rule:** work directly on `main` unless the owner explicitly changes this; one coherent batch at a time; test, inspect the diff, record evidence, and stop at the acceptance gate.
 
 ## 1. Baseline and known open work
@@ -20,15 +20,16 @@ Known open/unverified:
 
 **Progress metric:** accepted UI modernization batch gates, not subjective visual impressions. There are five planned UI batches (1–5); a batch counts only after its automated gate and required owner/live acceptance evidence are recorded.
 
-- **Accepted UI batches:** 0 of 5 (0% acceptance-gated completion). This is deliberately conservative: the owner has not yet completed the live retest of the latest corrections.
-- **Targeted corrections implemented in source, awaiting automated/live verification:**
+- **Accepted UI batches:** 0 of 5 (0% acceptance-gated completion). Batch 1 is the Tailwind + shadcn/ui foundation and has not been completed. This batch count measures planned modernization batches, not whether individual corrections work.
+- **Targeted correction status: owner-reported live verification PASSED on 2026-10-17.** The owner tested the deployed mobile UI and reported PASS for all five checks: hamburger position/drawer, user/assistant alignment, run activity placement, mobile newline, and send button. Automated verification of the latest correction commits remains unconfirmed.
+- **Targeted corrections implemented in source:**
   1. Mobile navigation button moved to the left edge of the mobile top bar.
   2. User messages aligned to the right; assistant messages remain left-aligned.
   3. Run activity rendered in the same chronological transcript using run/message timestamps, so the run activity appears before the assistant response produced by that run rather than in a block after all messages.
   4. Mobile Enter inserts a newline; the send icon sends. Desktop Enter sends and Shift+Enter inserts a newline.
 - **shadcn/ui status:** not installed/configured yet. Tailwind is also not installed/configured. The prior visual CSS pass and these targeted corrections are not a substitute for Batch 1.
-- **Source checkpoints:** 2ba185d (web/src/App.tsx); 45df39d (web/src/styles.css); this progress record follows those changes. Latest correction commits do not yet have recorded automated test results or owner-reported live acceptance.
-- **Current gate:** targeted correction verification pending. Do not mark Batches 1, 3, 4, or 5 accepted based on source changes alone.
+- **Source checkpoints:** 2ba185d (web/src/App.tsx); 45df39d (web/src/styles.css); documentation updated through 5e2f514. Owner live test results are recorded above. Automated test/CI results for the latest correction commits have not yet been recorded.
+- **Current gate:** mobile targeted corrections are owner-reported live-verified; desktop keyboard behavior is not yet owner-tested. UI Batch 1 remains open.
 - **Next implementation batch:** complete Batch 1 (Tailwind + shadcn foundation) using the installed Vite/React versions and lockfile; then proceed through the remaining UI gates without skipping dependency order.
 
 ### Owner test card for the latest corrections
@@ -38,7 +39,7 @@ Known open/unverified:
 4. During a coding run, confirm run activity appears between your prompt and the AI's response, not after the response. If a run has no tool calls, its run activity may state that no tool activity was recorded; do not expect invented events.
 5. In the mobile composer, press Enter once: it should add a new line without sending. Tap the send icon to send.
 6. On desktop later, confirm Enter sends and Shift+Enter inserts a new line.
-7. Report each step as PASS/FAIL; include a screenshot for any visual failure. Live deployment and this owner test remain unverified until reported.
+7. Report each step as PASS/FAIL; include a screenshot for any visual failure. **Owner result (2026-10-17): all five mobile checks PASS.** Desktop Enter/Shift+Enter remains pending an owner desktop test.
 
 ## 3. Batch plan and acceptance gates
 
