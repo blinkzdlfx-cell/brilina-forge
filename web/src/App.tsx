@@ -974,6 +974,7 @@ export function App() {
               <SelectField
                 id="github-context-type" label="Repository access method" value={contextType}
                 onChange={value => void handleContextTypeChange(value)}
+                placeholder="Choose access method"
                 disabled={running}
                 options={[
                   { value: "oauth", label: "Connected GitHub account" },
