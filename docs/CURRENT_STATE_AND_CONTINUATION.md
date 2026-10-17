@@ -176,3 +176,14 @@ This section supersedes the older “Current automated status” note above.
 - These are repository artifacts only. Migration 006 has not yet been run on any Neon branch and has not been copied to production.
 - Migration 006 is deliberately additive: it creates/backfills `auth_identities`, adds identity ownership to `github_connections`, and records an explicit active connection per session. It leaves the current unique `github_connections(user_id)` constraint and legacy profile columns intact while source code is upgraded.
 - Next: validate 006 against a fresh temporary Neon branch, update source/session code and tests, design/validate GitHub App installation tables, then pause with exact SQL and verification instructions before any production schema change.
+
+
+## Combined authentication + GitHub App progress update (2026-10-17)
+
+- Working integration branch: `feat/auth-github-app-complete`.
+- Migration 006–008 test execution completed on temporary Neon branch `br-noisy-rain-zamdr0q8` (`auth-migration-006-validation-20261017`). Counts and ownership checks passed; 50 existing run snapshots and all existing workspace/conversation/repository/run rows were preserved.
+- The production branch was not changed. No production SQL was executed.
+- Source implementation now covers connection-aware session reads/refresh, safe account linking, account switching API, GitHub App JWT/install tokens, session-bound single-use installation state, installation/access/repository persistence, webhook signature verification and idempotency, authorized installation context, and run context snapshots. UI controls for account/installation selection are in the integration branch.
+- This is not yet accepted: CI/build/test evidence and a real browser + GitHub installation test are pending.
+- Production rollout must be staged: apply 006 + 007, deploy verified source with `GITHUB_MULTI_ACCOUNT_ENABLED=false`, then apply 008, verify it, and only then enable that flag. Do not apply 008 while the old Worker is active; its old session upsert depends on `UNIQUE(github_connections.user_id)`.
+- After the combined auth/App tests pass, return to the original deferred AI-to-GitHub write gate: non-default branch, actual write, read-back, diff/commit, and immutable run context under a mid-run account/repository/branch change.
