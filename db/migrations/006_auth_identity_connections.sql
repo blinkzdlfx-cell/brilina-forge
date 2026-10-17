@@ -142,7 +142,7 @@ CREATE INDEX IF NOT EXISTS idx_auth_sessions_active_connection ON auth_sessions(
 CREATE OR REPLACE FUNCTION forge_populate_github_connection_identity()
 RETURNS TRIGGER
 LANGUAGE plpgsql
-AS $
+AS $forge$
 DECLARE
   v_github_id BIGINT;
   v_login TEXT;
@@ -180,7 +180,7 @@ BEGIN
   NEW.auth_identity_id := v_identity_id;
   RETURN NEW;
 END;
-$;
+$forge$;
 
 DROP TRIGGER IF EXISTS github_connections_populate_auth_identity ON github_connections;
 CREATE TRIGGER github_connections_populate_auth_identity
@@ -190,7 +190,7 @@ FOR EACH ROW EXECUTE FUNCTION forge_populate_github_connection_identity();
 CREATE OR REPLACE FUNCTION forge_populate_session_active_github_connection()
 RETURNS TRIGGER
 LANGUAGE plpgsql
-AS $
+AS $forge$
 BEGIN
   IF NEW.active_github_connection_id IS NULL THEN
     SELECT c.id INTO NEW.active_github_connection_id
@@ -201,7 +201,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$;
+$forge$;
 
 DROP TRIGGER IF EXISTS auth_sessions_populate_active_github_connection ON auth_sessions;
 CREATE TRIGGER auth_sessions_populate_active_github_connection
