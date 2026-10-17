@@ -229,3 +229,23 @@ Production execution uses Forge-owned GitHub tools through the existing REST/Gra
 7. Re-run the GitHub tool system, immutable run context, and core AI-to-GitHub acceptance gates before depending on this architecture for further autonomous workflows.
 
 **Security/rollout constraints:** do not expose tokens to browser storage; do not trust account/repository IDs supplied by the client without server-side ownership checks; do not automatically merge identities based on email; do not delete existing Forge history; do not deploy production or change production schema without explicit authorization and verified migration evidence.
+
+
+## Owner-directed combined auth + GitHub App work plan (2026-10-17)
+
+The owner requested that the related stages be completed as one coherent effort, with documentation updated throughout:
+
+1. **Auth foundation:** implement migration 006 and its preflight/backfill verification; validate on a temporary Neon branch; update OAuth persistence, active-connection session reads/refresh/logout, and safe account linking; run focused tests and security checks.
+2. **Production SQL gate:** stop before production mutation. Present the exact SQL file(s), exact order, expected results, and recovery notes for the owner to paste/run. No assistant execution against production, no production deployment, and no schema-dependent source rollout before the owner confirms the SQL was applied and verified.
+3. **GitHub App architecture:** implement installation/access/repository persistence and server-side installation/token authorization as a distinct layer. Keep OAuth identity, OAuth connection, and App installation separate. Document configuration/permissions/webhook requirements; do not invent or expose secrets.
+4. **Combined acceptance:** after the owner confirms the production migration gate and credentials/configuration are ready, test auth + installation access + account/repository selectors + immutable context together.
+5. **Return to deferred core gate:** perform the real configured-provider AI-to-GitHub coding workflow on an authorized non-default branch: branch, write, read-back, actual diff/commit, and proof that switching context mid-run cannot redirect it. Repair the two previously failing Phase 1 tests and rerun all relevant CI before calling this complete.
+
+### Current evidence and stop conditions
+
+- Migration 006 and its verification SQL are committed, but temporary-branch execution is pending.
+- GitHub App architecture is documented in `docs/GITHUB_APP_ARCHITECTURE.md`; documentation is not implementation evidence.
+- Migrations 004 and 005 are already applied and verified in production; never rerun them.
+- Production database is unchanged by this work.
+- Existing failing test history: `push_files` read-back verification assertion and `GithubService.writeFiles` commit-message validation. Recheck current HEAD rather than assuming these still fail or have been fixed.
+- The next handoff checkpoint is `docs/CURRENT_STATE_AND_CONTINUATION.md`. Keep it updated at each migration, source, and test gate.
