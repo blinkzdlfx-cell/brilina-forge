@@ -187,3 +187,10 @@ This section supersedes the older “Current automated status” note above.
 - This is not yet accepted: CI/build/test evidence and a real browser + GitHub installation test are pending.
 - Production rollout must be staged: apply 006 + 007, deploy verified source with `GITHUB_MULTI_ACCOUNT_ENABLED=false`, then apply 008, verify it, and only then enable that flag. Do not apply 008 while the old Worker is active; its old session upsert depends on `UNIQUE(github_connections.user_id)`.
 - After the combined auth/App tests pass, return to the original deferred AI-to-GitHub write gate: non-default branch, actual write, read-back, diff/commit, and immutable run context under a mid-run account/repository/branch change.
+
+
+## Latest verification — 2026-10-17
+- Integration branch commit tested: `d5ad4e1029e0ea2a3572df698c9ee70624d3ee91`.
+- CI passed: build, phase-1 typecheck, phase-1 tests, Worker tests, Wrangler dry-run, root dependency audit, and web dependency audit.
+- Production database and deployed Worker were not modified by this work.
+- Open draft PR #14 is intentionally not merged. The production SQL gate is now ready for owner action: apply migration 006 and 007 only, verify both, then pause for deployment/continuity checks. Migration 008 must follow the new Worker rollout; keep `GITHUB_MULTI_ACCOUNT_ENABLED=false` until 008 is applied and verified.
