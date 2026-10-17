@@ -572,6 +572,8 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
           forgeUserId: session.forgeUserId,
           githubUser: session.githubUser,
           activeGithubConnectionId: session.githubConnectionId,
+          multiAccountEnabled: config.githubMultiAccountEnabled,
+          githubAppConfigured: config.githubAppConfigured,
           githubConnections: session.forgeUserId ? await listGithubConnectionsForUser(session.forgeUserId, session.githubConnectionId) : [],
           tokenExpiresAt: session.expiresAt ?? null
         });
