@@ -16,7 +16,31 @@ Known open/unverified:
 - GitHub Actions repair, a secure complete local companion, Cloudflare diagnostics, multiple providers, and teams are later capabilities; companion scaffolding is not proof of a complete companion.
 - Do not treat prior CI counts/status as current without checking actual commit and workflow.
 
-## 2. Batch plan and acceptance gates
+## 2. UI progress ledger (updated 2026-10-17)
+
+**Progress metric:** accepted UI modernization batch gates, not subjective visual impressions. There are five planned UI batches (1–5); a batch counts only after its automated gate and required owner/live acceptance evidence are recorded.
+
+- **Accepted UI batches:** 0 of 5 (0% acceptance-gated completion). This is deliberately conservative: the owner has not yet completed the live retest of the latest corrections.
+- **Targeted corrections implemented in source, awaiting automated/live verification:**
+  1. Mobile navigation button moved to the left edge of the mobile top bar.
+  2. User messages aligned to the right; assistant messages remain left-aligned.
+  3. Run activity rendered in the same chronological transcript using run/message timestamps, so the run activity appears before the assistant response produced by that run rather than in a block after all messages.
+  4. Mobile Enter inserts a newline; the send icon sends. Desktop Enter sends and Shift+Enter inserts a newline.
+- **shadcn/ui status:** not installed/configured yet. Tailwind is also not installed/configured. The prior visual CSS pass and these targeted corrections are not a substitute for Batch 1.
+- **Source checkpoints:** 2ba185d (web/src/App.tsx); 45df39d (web/src/styles.css); this progress record follows those changes. Latest correction commits do not yet have recorded automated test results or owner-reported live acceptance.
+- **Current gate:** targeted correction verification pending. Do not mark Batches 1, 3, 4, or 5 accepted based on source changes alone.
+- **Next implementation batch:** complete Batch 1 (Tailwind + shadcn foundation) using the installed Vite/React versions and lockfile; then proceed through the remaining UI gates without skipping dependency order.
+
+### Owner test card for the latest corrections
+1. Open the deployed Forge on a phone and refresh after the new version is deployed.
+2. Confirm the hamburger is at the far left of the top bar and opens/closes the drawer.
+3. Send a short prompt. Confirm your bubble is on the right and the assistant response is on the left.
+4. During a coding run, confirm run activity appears between your prompt and the AI's response, not after the response. If a run has no tool calls, its run activity may state that no tool activity was recorded; do not expect invented events.
+5. In the mobile composer, press Enter once: it should add a new line without sending. Tap the send icon to send.
+6. On desktop later, confirm Enter sends and Shift+Enter inserts a new line.
+7. Report each step as PASS/FAIL; include a screenshot for any visual failure. Live deployment and this owner test remain unverified until reported.
+
+## 3. Batch plan and acceptance gates
 
 ### Batch 0 — Documentation consolidation and source baseline
 **Goal:** one consistent set of project instructions and an evidence-based starting point.  
