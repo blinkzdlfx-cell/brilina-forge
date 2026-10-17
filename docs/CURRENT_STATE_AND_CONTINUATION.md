@@ -194,3 +194,11 @@ This section supersedes the older “Current automated status” note above.
 - CI passed: build, phase-1 typecheck, phase-1 tests, Worker tests, Wrangler dry-run, root dependency audit, and web dependency audit.
 - Production database and deployed Worker were not modified by this work.
 - Open draft PR #14 is intentionally not merged. The production SQL gate is now ready for owner action: apply migration 006 and 007 only, verify both, then pause for deployment/continuity checks. Migration 008 must follow the new Worker rollout; keep `GITHUB_MULTI_ACCOUNT_ENABLED=false` until 008 is applied and verified.
+
+ 
+### Rollout-compatibility validation addendum — 2026-10-17
+- A second temporary Neon branch `auth-migration-006-007-compat-20261017` (`br-restless-violet-zanlwa4j`) was created from production before migration 008.
+- Migrations 006 and 007 were exercised there with the compatibility triggers from the final migration 006 file.
+- Simulated a legacy Worker-style connection insert and session insert. Assertions passed: the connection acquired its `auth_identities` row and the session acquired its `active_github_connection_id`.
+- Verification on that branch showed 0 connections without identities, 0 sessions without active connections, 0 runs missing existing repository/branch snapshots, and the old `UNIQUE(user_id)` constraint still present. This supports the staged rollout: 006 + 007 first; new Worker deploy; 008 only after that.
+- Both temporary Neon branches are non-production. Production remains unchanged.
