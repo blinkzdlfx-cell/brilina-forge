@@ -111,6 +111,9 @@ export async function createConversation(input?: {
   title?: string;
   repositoryId?: string;
   branchName?: string;
+  contextType?: "oauth" | "installation";
+  installationRecordId?: string | null;
+  installationRepositoryId?: string | null;
 }): Promise<Conversation> {
   const response = await fetch("/api/conversations", {
     method: "POST",
