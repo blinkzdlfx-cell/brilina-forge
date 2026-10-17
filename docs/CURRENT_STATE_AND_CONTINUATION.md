@@ -166,3 +166,13 @@ This section supersedes the older “Current automated status” note above.
 - **Still not live-verified:** production deployment of this code, configured real provider tool calls, an AI-triggered write/read-back/diff on an approved non-default test branch, browser branch-selector acceptance, and reload persistence during a real run. Do not mark Batch 1 complete until those checks pass.
 - **Next owner test:** follow the consolidated Batch 1 acceptance card in `docs/IMPLEMENTATION_TODO.md`. Use a repository and non-default test branch explicitly approved for testing; do not write to a production repository or default branch. No production deploy was performed as part of this increment.
 
+
+
+## Execution update — 2026-10-17 (migration 006 drafted)
+
+- Added `db/migrations/006_auth_identity_connections.sql` at commit `8c083fa1b2d2b9bbe0a77aca5ce940707b8e5b1d`.
+- Added verification queries at `db/manual/verify_006_auth_identity_connections.sql` at commit `49f68b4982a3a5e6306202f6dfcebe9fcbe9f44d`.
+- Added `docs/GITHUB_APP_ARCHITECTURE.md` at commit `b178dbdd30b125ce5f9c8740438deedfe0e30901`.
+- These are repository artifacts only. Migration 006 has not yet been run on any Neon branch and has not been copied to production.
+- Migration 006 is deliberately additive: it creates/backfills `auth_identities`, adds identity ownership to `github_connections`, and records an explicit active connection per session. It leaves the current unique `github_connections(user_id)` constraint and legacy profile columns intact while source code is upgraded.
+- Next: validate 006 against a fresh temporary Neon branch, update source/session code and tests, design/validate GitHub App installation tables, then pause with exact SQL and verification instructions before any production schema change.
