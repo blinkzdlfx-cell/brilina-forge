@@ -209,12 +209,17 @@ async function githubService(request: Request): Promise<GithubService> {
 async function githubServiceForRun(
   request: Request,
   userId: string,
-  context: { githubConnectionId: string | null; installationRecordId: string | null; contextType: "oauth" | "installation" | null }
+  context: { githubConnectionId: string | null; installationRecordId: string | null; contextType: "oauth" | "installation" | null },
+  repositoryFullName: string | null
 ): Promise<GithubService> {
   if (context.contextType === "installation") {
     if (!context.installationRecordId) throw Object.assign(new Error("Run has no installation snapshot"), { statusCode: 403 });
     const installation = await getGithubAppInstallationForUser(userId, context.installationRecordId);
     if (!installation) throw Object.assign(new Error("The selected GitHub App installation is no longer authorized"), { statusCode: 403 });
+    const authorizedRepositories = await listGithubAppRepositoriesForUser(userId, context.installationRecordId);
+    if (!repositoryFullName || !authorizedRepositories.some(repository => repository.fullName.toLowerCase() === repositoryFullName.toLowerCase())) {
+      throw Object.assign(new Error("The repository captured by this run is no longer authorized by the selected installation"), { statusCode: 403 });
+    }
     return new GithubService(new GithubClient(await createGithubInstallationToken(installation.installationId)));
   }
   if (context.contextType === "oauth" && context.githubConnectionId) {
@@ -302,7 +307,7 @@ async function executeRun(
   let retries = 0;
 
   try {
-    const service = await githubServiceForRun(request, userId, { githubConnectionId, installationRecordId, contextType });
+    const service = await githubServiceForRun(request, userId, { githubConnectionId, installationRecordId, contextType }, repositoryFullName);
     const providerRuntime = createProviderRuntime();
     const registry = new ToolRegistry();
     for (const tool of createGithubReadTools(service)) registry.register(tool);
