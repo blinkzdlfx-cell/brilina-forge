@@ -134,12 +134,13 @@ Production execution uses Forge-owned GitHub tools through the existing REST/Gra
 
 ### Batch A — Source inventory and dependency map
 - **Status:** architecture/source map documented; exact upstream catalogue evidence still incomplete.
-- The ten current Forge GitHub tool IDs and their source files are recorded in `docs/GITHUB_TOOL_SYSTEM.md`.
+- The eleven current Forge GitHub tool IDs and their source files are recorded in `docs/GITHUB_TOOL_SYSTEM.md`.
 - The original live MCP response reported 46 tools, but its exact names were not preserved in available evidence. Do not fabricate the missing snapshot or claim a definitive one-to-one mapping. Capture the original response if available before expanding the catalogue.
 
 ### Batch B — Catalogue, availability, and settings UI
 - **Status:** implementation committed; migration and automated verification pending.
 - `src/agent/tool-catalog.ts` owns tool metadata, category/risk labels, server defaults, and fail-closed filtering for uncatalogued `github.*` tools.
+- `github.push_files` uses GitHub's Git Data API to write up to 25 files in one commit, rejects duplicate paths/default-branch writes, enforces size limits, and reads every file back before reporting success. Automated service/tool tests were added but have not been run in this session.
 - `ToolRegistry` applies user availability preferences to both model tool discovery and controller lookup.
 - `src/db/github-tool-preferences.ts` persists preferences per Forge user. Authenticated GET/PUT endpoints are at `/api/settings/github-tools`.
 - UI placement is the stable **Settings** entry directly below **New chat** in the workspace sidebar, including collapsed and mobile navigation. The Settings dialog contains category toggles and individual tool toggles. This is separate from the repository/branch context dialog.
@@ -147,7 +148,7 @@ Production execution uses Forge-owned GitHub tools through the existing REST/Gra
 
 ### Batch C — Core repository/branch/file/diff capabilities
 - **Status:** existing native tools retained; live acceptance pending.
-- The current ten catalogued tools cover repository metadata/context, branches, tree/file reads, diffs, work-branch creation, and file create/update/upsert.
+- The current eleven catalogued tools cover repository metadata/context, branches, tree/file reads, diffs, work-branch creation, file create/update/upsert, and `github.push_files` for up to 25 files in one commit with per-file read-back verification.
 - Write tools enforce selected-repository scope, reject writes to the current GitHub default branch using live repository metadata, and verify content by reading it back.
 - A configured-provider run must still prove branch creation/write, GitHub read-back, commit evidence, and a reviewable diff.
 
