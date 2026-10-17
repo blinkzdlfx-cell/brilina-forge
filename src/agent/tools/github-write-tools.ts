@@ -14,14 +14,27 @@ function validText(value: unknown, _label: string, maxLength: number): value is 
   return typeof value === "string" && value.length > 0 && value.length <= maxLength && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value);
 }
 
-function authorizedWorkBranch(
+async function authorizedWorkBranch(
+  service: GithubService,
   context: ToolExecutionContext,
-  branch: string,
+  args: FileArgs,
   branchesCreatedDuringRun: Set<string>
-): boolean {
+): Promise<boolean> {
+  const branch = args.branch.trim();
+  if (!branch) return false;
+
+  // Enforce this against GitHub's current repository metadata, not a UI flag
+  // or model-supplied claim. Even if the selected context is the default
+  // branch, writes must first create/select a separate working branch.
+  const repository = await service.getRepository(args.owner, args.repo);
+  const defaultBranch = repository.default_branch?.trim().toLowerCase();
+  if (!defaultBranch || branch.toLowerCase() === defaultBranch) return false;
+
   const selectedBranch = context.principal.branchName?.trim();
-  return Boolean(branch) && (
-    (Boolean(selectedBranch) && selectedBranch!.toLowerCase() === branch.toLowerCase()) ||
+  return (
+    (Boolean(selectedBranch) &&
+      selectedBranch!.toLowerCase() === branch.toLowerCase() &&
+      selectedBranch!.toLowerCase() !== defaultBranch) ||
     branchesCreatedDuringRun.has(branch.toLowerCase())
   );
 }
@@ -140,7 +153,7 @@ export function createGithubCreateTool(
       return scopedToConversation(context, args) &&
         validText(args.path, "path", 4096) &&
         validText(args.branch, "branch", 255) &&
-        authorizedWorkBranch(context, args.branch, branchesCreatedDuringRun) &&
+        await authorizedWorkBranch(service, context, args, branchesCreatedDuringRun) &&
         typeof args.content === "string" &&
         new TextEncoder().encode(args.content).byteLength <= 900000 &&
         (args.message === undefined || (validText(args.message, "message", 200) && !/[\u0000-\u001f\u007f]/.test(args.message)));
