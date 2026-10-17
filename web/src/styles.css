@@ -479,7 +479,7 @@ svg { display: block; }
 .context-panel-trigger > svg { width: 16px; height: 16px; flex: 0 0 auto; color: var(--forge-primary); }
 .context-trigger-repo { min-width: 0; max-width: 19rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .context-trigger-branch { flex: 0 1 auto; max-width: 10rem; overflow: hidden; padding-left: 9px; color: var(--forge-text-muted); border-left: 1px solid var(--forge-border); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.context-dialog { position: fixed; inset: 0; margin: auto; width: min(94vw, 38rem); max-height: 86dvh; color: var(--forge-text); background: var(--forge-surface); border-color: var(--forge-border); }
+.context-dialog { width: min(94vw, 38rem); max-height: 86dvh; color: var(--forge-text); background: var(--forge-surface); border-color: var(--forge-border); }
 .context-panel-content { display: grid; gap: 20px; }
 .context-panel-section { display: grid; min-width: 0; gap: 9px; }
 .context-panel-section > h3 { margin: 0; color: var(--forge-text); font-size: 13px; font-weight: 650; }
