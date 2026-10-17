@@ -656,7 +656,7 @@ export function App() {
         <button className="new-chat" onClick={newChat} disabled={running} aria-label={sidebarCompact ? "New chat" : undefined} title={sidebarCompact ? "New chat" : undefined}>
           <Plus className="size-4" />{!sidebarCompact && "New chat"}
         </button>
-        <button className="new-chat" type="button" onClick={() => void openToolSettings()} aria-label={sidebarCompact ? "Settings" : undefined} title={sidebarCompact ? "Settings" : undefined}>
+        <button className="sidebar-settings" type="button" onClick={() => void openToolSettings()} aria-label={sidebarCompact ? "Settings" : undefined} title={sidebarCompact ? "Settings" : undefined}>
           <Settings className="size-4" />{!sidebarCompact && "Settings"}
         </button>
 
