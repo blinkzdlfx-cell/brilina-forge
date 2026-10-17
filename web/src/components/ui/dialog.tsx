@@ -1,4 +1,4 @@
-import { useEffect, useRef, type HTMLAttributes, type ReactNode } from "react";
+import { useEffect, useId, useRef, type HTMLAttributes, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -12,7 +12,7 @@ type DialogProps = {
 };
 
 export function Dialog({ open, onOpenChange, title, description, children, className }: DialogProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);\n  const titleId = useId();\n  const descriptionId = useId();
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -24,8 +24,8 @@ export function Dialog({ open, onOpenChange, title, description, children, class
   return (
     <dialog
       ref={dialogRef}
-      aria-labelledby="forge-dialog-title"
-      aria-describedby={description ? "forge-dialog-description" : undefined}
+      aria-labelledby={titleId}
+      aria-describedby={description ? descriptionId : undefined}
       className={cn("w-[min(92vw,32rem)] max-h-[85dvh] overflow-auto rounded-xl border border-border bg-popover p-0 text-popover-foreground shadow-2xl backdrop:bg-black/50", className)}
       onCancel={event => { event.preventDefault(); onOpenChange(false); }}
       onClose={() => onOpenChange(false)}
@@ -33,8 +33,8 @@ export function Dialog({ open, onOpenChange, title, description, children, class
     >
       <div className="flex items-start justify-between gap-4 border-b border-border p-5">
         <div>
-          <h2 id="forge-dialog-title" className="text-base font-semibold">{title}</h2>
-          {description && <p id="forge-dialog-description" className="mt-1 text-sm text-muted-foreground">{description}</p>}
+          <h2 id={titleId} className="text-base font-semibold">{title}</h2>
+          {description && <p id={descriptionId} className="mt-1 text-sm text-muted-foreground">{description}</p>}
         </div>
         <button type="button" aria-label="Close dialog" onClick={() => onOpenChange(false)} className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <X className="size-4" />
