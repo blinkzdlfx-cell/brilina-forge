@@ -637,11 +637,9 @@ export function App() {
         <Dialog open={contextPanelOpen} onOpenChange={setContextPanelOpen} title="Repository & branch" description="Choose the repository and working branch for this conversation." className="context-dialog">
           <div className="context-panel-content">
             <div className="context-panel-section">
-              <h3>Repository</h3>
               <SelectField id="repository-select" label="Repository" value={selectedRepoId === null ? "" : String(selectedRepoId)} onChange={value => void handleRepositoryChange(value)} placeholder={loadingRepos ? "Loading…" : "Select repository"} disabled={loadingRepos || running} options={repositories.map(repository => ({ value: String(repository.id), label: repository.full_name }))} />
             </div>
             <div className="context-panel-section">
-              <h3>Working branch</h3>
               <SelectField
                 id="branch-select" label="Working branch" value={selectedBranch} onChange={value => void handleBranchChange(value)}
                 placeholder={loadingBranches ? "Loading branches…" : branches.length ? "Select branch" : "No branches loaded"}
