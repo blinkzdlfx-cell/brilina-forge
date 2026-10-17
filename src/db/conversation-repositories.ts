@@ -18,10 +18,10 @@ export type ForgeConversation = {
   updatedAt: string;
 };
 
-export async function getForgeUserContext(githubUserId: number): Promise<{ userId: string; workspaceId: string }> {
+export async function getForgeUserContext(userId: string): Promise<{ userId: string; workspaceId: string }> {
   const rows = (await getSql().query(
-    "SELECT u.id AS user_id, w.id AS workspace_id FROM forge_users u JOIN workspaces w ON w.owner_user_id = u.id WHERE u.github_user_id = $1 LIMIT 1",
-    [githubUserId]
+    "SELECT u.id AS user_id, w.id AS workspace_id FROM forge_users u JOIN workspaces w ON w.owner_user_id = u.id WHERE u.id = $1 ORDER BY w.created_at ASC LIMIT 1",
+    [userId]
   )) as Record<string, unknown>[];
   if (!rows[0]) throw new Error("Forge workspace not initialized for this GitHub account");
   return { userId: String(rows[0].user_id), workspaceId: String(rows[0].workspace_id) };
@@ -30,6 +30,7 @@ export async function getForgeUserContext(githubUserId: number): Promise<{ userI
 export async function syncRepository(input: {
   userId: string;
   workspaceId: string;
+  githubConnectionId: string;
   githubNodeId: string;
   owner: string;
   name: string;
@@ -37,7 +38,7 @@ export async function syncRepository(input: {
   defaultBranch: string;
 }): Promise<ForgeRepository> {
   const rows = (await getSql().query(
-    "INSERT INTO repositories (workspace_id, github_connection_id, github_node_id, github_owner, github_name, github_full_name, default_branch) SELECT $1, c.id, $2, $3, $4, $5, $6 FROM github_connections c WHERE c.user_id = $7 ON CONFLICT (workspace_id, github_node_id) DO UPDATE SET github_owner = EXCLUDED.github_owner, github_name = EXCLUDED.github_name, github_full_name = EXCLUDED.github_full_name, default_branch = EXCLUDED.default_branch, updated_at = now() RETURNING id, github_node_id, github_owner, github_name, github_full_name, default_branch",
+    "INSERT INTO repositories (workspace_id, github_connection_id, github_node_id, github_owner, github_name, github_full_name, default_branch) SELECT $1, c.id, $2, $3, $4, $5, $6 FROM github_connections c WHERE c.id = $7 AND c.user_id = $8 ON CONFLICT (workspace_id, github_node_id) DO UPDATE SET github_owner = EXCLUDED.github_owner, github_name = EXCLUDED.github_name, github_full_name = EXCLUDED.github_full_name, default_branch = EXCLUDED.default_branch, updated_at = now() RETURNING id, github_node_id, github_owner, github_name, github_full_name, default_branch",
     [
       input.workspaceId,
       input.githubNodeId,
@@ -45,6 +46,7 @@ export async function syncRepository(input: {
       input.name,
       input.fullName,
       input.defaultBranch,
+      input.githubConnectionId,
       input.userId
     ]
   )) as Record<string, unknown>[];
