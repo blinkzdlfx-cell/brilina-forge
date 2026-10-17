@@ -28,17 +28,20 @@ Known open/unverified:
   3. Run activity rendered in the same chronological transcript using run/message timestamps, so the run activity appears before the assistant response produced by that run rather than in a block after all messages.
   4. Mobile Enter inserts a newline; the send icon sends. Desktop Enter sends and Shift+Enter inserts a newline.
 - **shadcn/ui status:** Batch 2's reusable Button, Input, Textarea, Field, Card, Badge, Separator, Skeleton, Alert, Dialog, and Sheet components are owner-accepted; `cn()` supports standard `ClassValue` inputs. Semantic light/dark tokens and theme-aware sidebar tokens are in place. The current mobile drawer remains dark by default; `.theme-light` provides contrasting light-sidebar tokens and `.dark` provides a semantic dark palette, but there is no theme toggle and the full screen is not yet dark-mode-ready. Batch 3 now uses shadcn `Button` and `Dialog` in the workspace shell. Legacy screen-specific CSS remains and is being reduced in later UI batches; do not claim the whole screen has been migrated.
-- **Source checkpoints:** Batch 2 component checkpoint `2f5657d7a795579fff62320f2b03a2a92c63253a` passed CI run `39034304815`; follow-up documentation checkpoint `fcd4482426ca5599f9da5fd7de6ceb6f26831e51` passed CI run `39034356761`. Batch 3 source commits: `6656fd8245361a6abadc0435bc86e018dc904c62` (`web/src/App.tsx`) and `e60074a56f98c2d6fbf452eb8da119484b945375` (`web/src/styles.css`). CI runs `39036991908` and `39037020937` were in progress at the time of this update; check their final status before claiming automated verification. No independent live deployment or owner acceptance has been recorded for Batch 3 yet. Desktop keyboard behavior remains owner-unverified.
+- **Source checkpoints:** Batch 2 component checkpoint `2f5657d7a795579fff62320f2b03a2a92c63253a` passed CI run `39034304815`; follow-up documentation checkpoint `fcd4482426ca5599f9da5fd7de6ceb6f26831e51` passed CI run `39034356761`. Batch 3 workspace changes `6656fd8245361a6abadc0435bc86e018dc904c62` (`web/src/App.tsx`) and `e60074a56f98c2d6fbf452eb8da119484b945375` (`web/src/styles.css`) passed CI runs `39036991908` and `39037020937` (build, typecheck, Phase 1 tests, Worker tests, Wrangler dry-run, and dependency audits). A small follow-up JSX cleanup is at `45230012c31494e18d9c68601395a6e37204a6af`; its CI is pending. The documentation commit that records Batch 3 is `58eb68dce142bad5a692f91f18d2cb4d16dc870e`; its CI status must be checked. No independent live deployment or owner acceptance has been recorded for Batch 3 yet. Desktop keyboard behavior remains owner-unverified.
 - **Current implementation batch:** Batch 3 — visible workspace-shell modernization and repository/branch context panel. Automated verification and owner live acceptance are pending.
 
 ### Owner test card for the latest corrections
 1. Open the deployed Forge on a phone and refresh after the new version is deployed.
 2. Confirm the hamburger is at the far left of the top bar and opens/closes the drawer.
-3. Send a short prompt. Confirm your bubble is on the right and the assistant response is on the left.
-4. During a coding run, confirm run activity appears between your prompt and the AI's response, not after the response. If a run has no tool calls, its run activity may state that no tool activity was recorded; do not expect invented events.
-5. In the mobile composer, press Enter once: it should add a new line without sending. Tap the send icon to send.
-6. On desktop later, confirm Enter sends and Shift+Enter inserts a new line.
-7. Report each step as PASS/FAIL; include a screenshot for any visual failure. **Owner result (2026-10-17): all five mobile checks PASS.** Desktop Enter/Shift+Enter remains pending an owner desktop test.
+3. Open the repository/branch context button. Confirm the panel opens, the repository and branch fields remain readable, Escape and the close button dismiss it, and changing the repository loads its branches without duplicate/stale options.
+4. Open Compare inside the panel, choose a different base branch, run the comparison, and confirm the actual diff still appears in the transcript after the panel closes.
+5. Send a short prompt. Confirm your bubble is on the right and the assistant response is on the left.
+6. During a coding run, confirm run activity appears between your prompt and the AI's response, not after the response. If a run has no tool calls, its run activity may state that no tool activity was recorded; do not expect invented events.
+7. In the mobile composer, press Enter once: it should add a new line without sending. Tap the send icon to send.
+8. On desktop later, confirm Enter sends and Shift+Enter inserts a new line.
+9. At desktop and phone widths, confirm no horizontal page overflow and the header context stays visible while the transcript scrolls.
+10. Report each step as PASS/FAIL; include a screenshot for any visual failure. **Owner result (2026-10-17): all five mobile checks PASS.** Desktop Enter/Shift+Enter remains pending an owner desktop test.
 
 ## 3. Batch plan and acceptance gates
 
