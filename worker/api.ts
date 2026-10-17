@@ -19,7 +19,6 @@ import {
 } from "../src/auth/session.js";
 import { createNeonSessionStore } from "../src/db/repositories.js";
 import { GithubApiError, GithubClient } from "../src/github/client.js";
-import { callGithubMcpReadTool, probeGithubMcp } from "../src/github/mcp-diagnostic.js";
 import { GithubService } from "../src/github/service.js";
 import {
   addConversationMessage,
@@ -460,83 +459,7 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
       });
     }
 
-    if (path === "/api/github/mcp-diagnostic" && method === "POST") {
-      assertSameOrigin(request);
-      const session = await sessionForRequest(request);
-      try {
-        const diagnostic = await probeGithubMcp(session.accessToken);
-        return json(diagnostic);
-      } catch (error) {
-        const failure = error as Error & { statusCode?: number; diagnostic?: Record<string, unknown> };
-        const status = failure.statusCode === 401 || failure.statusCode === 403 ? failure.statusCode : 502;
-        return json({
-          error: "github_mcp_diagnostic_failed",
-          message: status === 401
-            ? "GitHub rejected the saved authorization. Sign in again and retry."
-            : status === 403
-              ? "GitHub denied access to the hosted MCP server."
-              : "The hosted GitHub MCP diagnostic did not complete.",
-          ...(failure.diagnostic ? { diagnostic: failure.diagnostic } : {})
-        }, status);
-      }
-    }
-
-    if (path === "/api/github/mcp-tool-probe" && method === "POST") {
-      assertSameOrigin(request);
-      const session = await sessionForRequest(request);
-      let body: unknown;
-      try {
-        body = await request.json();
-      } catch {
-        return json({ error: "invalid_json", message: "A JSON request body is required." }, 400);
-      }
-      if (!body || typeof body !== "object" || Array.isArray(body)) {
-        return json({ error: "invalid_request", message: "A JSON object is required." }, 400);
-      }
-      const input = body as { toolName?: unknown; arguments?: unknown };
-      if (typeof input.toolName !== "string") {
-        return json({ error: "invalid_request", message: "toolName is required." }, 400);
-      }
-      try {
-        const result = await callGithubMcpReadTool(session.accessToken, input.toolName, input.arguments ?? {});
-        return json(result);
-      } catch (error) {
-        const failure = error as Error & { statusCode?: number; diagnostic?: Record<string, unknown> };
-        const status = failure.statusCode === 400 ? 400
-          : failure.statusCode === 401 || failure.statusCode === 403 ? failure.statusCode : 502;
-        return json({
-          error: "github_mcp_tool_probe_failed",
-          message: status === 400 ? failure.message
-            : status === 401 ? "GitHub rejected the saved authorization. Sign in again and retry."
-              : status === 403 ? "GitHub denied this MCP tool call."
-                : "The hosted GitHub MCP tool call did not complete.",
-          ...(failure.diagnostic ? { diagnostic: failure.diagnostic } : {})
-        }, status);
-      }
-    }
-
-    if (path === "/api/settings/github-tools" && method === "GET") {
-      const { userId } = await forgeContext(request);
-      return json({
-        definitions: listGithubToolDefinitions(),
-        preferences: await getGithubToolPreferences(userId)
-      });
-    }
-
-    if (path === "/api/settings/github-tools" && method === "PUT") {
-      assertSameOrigin(request);
-      const { userId } = await forgeContext(request);
-      const body = await request.json() as { enabledToolNames?: unknown; enabledCategories?: unknown };
-      if (!Array.isArray(body.enabledToolNames) || !body.enabledToolNames.every(item => typeof item === "string") ||
-          !Array.isArray(body.enabledCategories) || !body.enabledCategories.every(item => typeof item === "string")) {
-        return json({ error: "invalid_tool_preferences" }, 400);
-      }
-      const preferences = await saveGithubToolPreferences(userId, {
-        enabledToolNames: body.enabledToolNames,
-        enabledCategories: body.enabledCategories as GithubToolCategory[]
-      });
-      return json({ definitions: listGithubToolDefinitions(), preferences });
-    }
+    // Official GitHub MCP diagnostic/probe endpoints are intentionally not exposed by the production Worker. Forge uses its native, catalogued tools.
 
     if (path === "/api/session" && method === "GET") {
       try {
