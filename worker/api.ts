@@ -572,7 +572,7 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
           forgeUserId: session.forgeUserId,
           githubUser: session.githubUser,
           activeGithubConnectionId: session.githubConnectionId,
-          githubConnections: session.forgeUserId ? await listGithubConnectionsForUser(session.forgeUserId) : [],
+          githubConnections: session.forgeUserId ? await listGithubConnectionsForUser(session.forgeUserId, session.githubConnectionId) : [],
           tokenExpiresAt: session.expiresAt ?? null
         });
       } catch {
@@ -582,7 +582,7 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
 
     if (path === "/api/auth/connections" && method === "GET") {
       const { session, userId } = await forgeContext(request);
-      return json({ activeConnectionId: session.githubConnectionId ?? null, connections: await listGithubConnectionsForUser(userId) });
+      return json({ activeConnectionId: session.githubConnectionId ?? null, connections: await listGithubConnectionsForUser(userId, session.githubConnectionId) });
     }
 
     if (path === "/api/auth/connections/active" && method === "POST") {
