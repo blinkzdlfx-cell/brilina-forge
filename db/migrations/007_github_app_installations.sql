@@ -86,10 +86,14 @@ CREATE TABLE IF NOT EXISTS github_app_webhook_deliveries (
   delivery_id TEXT PRIMARY KEY,
   event_name TEXT NOT NULL,
   action_name TEXT,
+  installation_id BIGINT,
+  sender_github_user_id BIGINT,
   received_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   processed_at TIMESTAMPTZ,
   processing_error TEXT
 );
+ALTER TABLE github_app_webhook_deliveries ADD COLUMN IF NOT EXISTS installation_id BIGINT;
+ALTER TABLE github_app_webhook_deliveries ADD COLUMN IF NOT EXISTS sender_github_user_id BIGINT;
 
 ALTER TABLE conversations ADD COLUMN IF NOT EXISTS github_app_installation_id UUID REFERENCES github_app_installations(id) ON DELETE SET NULL;
 ALTER TABLE conversations ADD COLUMN IF NOT EXISTS github_installation_repository_id UUID REFERENCES github_installation_repositories(id) ON DELETE SET NULL;
@@ -128,6 +132,8 @@ CREATE INDEX IF NOT EXISTS idx_github_installation_repositories_name
   ON github_installation_repositories(installation_record_id, full_name);
 CREATE INDEX IF NOT EXISTS idx_github_app_installation_states_expiry
   ON github_app_installation_states(expires_at);
+CREATE INDEX IF NOT EXISTS idx_github_app_webhook_installation_installer
+  ON github_app_webhook_deliveries(installation_id, event_name, action_name, sender_github_user_id);
 CREATE INDEX IF NOT EXISTS idx_runs_github_installation_snapshot
   ON runs(github_app_installation_id_snapshot);
 
