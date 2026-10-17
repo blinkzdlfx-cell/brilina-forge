@@ -29,7 +29,7 @@ Brilina Forge is a private, browser-based AI software-development workspace. A u
 - **Remote verification:** GitHub Actions.
 - **Optional local execution:** separate authenticated Node.js companion on the user's computer; no shell in the Worker and no browser terminal.
 - **Diagnostics:** Cloudflare observability/log integration after the core coding and verification loop is reliable.
-- **GitHub integration:** preserve the current division in `src/github/service.ts`: GraphQL for repository identity/default-branch metadata where currently used; REST for repository details, branches, trees/files, comparisons, commits, branch creation, and file writes. Inspect before changing this division.
+- **GitHub integration:** Forge owns its production tool catalog and uses `src/github/service.ts` / `src/github/client.ts` directly; the official GitHub MCP server is a reference inventory, not the production execution dependency. Preserve the current division in `src/github/service.ts`: GraphQL for repository identity/default-branch metadata where currently used; REST for repository details, branches, trees/files, comparisons, commits, branch creation, and file writes. See `docs/GITHUB_TOOL_SYSTEM.md` for the tool inventory and adoption log.
 - **Legacy Fastify:** do not add new product behavior to legacy Fastify routes. Do not remove legacy paths until route parity and deployed behavior have been checked.
 
 ## 4. UI and interaction requirements
@@ -104,7 +104,7 @@ Every tool declares a typed schema, capability, risk, scope, output bound, and p
 5. Execute only when authorized.
 6. Persist redacted audit evidence and structured result.
 7. Return accurate result to controller and UI.
-Prompt instructions alone are not a security boundary. Do not expose powerful tools when a run does not need them.
+Prompt instructions alone are not a security boundary. Do not expose powerful tools when a run does not need them. User tool/category preferences may disable capabilities but cannot enable a server-disabled capability or bypass authorization. Unknown `github.*` tools must fail closed until catalogued. The server must reject writes to the repository default branch even if that branch is selected in the UI; create/select a separate work branch first.
 
 ### 5.4 Durability, reconnect, cancellation, and recovery
 - Persist ordered events before or consistently with publishing them.
