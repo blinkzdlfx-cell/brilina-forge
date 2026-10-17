@@ -4,6 +4,7 @@ import type { ForgeTool, ToolExecutionContext } from "../types.js";
 type RepositoryArgs = { owner: string; repo: string };
 type BranchArgs = RepositoryArgs & { branchName: string; baseRef?: string };
 type FileArgs = RepositoryArgs & { path: string; content: string; branch: string; message?: string };
+type PushFilesArgs = RepositoryArgs & { files: Array<{ path: string; content: string }>; branch: string; message?: string };
 
 function scopedToConversation(context: ToolExecutionContext, args: RepositoryArgs): boolean {
   const bound = context.principal.repositoryFullName?.trim();
@@ -239,12 +240,85 @@ export function createGithubWriteTool(
   };
 }
 
+export function createGithubPushFilesTool(
+  service: GithubService,
+  branchesCreatedDuringRun: Set<string>
+): ForgeTool<PushFilesArgs> {
+  return {
+    name: "github.push_files",
+    description: "Create or update up to 25 UTF-8 text files on one authorized working branch and commit the batch atomically. Forge reads every file back before reporting success.",
+    inputSchema: {
+      type: "object",
+      required: ["owner", "repo", "files", "branch"],
+      properties: {
+        owner: { type: "string", minLength: 1, maxLength: 100 },
+        repo: { type: "string", minLength: 1, maxLength: 100 },
+        files: {
+          type: "array",
+          minItems: 1,
+          maxItems: 25,
+          items: {
+            type: "object",
+            required: ["path", "content"],
+            properties: {
+              path: { type: "string", minLength: 1, maxLength: 4096 },
+              content: { type: "string", maxLength: 900000 }
+            },
+            additionalProperties: false
+          }
+        },
+        branch: { type: "string", minLength: 1, maxLength: 255 },
+        message: { type: "string", maxLength: 200 }
+      },
+      additionalProperties: false
+    },
+    policy: "allowed",
+    async authorize(context, args) {
+      if (!scopedToConversation(context, args) ||
+          !validText(args.branch, "branch", 255) ||
+          !Array.isArray(args.files) ||
+          args.files.length < 1 || args.files.length > 25) return false;
+      const paths = new Set<string>();
+      let totalBytes = 0;
+      for (const file of args.files) {
+        if (!file || !validText(file.path, "path", 4096) || typeof file.content !== "string") return false;
+        if (paths.has(file.path)) return false;
+        paths.add(file.path);
+        const size = new TextEncoder().encode(file.content).byteLength;
+        if (size > 900000) return false;
+        totalBytes += size;
+      }
+      if (totalBytes > 2_000_000) return false;
+      if (args.message !== undefined && (!validText(args.message, "message", 200) || /[\\u0000-\\u001f\\u007f]/.test(args.message))) return false;
+      const first = args.files[0];
+      return await authorizedWorkBranch(service, context, {
+        owner: args.owner, repo: args.repo, path: first.path, content: first.content, branch: args.branch
+      }, branchesCreatedDuringRun);
+    },
+    async execute(_context, args) {
+      const result = await service.writeFiles(args.owner, args.repo, args.files, args.message ?? `Update ${args.files.length} files`, args.branch);
+      return {
+        success: true,
+        operation: "batch_written",
+        branch: result.branch,
+        path: null,
+        files: result.files,
+        commitSha: result.commit.sha,
+        commitUrl: result.commit.html_url,
+        commitMessage: result.commit.message,
+        readBackVerified: result.readBackVerified
+      };
+    }
+  };
+}
+
 export function createGithubWriteTools(service: GithubService): ForgeTool[] {
   const branchesCreatedDuringRun = new Set<string>();
   return [
     createGithubCreateBranchTool(service, branchesCreatedDuringRun),
     createGithubCreateTool(service, branchesCreatedDuringRun),
     createGithubUpdateTool(service, branchesCreatedDuringRun),
-    createGithubWriteTool(service, branchesCreatedDuringRun)
+    createGithubWriteTool(service, branchesCreatedDuringRun),
+    createGithubPushFilesTool(service, branchesCreatedDuringRun)
   ];
 }
