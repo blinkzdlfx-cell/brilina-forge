@@ -76,20 +76,14 @@ export async function linkGithubIdentityToSession(
       "INSERT INTO github_connections (user_id, auth_identity_id, github_login, access_token_ciphertext, access_token_iv, access_token_tag, refresh_token_ciphertext, refresh_token_iv, refresh_token_tag, token_expires_at, refresh_token_expires_at, scopes) SELECT $1, i.id, $2, $3, $4, $5, $6, $7, $8, $9, $10, '{}'::text[] FROM auth_identities i WHERE i.user_id = $1 AND i.provider = 'github' AND i.provider_subject = $11::text ON CONFLICT (auth_identity_id) DO UPDATE SET github_login = EXCLUDED.github_login, access_token_ciphertext = EXCLUDED.access_token_ciphertext, access_token_iv = EXCLUDED.access_token_iv, access_token_tag = EXCLUDED.access_token_tag, refresh_token_ciphertext = EXCLUDED.refresh_token_ciphertext, refresh_token_iv = EXCLUDED.refresh_token_iv, refresh_token_tag = EXCLUDED.refresh_token_tag, token_expires_at = EXCLUDED.token_expires_at, refresh_token_expires_at = EXCLUDED.refresh_token_expires_at, updated_at = now()",
       [userId, githubUser.login, access.ciphertext, access.iv, access.tag, refresh?.ciphertext ?? null, refresh?.iv ?? null, refresh?.tag ?? null, credentials.expiresAt ? new Date(credentials.expiresAt) : null, credentials.refreshTokenExpiresAt ? new Date(credentials.refreshTokenExpiresAt) : null, githubUser.id]
     ),
-    sql.query(
-      "UPDATE auth_sessions s SET active_github_connection_id = c.id, last_seen_at = now() FROM github_connections c JOIN auth_identities i ON i.id = c.auth_identity_id WHERE s.session_token_hash = $1 AND s.user_id = $2 AND c.user_id = $2 AND i.provider = 'github' AND i.provider_subject = $3::text",
-      [tokenHash, userId, githubUser.id]
-    )
   ]);
-  const updatedSession = await getPersistentSession(token);
   const linkedIdentity = await sql.query(
-    "SELECT id FROM auth_identities WHERE provider='github' AND provider_subject=$1::text AND user_id=$2 LIMIT 1",
+    "SELECT i.id FROM auth_identities i JOIN github_connections c ON c.auth_identity_id=i.id AND c.user_id=i.user_id WHERE i.provider='github' AND i.provider_subject=$1::text AND i.user_id=$2 LIMIT 1",
     [githubUser.id, userId]
   ) as Record<string, unknown>[];
-  if (!updatedSession || !linkedIdentity[0] || updatedSession.authIdentityId !== String(linkedIdentity[0].id)) {
-    throw Object.assign(new Error("GitHub identity could not be safely linked to this Forge user"), { statusCode: 409 });
-  }
-  return updatedSession;
+  if (!linkedIdentity[0]) throw Object.assign(new Error("GitHub identity could not be safely linked to this Forge user"), { statusCode: 409 });
+  // Keep the current active connection unchanged; the user explicitly switches accounts in the context panel.
+  return getPersistentSession(token);
 }
 
 export type GithubConnectionCredentials = {
