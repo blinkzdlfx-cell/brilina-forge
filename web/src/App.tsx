@@ -966,8 +966,8 @@ export function App() {
                 options={(session?.githubConnections ?? []).map(connection => ({ value: connection.id, label: connection.login + (connection.active ? " · active" : "") }))}
               />
               <div className="context-panel-actions">
-                <Button type="button" variant="outline" size="sm" onClick={startGithubAccountLink} disabled={running}>Connect another GitHub account</Button>
-                <Button type="button" variant="outline" size="sm" onClick={startGithubAppInstallation} disabled={running}>Install GitHub App</Button>
+                {session?.multiAccountEnabled && <Button type="button" variant="outline" size="sm" onClick={startGithubAccountLink} disabled={running}>Connect another GitHub account</Button>}
+                {session?.githubAppConfigured && <Button type="button" variant="outline" size="sm" onClick={startGithubAppInstallation} disabled={running}>Install GitHub App</Button>}
               </div>
             </div>
             <div className="context-panel-section">
