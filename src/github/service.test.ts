@@ -34,6 +34,8 @@ describe("GithubService", () => {
     assert.match(capturedQuery, /defaultBranchRef/);
     assert.match(capturedQuery, /target \{ oid \}/);
 
+  });
+
   it("writes multiple files in one commit and verifies every read-back", async () => {
     const requests: Array<{ path: string; method: string; body?: string }> = [];
     const contents: Record<string, string> = { "src/app.ts": "export {};", "src/app.css": "body {}" };
@@ -87,6 +89,5 @@ describe("GithubService", () => {
     assert.equal(result.readBackVerified, true);
     assert.equal(requests.filter(item => item.path.endsWith("/git/commits") && item.method === "POST").length, 1);
     assert.equal(requests.filter(item => item.path.endsWith("/git/refs/heads/brilina/feature") && item.method === "PATCH").length, 1);
-  });
   });
 });
