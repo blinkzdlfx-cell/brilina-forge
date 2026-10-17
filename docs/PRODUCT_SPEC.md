@@ -122,6 +122,7 @@ Prompt instructions alone are not a security boundary. Do not expose powerful to
 - Use selected work branch as immutable run context.
 - Never silently write to the default branch; reject wrong repository/ref and unauthorized writes.
 - Validate paths and input sizes; use current blob SHA for updates and handle stale-SHA conflicts with a fresh read.
+- Support bounded multi-file changes through `github.push_files`: one Git Data API commit for up to 25 unique text-file paths (2 MB aggregate cap), with default-branch rejection and read-back verification for every file. Single-file tools remain available for targeted edits.
 - Serialize conflicting writes to the same file.
 - Keep tool outputs bounded and redact credentials.
 - Read changes back from GitHub after writes.
