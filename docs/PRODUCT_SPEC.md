@@ -43,6 +43,7 @@ Separate responsibilities clearly into screens/pages, layouts, reusable UI compo
 - Mobile navigation is a drawer with backdrop, close button, Escape-to-close, close-on-navigation, focus containment, and focus restoration.
 - Conversation list scrolls independently; account/workspace controls remain reachable.
 - Authentication/session resolution is explicit. Do not flash the workspace before session state resolves.
+- **Guest entry:** opening Forge checks the current session first. Unauthenticated visitors see the normal chat workspace shell, but no conversation history, repository controls, settings, or signed-in account details. The sidebar contains a Log in action instead. In the expanded desktop sidebar it includes a label; in the collapsed desktop rail it remains an icon with an accessible name/tooltip. On mobile, the drawer contains the labelled action and a separate login icon remains available in the top bar while the drawer is closed. Selecting Log in opens a dedicated `/login` screen with **Continue with GitHub**. A guest may compose a draft, but sending routes to login; after successful authentication the draft is restored. Never present guest-only UI as an authenticated session.
 - Restore the last conversation on refresh, while preserving an explicitly requested empty New chat.
 
 ### 4.3 Workspace context
