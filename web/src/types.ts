@@ -77,6 +77,8 @@ export type SessionInfo = {
   authenticated: boolean;
   forgeUserId?: string;
   activeGithubConnectionId?: string | null;
+  multiAccountEnabled?: boolean;
+  githubAppConfigured?: boolean;
   githubConnections?: GithubConnection[];
   githubUser?: { login: string; name: string | null; avatar_url: string };
 };
