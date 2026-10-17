@@ -12,6 +12,9 @@ export type Conversation = {
   repositoryId: string | null;
   repositoryFullName: string | null;
   branchName: string | null;
+  githubContextType?: "oauth" | "installation";
+  installationRecordId?: string | null;
+  installationRepositoryId?: string | null;
   updatedAt: string;
 };
 
@@ -60,8 +63,21 @@ export type ForgeEvent =
   | { type: "run.completed"; runId: string; status: RunStatus }
   | { type: "run.failed"; runId: string; message: string };
 
+export type GithubConnection = { id: string; login: string; name: string | null; avatarUrl: string | null; active: boolean };
+export type GithubAppInstallation = {
+  id: string; installationId: number; accountId: number; accountLogin: string; accountType: string;
+  repositorySelection: string; permissions: Record<string, unknown>; suspended: boolean; repositoryCount: number;
+};
+export type GithubAppRepository = {
+  id: string; githubRepositoryId: number; fullName: string; owner: string; name: string;
+  defaultBranch: string; private: boolean; archived: boolean;
+};
+
 export type SessionInfo = {
   authenticated: boolean;
+  forgeUserId?: string;
+  activeGithubConnectionId?: string | null;
+  githubConnections?: GithubConnection[];
   githubUser?: { login: string; name: string | null; avatar_url: string };
 };
 
