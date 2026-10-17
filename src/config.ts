@@ -28,6 +28,13 @@ export const config = {
     clientSecret: () => required("GITHUB_CLIENT_SECRET"),
     callbackUrl: () => value("GITHUB_CALLBACK_URL") ?? `${config.publicBaseUrl}/auth/github/callback`
   },
+  githubApp: {
+    appId: () => required("GITHUB_APP_ID"),
+    slug: () => required("GITHUB_APP_SLUG"),
+    privateKey: () => required("GITHUB_APP_PRIVATE_KEY").replace(/\\n/g, "\n"),
+    webhookSecret: () => required("GITHUB_APP_WEBHOOK_SECRET"),
+    setupCallbackUrl: () => value("GITHUB_APP_SETUP_CALLBACK_URL") ?? `${config.publicBaseUrl}/auth/github-app/callback`
+  },
   get callbackOrigin() {
     try { return new URL(config.github.callbackUrl()).origin; }
     catch { return config.publicBaseUrl; }
