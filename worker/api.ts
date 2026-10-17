@@ -34,7 +34,7 @@ import {
   userOwnsRun
 } from "../src/db/conversation-repositories.js";
 import { getRunAudit, listRunsForConversation } from "../src/db/audit-repositories.js";
-import { neonAgentAuditStore } from "../src/db/agent-repositories.js";
+import { getRunContextSnapshot, neonAgentAuditStore } from "../src/db/agent-repositories.js";
 import { recordUsage } from "../src/db/usage-repositories.js";
 import { AgentController } from "../src/agent/controller.js";
 import { ToolRegistry } from "../src/agent/registry.js";
@@ -689,6 +689,7 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
 
       const audit = await getRunAudit(runId, await getOwnedRunConversation(runId, userId, workspaceId) as string);
       if (!audit) return json({ error: "run_not_found" }, 404);
+      const runContext = await getRunContextSnapshot(runId, audit.conversationId);
       const claimed = await claimRun(runId);
       const encoder = new TextEncoder();
       const sessionId = parseSessionCookie(request.headers.get("Cookie"), "brilina_session") ?? "";
@@ -711,8 +712,8 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
                   userId,
                   workspaceId,
                   sessionId,
-                  (await getConversationForUser(audit.conversationId, userId, workspaceId))?.repositoryFullName ?? null,
-                  (await getConversationForUser(audit.conversationId, userId, workspaceId))?.branchName ?? null,
+                  runContext?.repositoryFullName ?? null,
+                  runContext?.branchName ?? null,
                   (await listConversationMessages(audit.conversationId, userId, workspaceId)).find(m => m.runId === runId && m.role === "user")?.content ?? "",
                   send
                 );
