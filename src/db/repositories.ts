@@ -84,6 +84,55 @@ export async function linkGithubIdentityToSession(
   return getPersistentSession(token);
 }
 
+export type GithubConnectionCredentials = {
+  id: string;
+  authIdentityId: string;
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt?: number;
+  refreshTokenExpiresAt?: number;
+  githubUser: GithubUser;
+};
+
+export async function getGithubConnectionForUser(userId: string, connectionId: string): Promise<GithubConnectionCredentials | undefined> {
+  const rows = await getSql().query(
+    "SELECT c.id, c.access_token_ciphertext, c.access_token_iv, c.access_token_tag, c.refresh_token_ciphertext, c.refresh_token_iv, c.refresh_token_tag, c.token_expires_at, c.refresh_token_expires_at, i.id AS auth_identity_id, i.provider_subject, COALESCE(i.provider_login,c.github_login) AS github_login, i.provider_name, i.provider_avatar_url FROM github_connections c JOIN auth_identities i ON i.id=c.auth_identity_id WHERE c.id=$1 AND c.user_id=$2 AND i.provider='github' LIMIT 1",
+    [connectionId, userId]
+  ) as Record<string, unknown>[];
+  const row = rows[0];
+  if (!row) return undefined;
+  const refreshToken = row.refresh_token_ciphertext
+    ? decryptSecret({ ciphertext: String(row.refresh_token_ciphertext), iv: String(row.refresh_token_iv), tag: String(row.refresh_token_tag) })
+    : undefined;
+  return {
+    id: String(row.id), authIdentityId: String(row.auth_identity_id),
+    accessToken: decryptSecret({ ciphertext: String(row.access_token_ciphertext), iv: String(row.access_token_iv), tag: String(row.access_token_tag) }),
+    refreshToken,
+    expiresAt: row.token_expires_at ? new Date(String(row.token_expires_at)).getTime() : undefined,
+    refreshTokenExpiresAt: row.refresh_token_expires_at ? new Date(String(row.refresh_token_expires_at)).getTime() : undefined,
+    githubUser: {
+      id: Number(row.provider_subject), login: String(row.github_login),
+      name: row.provider_name == null ? null : String(row.provider_name),
+      avatar_url: row.provider_avatar_url == null ? "" : String(row.provider_avatar_url),
+      html_url: "https://github.com/" + String(row.github_login)
+    }
+  };
+}
+
+export async function updateGithubConnectionCredentialsForUser(
+  userId: string,
+  connectionId: string,
+  credentials: Pick<Session, "accessToken" | "refreshToken" | "expiresAt" | "refreshTokenExpiresAt">
+): Promise<void> {
+  const access = encryptSecret(credentials.accessToken);
+  const refresh = credentials.refreshToken ? encryptSecret(credentials.refreshToken) : undefined;
+  const rows = await getSql().query(
+    "UPDATE github_connections SET access_token_ciphertext=$1, access_token_iv=$2, access_token_tag=$3, refresh_token_ciphertext=COALESCE($4,refresh_token_ciphertext), refresh_token_iv=COALESCE($5,refresh_token_iv), refresh_token_tag=COALESCE($6,refresh_token_tag), token_expires_at=$7, refresh_token_expires_at=COALESCE($8,refresh_token_expires_at), updated_at=now() WHERE id=$9 AND user_id=$10 RETURNING id",
+    [access.ciphertext, access.iv, access.tag, refresh?.ciphertext ?? null, refresh?.iv ?? null, refresh?.tag ?? null, credentials.expiresAt ? new Date(credentials.expiresAt) : null, credentials.refreshTokenExpiresAt ? new Date(credentials.refreshTokenExpiresAt) : null, connectionId, userId]
+  ) as Record<string, unknown>[];
+  if (!rows[0]) throw Object.assign(new Error("GitHub connection is not available to this Forge user"), { statusCode: 403 });
+}
+
 export async function deletePersistentSession(token: string | undefined): Promise<void> {
   if (!token) return;
   const tokenHash = hashSessionToken(token);
