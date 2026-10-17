@@ -20,6 +20,26 @@ export async function createGithubAppInstallationState(session: Session): Promis
   return rawState;
 }
 
+export async function verifyGithubAppInstallationCallback(input: {
+  state: string; sessionToken: string; installationId: number; setupAction: "install" | "update";
+}): Promise<{ userId: string; authIdentityId: string } | undefined> {
+  const sql = getSql();
+  const rows = await sql.query(
+    "SELECT st.user_id, st.auth_identity_id, i.provider_subject, EXISTS (SELECT 1 FROM github_installation_access a JOIN github_app_installations app ON app.id=a.installation_record_id WHERE a.user_id=st.user_id AND a.revoked_at IS NULL AND app.installation_id=$3 AND app.uninstalled_at IS NULL) AS already_linked FROM github_app_installation_states st JOIN auth_sessions s ON s.id=st.auth_session_id AND s.user_id=st.user_id JOIN github_connections c ON c.id=s.active_github_connection_id AND c.auth_identity_id=st.auth_identity_id JOIN auth_identities i ON i.id=st.auth_identity_id WHERE st.state_hash=$1 AND st.expires_at>now() AND st.consumed_at IS NULL AND s.session_token_hash=$2 AND s.expires_at>now() LIMIT 1",
+    [hash(input.state), hash(input.sessionToken), input.installationId]
+  ) as Record<string, unknown>[];
+  const row = rows[0];
+  if (!row) return undefined;
+  if (input.setupAction === "update") {
+    return row.already_linked ? { userId: String(row.user_id), authIdentityId: String(row.auth_identity_id) } : undefined;
+  }
+  const webhookRows = await sql.query(
+    "SELECT delivery_id FROM github_app_webhook_deliveries WHERE event_name='installation' AND action_name='created' AND installation_id=$1 AND sender_github_user_id::text=$2 AND processed_at IS NOT NULL AND processing_error IS NULL LIMIT 1",
+    [input.installationId, String(row.provider_subject)]
+  ) as Record<string, unknown>[];
+  return webhookRows[0] ? { userId: String(row.user_id), authIdentityId: String(row.auth_identity_id) } : undefined;
+}
+
 export async function consumeGithubAppInstallationState(state: string, sessionToken: string): Promise<{
   userId: string; authIdentityId: string;
 } | undefined> {
@@ -97,13 +117,27 @@ export async function listGithubAppRepositoriesForUser(userId: string, installat
   }));
 }
 
+export async function getGithubAppInstallationForUser(userId: string, installationRecordId: string): Promise<{
+  installationId: number; authIdentityId: string;
+} | undefined> {
+  const rows = await getSql().query(
+    "SELECT i.installation_id, a.auth_identity_id FROM github_app_installations i JOIN github_installation_access a ON a.installation_record_id=i.id WHERE i.id=$1 AND a.user_id=$2 AND a.revoked_at IS NULL AND i.uninstalled_at IS NULL AND i.suspended_at IS NULL LIMIT 1",
+    [installationRecordId, userId]
+  ) as Record<string, unknown>[];
+  return rows[0] ? { installationId: Number(rows[0].installation_id), authIdentityId: String(rows[0].auth_identity_id) } : undefined;
+}
+
 export async function processGithubAppWebhook(input: {
   deliveryId: string; eventName: string; action?: string; payload: Record<string, unknown>;
 }): Promise<"processed" | "duplicate"> {
   const sql = getSql();
   const inserted = await sql.query(
-    "INSERT INTO github_app_webhook_deliveries (delivery_id,event_name,action_name) VALUES ($1,$2,$3) ON CONFLICT (delivery_id) DO NOTHING RETURNING delivery_id",
-    [input.deliveryId, input.eventName, input.action ?? null]
+    "INSERT INTO github_app_webhook_deliveries (delivery_id,event_name,action_name,installation_id,sender_github_user_id) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (delivery_id) DO UPDATE SET processing_error=NULL, installation_id=EXCLUDED.installation_id, sender_github_user_id=EXCLUDED.sender_github_user_id WHERE github_app_webhook_deliveries.processing_error IS NOT NULL RETURNING delivery_id",
+    [
+      input.deliveryId, input.eventName, input.action ?? null,
+      (input.payload.installation as { id?: number } | undefined)?.id ?? null,
+      (input.payload.sender as { id?: number } | undefined)?.id ?? null
+    ]
   ) as Record<string, unknown>[];
   if (!inserted[0]) return "duplicate";
 
@@ -117,7 +151,8 @@ export async function processGithubAppWebhook(input: {
       } else if (input.eventName === "installation" && input.action === "unsuspend") {
         await sql.query("UPDATE github_app_installations SET suspended_at=NULL, updated_at=now() WHERE installation_id=$1", [installation.id]);
       } else if (input.eventName === "installation_repositories" && (input.action === "removed" || input.action === "added")) {
-        const repositories = (input.payload.repositories as Array<{ id?: number }> | undefined) ?? [];
+        const repositoryKey = input.action === "removed" ? "repositories_removed" : "repositories_added";
+        const repositories = (input.payload[repositoryKey] as Array<{ id?: number }> | undefined) ?? [];
         if (input.action === "removed") {
           const ids = repositories.map(repo => repo.id).filter((id): id is number => Number.isSafeInteger(id));
           if (ids.length) await sql.query(

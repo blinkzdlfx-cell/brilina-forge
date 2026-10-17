@@ -135,4 +135,77 @@ CREATE INDEX IF NOT EXISTS idx_auth_identities_user ON auth_identities(user_id);
 CREATE INDEX IF NOT EXISTS idx_github_connections_identity ON github_connections(auth_identity_id);
 CREATE INDEX IF NOT EXISTS idx_auth_sessions_active_connection ON auth_sessions(active_github_connection_id);
 
+
+-- Keep the old Worker compatible during the additive rollout window. The old OAuth callback
+-- does not know about auth_identities or active_github_connection_id; these triggers backfill
+-- those values for new legacy-style inserts until the new Worker is deployed.
+CREATE OR REPLACE FUNCTION forge_populate_github_connection_identity()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $forge$
+DECLARE
+  v_github_id BIGINT;
+  v_login TEXT;
+  v_name TEXT;
+  v_avatar TEXT;
+  v_identity_id UUID;
+  v_identity_user_id UUID;
+BEGIN
+  IF NEW.auth_identity_id IS NOT NULL THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT github_user_id, github_login, github_name, github_avatar_url
+    INTO v_github_id, v_login, v_name, v_avatar
+  FROM forge_users WHERE id = NEW.user_id;
+
+  IF v_github_id IS NULL THEN
+    RAISE EXCEPTION 'Cannot create a GitHub connection without a legacy GitHub identity during migration rollout';
+  END IF;
+
+  INSERT INTO auth_identities
+    (user_id, provider, provider_subject, provider_login, provider_name, provider_avatar_url)
+  VALUES
+    (NEW.user_id, 'github', v_github_id::text, v_login, v_name, v_avatar)
+  ON CONFLICT (provider, provider_subject) DO NOTHING;
+
+  SELECT id, user_id INTO v_identity_id, v_identity_user_id
+  FROM auth_identities
+  WHERE provider = 'github' AND provider_subject = v_github_id::text;
+
+  IF v_identity_id IS NULL OR v_identity_user_id IS DISTINCT FROM NEW.user_id THEN
+    RAISE EXCEPTION 'Legacy GitHub connection identity is already owned by another Forge user';
+  END IF;
+
+  NEW.auth_identity_id := v_identity_id;
+  RETURN NEW;
+END;
+$forge$;
+
+DROP TRIGGER IF EXISTS github_connections_populate_auth_identity ON github_connections;
+CREATE TRIGGER github_connections_populate_auth_identity
+BEFORE INSERT OR UPDATE OF auth_identity_id ON github_connections
+FOR EACH ROW EXECUTE FUNCTION forge_populate_github_connection_identity();
+
+CREATE OR REPLACE FUNCTION forge_populate_session_active_github_connection()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $forge$
+BEGIN
+  IF NEW.active_github_connection_id IS NULL THEN
+    SELECT c.id INTO NEW.active_github_connection_id
+    FROM github_connections c
+    WHERE c.user_id = NEW.user_id
+    ORDER BY c.created_at DESC
+    LIMIT 1;
+  END IF;
+  RETURN NEW;
+END;
+$forge$;
+
+DROP TRIGGER IF EXISTS auth_sessions_populate_active_github_connection ON auth_sessions;
+CREATE TRIGGER auth_sessions_populate_active_github_connection
+BEFORE INSERT OR UPDATE OF active_github_connection_id ON auth_sessions
+FOR EACH ROW EXECUTE FUNCTION forge_populate_session_active_github_connection();
+
 COMMIT;

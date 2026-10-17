@@ -28,6 +28,10 @@ export const config = {
     clientSecret: () => required("GITHUB_CLIENT_SECRET"),
     callbackUrl: () => value("GITHUB_CALLBACK_URL") ?? `${config.publicBaseUrl}/auth/github/callback`
   },
+  get githubMultiAccountEnabled() { return value("GITHUB_MULTI_ACCOUNT_ENABLED") === "true"; },
+  get githubAppConfigured() {
+    return Boolean(value("GITHUB_APP_ID") && value("GITHUB_APP_SLUG") && value("GITHUB_APP_PRIVATE_KEY") && value("GITHUB_APP_WEBHOOK_SECRET"));
+  },
   githubApp: {
     appId: () => required("GITHUB_APP_ID"),
     slug: () => required("GITHUB_APP_SLUG"),

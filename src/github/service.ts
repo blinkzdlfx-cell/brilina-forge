@@ -288,7 +288,7 @@ export class GithubService {
     }
     if (totalBytes > 2_000_000) throw Object.assign(new Error("Batch exceeds the 2 MB total write limit"), { statusCode: 413 });
     const commitMessage = message.trim() || "Update " + files.length + " files";
-    if (commitMessage.length > 200 || /[\\u0000-\\u001f\\u007f]/.test(commitMessage)) {
+    if (commitMessage.length > 200 || /[\u0000-\u001f\u007f]/.test(commitMessage)) {
       throw Object.assign(new Error("Invalid commit message"), { statusCode: 400 });
     }
 

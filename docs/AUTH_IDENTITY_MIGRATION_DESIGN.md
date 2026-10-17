@@ -60,3 +60,16 @@ The next major stage is the GitHub App integration: app registration/configurati
 - Never delete or recreate existing Forge users to simulate linking.
 - Keep run context immutable: a run must capture the selected connection/installation, repository, and branch at creation.
 - Do not deploy or mutate production database schema without explicit owner authorization and verified temporary-branch results.
+
+
+## Implementation checkpoint — 2026-10-17
+
+Migration 006 is committed and was tested on temporary Neon branch `br-noisy-rain-zamdr0q8`; migrations 007 and 008 were tested there as well. The tested baseline retained 1 Forge user, 1 connection, 3 sessions, 1 workspace, 6 conversations, 15 repositories, and 50 runs; identity/connection/session mismatch counts were zero. Production was not changed. Source implementation is in integration branch `feat/auth-github-app-complete`. CI passed on implementation commit `d5ad4e1029e0ea2a3572df698c9ee70624d3ee91`; live OAuth/App integration and production rollout acceptance remain pending. See `docs/IMPLEMENTATION_PLAN.md` for the staged production rollout, including why migration 008 must follow deployment of the new Worker.
+
+ 
+### Rollout-compatibility validation addendum — 2026-10-17
+- A second temporary Neon branch `auth-migration-006-007-compat-20261017` (`br-restless-violet-zanlwa4j`) was created from production before migration 008.
+- Migrations 006 and 007 were exercised there with the compatibility triggers from the final migration 006 file.
+- Simulated a legacy Worker-style connection insert and session insert. Assertions passed: the connection acquired its `auth_identities` row and the session acquired its `active_github_connection_id`.
+- Verification on that branch showed 0 connections without identities, 0 sessions without active connections, 0 runs missing existing repository/branch snapshots, and the old `UNIQUE(user_id)` constraint still present. This supports the staged rollout: 006 + 007 first; new Worker deploy; 008 only after that.
+- Both temporary Neon branches are non-production. Production remains unchanged.

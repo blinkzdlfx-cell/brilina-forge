@@ -249,3 +249,63 @@ The owner requested that the related stages be completed as one coherent effort,
 - Production database is unchanged by this work.
 - Existing failing test history: `push_files` read-back verification assertion and `GithubService.writeFiles` commit-message validation. Recheck current HEAD rather than assuming these still fail or have been fixed.
 - The next handoff checkpoint is `docs/CURRENT_STATE_AND_CONTINUATION.md`. Keep it updated at each migration, source, and test gate.
+
+
+## Auth + GitHub App implementation checkpoint — 2026-10-17
+
+**Implementation branch:** `feat/auth-github-app-complete`. This is an integration branch; do not merge or deploy until its CI passes and the production migration sequence is approved.
+
+### Database migration evidence
+- `db/migrations/006_auth_identity_connections.sql`, `007_github_app_installations.sql`, and `008_enable_multiple_github_connections.sql` have been exercised on temporary Neon branch `auth-migration-006-validation-20261017` (`br-noisy-rain-zamdr0q8`), not production.
+- Before migration, that branch had 1 Forge user, 1 GitHub connection, 3 sessions, 1 workspace, 6 conversations, 15 repositories, and 50 runs.
+- After 006–008: one GitHub identity was backfilled; connection identity/session ownership mismatch counts were zero; no session lacked its active connection; all 50 runs retained repository/branch snapshots; all 5 GitHub App tables existed; and the legacy single-column `github_connections(user_id)` unique constraint was removed only by migration 008.
+- Migration 006 was re-executed on the temporary branch to verify idempotent behavior. The 007 conversation-context additions and 008 constraint change were also exercised.
+- Production remains unchanged by this work. Migrations 004 and 005 are already applied; never rerun them.
+
+### Source work now present on the integration branch
+- Persistent sessions resolve a Forge user separately from the selected GitHub identity/connection.
+- Credential refresh targets one explicit connection; account linking requires an authenticated existing session and refuses identities already owned by another Forge user.
+- Account linking is feature-gated by `GITHUB_MULTI_ACCOUNT_ENABLED=false` until migration 008 is applied.
+- GitHub App JWT signing, installation-token acquisition, installation repository listing, installation state bound to a Forge session, ownership-checked installation/repository APIs, and signed/idempotent webhook handling are implemented in source.
+- Conversation context can select either an OAuth connection-backed repository or an authorized App installation/repository. Run creation snapshots the context type, connection or installation, repository, and branch; execution resolves the credential from that snapshot and rechecks installation/repository authorization.
+- The context dialog includes connected-account switching/linking, App installation setup, installation selection, and installation repository/branch selection.
+- These are source claims awaiting automated CI and runtime acceptance; do not mark the architecture complete yet.
+
+### Safe production rollout gate (do not skip)
+1. First run CI and fix every failure; inspect the full diff.
+2. Owner applies migration 006 and 007 in production, in order, using the committed SQL files and their verification queries. Both are additive and compatible with the old Worker.
+3. Deploy the verified new source with `GITHUB_MULTI_ACCOUNT_ENABLED=false`; test sign-in/session continuity and App installation paths.
+4. Only after the new Worker is live and stable, owner applies migration 008. The old Worker must not be running against schema 008 because its old upsert expects `UNIQUE(user_id)`.
+5. Set `GITHUB_MULTI_ACCOUNT_ENABLED=true` only after migration 008 verification. Then test account linking/switching.
+6. Complete one combined acceptance pass: existing login, linking/switching, App installation scope, repository authorization, immutable run context, webhook lifecycle, and the real configured-provider write/read-back/diff workflow.
+
+### Required return-to item
+After the combined auth/App gate passes, return to the deferred core workflow that triggered the architecture decision: a real AI run must use an authorized non-default working branch, write a file, read it back, present actual diff/commit evidence, and prove a mid-run context change cannot redirect the run. Also recheck the previously failing Phase 1 tests rather than assuming their historical status is current.
+
+
+### CI evidence update — 2026-10-17
+- Draft PR: #14, head commit `d5ad4e1029e0ea2a3572df698c9ee70624d3ee91`.
+- GitHub Actions CI passed for that commit: web/build, Phase 1 typecheck, Phase 1 tests, Worker tests, Wrangler deploy dry-run, and both dependency security audits.
+- The two historical Phase 1 failures were fixed: the batch-write authorization test was failing because its control-character regex matched literal letters; the service commit-message regex had the same double-escaping defect. The latest run also confirms the Worker test suite passes after restoring the full connection-aware session repository implementation.
+- This is automated CI evidence only. Live OAuth, GitHub App installation/webhook, production migration, and actual AI-to-GitHub acceptance remain pending.
+
+ 
+### Rollout-compatibility validation addendum — 2026-10-17
+- A second temporary Neon branch `auth-migration-006-007-compat-20261017` (`br-restless-violet-zanlwa4j`) was created from production before migration 008.
+- Migrations 006 and 007 were exercised there with the compatibility triggers from the final migration 006 file.
+- Simulated a legacy Worker-style connection insert and session insert. Assertions passed: the connection acquired its `auth_identities` row and the session acquired its `active_github_connection_id`.
+- Verification on that branch showed 0 connections without identities, 0 sessions without active connections, 0 runs missing existing repository/branch snapshots, and the old `UNIQUE(user_id)` constraint still present. This supports the staged rollout: 006 + 007 first; new Worker deploy; 008 only after that.
+- Both temporary Neon branches are non-production. Production remains unchanged.
+
+
+## Final auth + GitHub App source gate — 2026-10-17
+
+- **Latest integration head:** `32ba5e8af530f27850002cb5d681860a78251dfe`, branch `feat/auth-github-app-complete`, PR #14 open against `main`.
+- **CI:** run `39062142344` passed on that exact SHA: build, Phase 1 typecheck/tests, Worker tests, Wrangler deploy dry-run, and both dependency audits.
+- **Temporary DB gates:** latest read-only verification on `br-restless-violet-zanlwa4j` (006+007, pre-008) confirms the legacy unique constraint and compatibility triggers remain, both webhook fields exist, and context/ownership mismatch counts are zero. Verification on `br-noisy-rain-zamdr0q8` (006–008) confirms the unique-per-user constraint is removed only in the final stage and all identity/session/run-context checks are clean. Neither is production.
+- **Production rollout remains owner-controlled:** merge/review PR, apply 006 and verify, apply 007 and verify, deploy new Worker with `GITHUB_MULTI_ACCOUNT_ENABLED=false`, smoke-test existing login/session, then apply 008 and verify. Only then set the flag to true and test linking/switching. See `docs/CURRENT_STATE_AND_CONTINUATION.md` for exact sequence and expected query results.
+- **Not yet proven:** live GitHub App credentials/callback/webhook, installation access under real accounts, and real provider-backed AI-to-GitHub write/read-back/diff. Do not mark the architecture fully accepted until those gates pass.
+
+
+### Documentation-head verification — 2026-10-17
+The documentation-complete integration head is `f18722e8cb8438a96765da064af7d53be840e2a5`. GitHub Actions run `39063266378` completed successfully on this exact SHA; both `verify` and `security-audit` jobs passed. This is the current source/documentation verification checkpoint. It still does not imply a production merge/deploy or live GitHub App acceptance.

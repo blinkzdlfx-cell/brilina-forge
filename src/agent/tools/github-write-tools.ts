@@ -289,7 +289,7 @@ export function createGithubPushFilesTool(
         totalBytes += size;
       }
       if (totalBytes > 2_000_000) return false;
-      if (args.message !== undefined && (!validText(args.message, "message", 200) || /[\\u0000-\\u001f\\u007f]/.test(args.message))) return false;
+      if (args.message !== undefined && (!validText(args.message, "message", 200) || /[\u0000-\u001f\u007f]/.test(args.message))) return false;
       const first = args.files[0];
       return await authorizedWorkBranch(service, context, {
         owner: args.owner, repo: args.repo, path: first.path, content: first.content, branch: args.branch

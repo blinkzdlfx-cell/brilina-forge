@@ -1,5 +1,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
+import { configureRuntimeEnv } from "../config.js";
+import { verifyGithubAppWebhookSignature } from "./app.js";
 import { GithubService } from "./service.js";
 
 describe("GithubService", () => {
@@ -89,5 +92,22 @@ describe("GithubService", () => {
     assert.equal(result.readBackVerified, true);
     assert.equal(requests.filter(item => item.path.endsWith("/git/commits") && item.method === "POST").length, 1);
     assert.equal(requests.filter(item => item.path.endsWith("/git/refs/heads/brilina/feature") && item.method === "PATCH").length, 1);
+  });
+});
+
+
+describe("GitHub App webhook signature verification", () => {
+  it("accepts a valid HMAC and rejects altered bodies or malformed signatures", async () => {
+    const secret = "test-webhook-secret";
+    configureRuntimeEnv({ ...process.env, GITHUB_APP_WEBHOOK_SECRET: secret });
+    try {
+      const body = JSON.stringify({ action: "created", installation: { id: 123 } });
+      const digest = createHmac("sha256", secret).update(body).digest("hex");
+      assert.equal(await verifyGithubAppWebhookSignature(body, `sha256=${digest}`), true);
+      assert.equal(await verifyGithubAppWebhookSignature(body + " ", `sha256=${digest}`), false);
+      assert.equal(await verifyGithubAppWebhookSignature(body, "sha1=invalid"), false);
+    } finally {
+      configureRuntimeEnv(process.env);
+    }
   });
 });

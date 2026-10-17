@@ -15,13 +15,16 @@ export type ForgeConversation = {
   repositoryId: string | null;
   repositoryFullName: string | null;
   branchName: string | null;
+  githubContextType: "oauth" | "installation";
+  installationRecordId: string | null;
+  installationRepositoryId: string | null;
   updatedAt: string;
 };
 
-export async function getForgeUserContext(githubUserId: number): Promise<{ userId: string; workspaceId: string }> {
+export async function getForgeUserContext(userId: string): Promise<{ userId: string; workspaceId: string }> {
   const rows = (await getSql().query(
-    "SELECT u.id AS user_id, w.id AS workspace_id FROM forge_users u JOIN workspaces w ON w.owner_user_id = u.id WHERE u.github_user_id = $1 LIMIT 1",
-    [githubUserId]
+    "SELECT u.id AS user_id, w.id AS workspace_id FROM forge_users u JOIN workspaces w ON w.owner_user_id = u.id WHERE u.id = $1 ORDER BY w.created_at ASC LIMIT 1",
+    [userId]
   )) as Record<string, unknown>[];
   if (!rows[0]) throw new Error("Forge workspace not initialized for this GitHub account");
   return { userId: String(rows[0].user_id), workspaceId: String(rows[0].workspace_id) };
@@ -30,6 +33,7 @@ export async function getForgeUserContext(githubUserId: number): Promise<{ userI
 export async function syncRepository(input: {
   userId: string;
   workspaceId: string;
+  githubConnectionId: string;
   githubNodeId: string;
   owner: string;
   name: string;
@@ -37,7 +41,7 @@ export async function syncRepository(input: {
   defaultBranch: string;
 }): Promise<ForgeRepository> {
   const rows = (await getSql().query(
-    "INSERT INTO repositories (workspace_id, github_connection_id, github_node_id, github_owner, github_name, github_full_name, default_branch) SELECT $1, c.id, $2, $3, $4, $5, $6 FROM github_connections c WHERE c.user_id = $7 ON CONFLICT (workspace_id, github_node_id) DO UPDATE SET github_owner = EXCLUDED.github_owner, github_name = EXCLUDED.github_name, github_full_name = EXCLUDED.github_full_name, default_branch = EXCLUDED.default_branch, updated_at = now() RETURNING id, github_node_id, github_owner, github_name, github_full_name, default_branch",
+    "INSERT INTO repositories (workspace_id, github_connection_id, github_node_id, github_owner, github_name, github_full_name, default_branch) SELECT $1, c.id, $2, $3, $4, $5, $6 FROM github_connections c WHERE c.id = $7 AND c.user_id = $8 ON CONFLICT (workspace_id, github_node_id) DO UPDATE SET github_connection_id = EXCLUDED.github_connection_id, github_owner = EXCLUDED.github_owner, github_name = EXCLUDED.github_name, github_full_name = EXCLUDED.github_full_name, default_branch = EXCLUDED.default_branch, updated_at = now() RETURNING id, github_node_id, github_owner, github_name, github_full_name, default_branch",
     [
       input.workspaceId,
       input.githubNodeId,
@@ -45,6 +49,7 @@ export async function syncRepository(input: {
       input.name,
       input.fullName,
       input.defaultBranch,
+      input.githubConnectionId,
       input.userId
     ]
   )) as Record<string, unknown>[];
@@ -63,7 +68,7 @@ export async function syncRepository(input: {
 
 export async function listConversations(userId: string, workspaceId: string): Promise<ForgeConversation[]> {
   const rows = (await getSql().query(
-    "SELECT c.id, c.title, c.repository_id, c.branch_name, r.github_full_name AS repository_full_name, c.updated_at FROM conversations c LEFT JOIN repositories r ON r.id = c.repository_id WHERE c.user_id = $1 AND c.workspace_id = $2 ORDER BY c.updated_at DESC LIMIT 100",
+    "SELECT c.id, c.title, c.repository_id, c.branch_name, c.github_context_type, c.github_app_installation_id, c.github_installation_repository_id, COALESCE(CASE WHEN c.github_context_type='installation' THEN ir.full_name ELSE r.github_full_name END) AS repository_full_name, c.updated_at FROM conversations c LEFT JOIN repositories r ON r.id = c.repository_id LEFT JOIN github_installation_repositories ir ON ir.id=c.github_installation_repository_id AND ir.installation_record_id=c.github_app_installation_id WHERE c.user_id = $1 AND c.workspace_id = $2 ORDER BY c.updated_at DESC LIMIT 100",
     [userId, workspaceId]
   )) as Record<string, unknown>[];
 
@@ -73,6 +78,9 @@ export async function listConversations(userId: string, workspaceId: string): Pr
     repositoryId: row.repository_id === null ? null : String(row.repository_id),
     repositoryFullName: row.repository_full_name === null ? null : String(row.repository_full_name),
     branchName: row.branch_name === null ? null : String(row.branch_name),
+    githubContextType: String(row.github_context_type ?? "oauth") as "oauth" | "installation",
+    installationRecordId: row.github_app_installation_id == null ? null : String(row.github_app_installation_id),
+    installationRepositoryId: row.github_installation_repository_id == null ? null : String(row.github_installation_repository_id),
     updatedAt: new Date(String(row.updated_at)).toISOString()
   }));
 }
@@ -83,18 +91,37 @@ export async function createConversation(input: {
   title?: string;
   repositoryId?: string;
   branchName?: string;
+  contextType?: "oauth" | "installation";
+  installationRecordId?: string | null;
+  installationRepositoryId?: string | null;
 }): Promise<ForgeConversation> {
-  if (input.repositoryId) {
+  const contextType = input.contextType ?? "oauth";
+  let repositoryId: string | null = input.repositoryId ?? null;
+  let installationRecordId: string | null = null;
+  let installationRepositoryId: string | null = null;
+  if (contextType === "installation") {
+    installationRecordId = input.installationRecordId ?? null;
+    installationRepositoryId = input.installationRepositoryId ?? null;
+    if (!installationRecordId || !installationRepositoryId || repositoryId) {
+      throw Object.assign(new Error("Installation context requires an installation and one of its repositories"), { statusCode: 400 });
+    }
+    const installRows = await getSql().query(
+      "SELECT ir.id FROM github_installation_repositories ir JOIN github_app_installations i ON i.id=ir.installation_record_id JOIN github_installation_access a ON a.installation_record_id=i.id WHERE ir.id=$1 AND i.id=$2 AND a.user_id=$3 AND a.revoked_at IS NULL AND i.suspended_at IS NULL AND i.uninstalled_at IS NULL LIMIT 1",
+      [installationRepositoryId, installationRecordId, input.userId]
+    ) as Record<string, unknown>[];
+    if (!installRows[0]) throw Object.assign(new Error("Installation repository is not authorized for this Forge user"), { statusCode: 403 });
+  } else if (repositoryId) {
+    if (input.installationRecordId || input.installationRepositoryId) throw Object.assign(new Error("OAuth context cannot include installation identifiers"), { statusCode: 400 });
     const repoRows = (await getSql().query(
       "SELECT id FROM repositories WHERE id = $1 AND workspace_id = $2 LIMIT 1",
-      [input.repositoryId, input.workspaceId]
+      [repositoryId, input.workspaceId]
     )) as Record<string, unknown>[];
     if (!repoRows[0]) throw Object.assign(new Error("Repository is not available in this workspace"), { statusCode: 400 });
   }
 
   const rows = (await getSql().query(
-    "INSERT INTO conversations (workspace_id, user_id, repository_id, branch_name, title) VALUES ($1, $2, $3, $4, $5) RETURNING id",
-    [input.workspaceId, input.userId, input.repositoryId ?? null, input.branchName ?? null, input.title ?? "New conversation"]
+    "INSERT INTO conversations (workspace_id, user_id, repository_id, branch_name, title, github_context_type, github_app_installation_id, github_installation_repository_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id",
+    [input.workspaceId, input.userId, repositoryId, input.branchName ?? null, input.title ?? "New conversation", contextType, installationRecordId, installationRepositoryId]
   )) as Record<string, unknown>[];
   if (!rows[0]) throw new Error("Failed to create conversation");
 
@@ -109,26 +136,49 @@ export async function updateConversationContext(input: {
   workspaceId: string;
   repositoryId: string | null;
   branchName: string | null;
+  contextType?: "oauth" | "installation";
+  installationRecordId?: string | null;
+  installationRepositoryId?: string | null;
 }): Promise<ForgeConversation | undefined> {
-  if (input.repositoryId) {
-    const repoRows = (await getSql().query(
-      "SELECT id FROM repositories WHERE id = $1 AND workspace_id = $2 LIMIT 1",
-      [input.repositoryId, input.workspaceId]
-    )) as Record<string, unknown>[];
-    if (!repoRows[0]) throw Object.assign(new Error("Repository is not available in this workspace"), { statusCode: 400 });
+  const contextType = input.contextType ?? "oauth";
+  let repositoryId = input.repositoryId;
+  let installationRecordId: string | null = null;
+  let installationRepositoryId: string | null = null;
+
+  if (contextType === "installation") {
+    installationRecordId = input.installationRecordId ?? null;
+    installationRepositoryId = input.installationRepositoryId ?? null;
+    if (!installationRecordId || !installationRepositoryId || repositoryId) {
+      throw Object.assign(new Error("Installation context requires an installation and one of its repositories"), { statusCode: 400 });
+    }
+    const rows = await getSql().query(
+      "SELECT ir.id FROM github_installation_repositories ir JOIN github_app_installations i ON i.id=ir.installation_record_id JOIN github_installation_access a ON a.installation_record_id=i.id WHERE ir.id=$1 AND i.id=$2 AND a.user_id=$3 AND a.revoked_at IS NULL AND i.suspended_at IS NULL AND i.uninstalled_at IS NULL LIMIT 1",
+      [installationRepositoryId, installationRecordId, input.userId]
+    ) as Record<string, unknown>[];
+    if (!rows[0]) throw Object.assign(new Error("Installation repository is not authorized for this Forge user"), { statusCode: 403 });
+  } else {
+    if (input.installationRecordId || input.installationRepositoryId) {
+      throw Object.assign(new Error("OAuth context cannot include GitHub App installation identifiers"), { statusCode: 400 });
+    }
+    if (repositoryId) {
+      const repoRows = (await getSql().query(
+        "SELECT id FROM repositories WHERE id = $1 AND workspace_id = $2 LIMIT 1",
+        [repositoryId, input.workspaceId]
+      )) as Record<string, unknown>[];
+      if (!repoRows[0]) throw Object.assign(new Error("Repository is not available in this workspace"), { statusCode: 400 });
+    }
   }
 
   await getSql().query(
-    "UPDATE conversations SET repository_id = $1, branch_name = $2, updated_at = now() WHERE id = $3 AND user_id = $4 AND workspace_id = $5",
-    [input.repositoryId, input.branchName, input.conversationId, input.userId, input.workspaceId]
+    "UPDATE conversations SET repository_id=$1, branch_name=$2, github_context_type=$3, github_app_installation_id=$4, github_installation_repository_id=$5, updated_at=now() WHERE id=$6 AND user_id=$7 AND workspace_id=$8",
+    [repositoryId, input.branchName, contextType, installationRecordId, installationRepositoryId, input.conversationId, input.userId, input.workspaceId]
   );
-
   return getConversationForUser(input.conversationId, input.userId, input.workspaceId);
 }
 
 export async function getConversationForUser(id: string, userId: string, workspaceId: string): Promise<ForgeConversation | undefined> {
   const rows = (await getSql().query(
-    "SELECT c.id, c.repository_id, c.branch_name, r.github_full_name AS repository_full_name, c.title, c.updated_at FROM conversations c LEFT JOIN repositories r ON r.id = c.repository_id WHERE c.id = $1 AND c.user_id = $2 AND c.workspace_id = $3 LIMIT 1",
+    "SELECT c.id, c.repository_id, c.branch_name, c.github_context_type, c.github_app_installation_id, c.github_installation_repository_id, CASE WHEN c.github_context_type='installation' THEN ir.full_name ELSE r.github_full_name END AS repository_full_name, c.title, c.updated_at FROM conversations c LEFT JOIN repositories r ON r.id = c.repository_id LEFT JOIN github_installation_repositories ir ON ir.id=c.github_installation_repository_id AND ir.installation_record_id=c.github_app_installation_id WHERE c.id = $1 AND c.user_id = $2 AND c.workspace_id = $3 LIMIT 1",
     [id, userId, workspaceId]
   )) as Record<string, unknown>[];
   if (!rows[0]) return undefined;
@@ -139,6 +189,9 @@ export async function getConversationForUser(id: string, userId: string, workspa
     repositoryId: rows[0].repository_id === null ? null : String(rows[0].repository_id),
     repositoryFullName: rows[0].repository_full_name === null ? null : String(rows[0].repository_full_name),
     branchName: rows[0].branch_name === null ? null : String(rows[0].branch_name),
+    githubContextType: String(rows[0].github_context_type ?? "oauth") as "oauth" | "installation",
+    installationRecordId: rows[0].github_app_installation_id == null ? null : String(rows[0].github_app_installation_id),
+    installationRepositoryId: rows[0].github_installation_repository_id == null ? null : String(rows[0].github_installation_repository_id),
     updatedAt: new Date(String(rows[0].updated_at)).toISOString()
   };
 }
