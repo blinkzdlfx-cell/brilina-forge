@@ -61,3 +61,7 @@
 ## Implementation status — 2026-10-17
 
 The initial server-side implementation is in `feat/auth-github-app-complete`: App JWT and installation-token client, session-bound installation state, installation/access/repository persistence, ownership-filtered installation/repository/branch APIs, signed webhook handling, and conversation/run installation context. Account/install selectors have been added to the context dialog. Automated CI and live browser/GitHub acceptance have not yet passed; do not treat the architecture as complete until the recorded acceptance checklist below is demonstrated. The installation cache is never the authorization source of truth: each run rechecks the selected installation and repository authorization before token use.
+
+
+## Automated verification result — 2026-10-17
+CI passed on integration commit `d5ad4e1029e0ea2a3572df698c9ee70624d3ee91`: build, phase-1 typecheck, phase-1 tests, Worker tests, Wrangler dry-run, and dependency security audits. This does not substitute for live GitHub App configuration, installation callback/webhook verification, production schema rollout, or the real AI write/read-back/diff acceptance.
