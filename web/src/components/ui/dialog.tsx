@@ -28,7 +28,7 @@ export function Dialog({ open, onOpenChange, title, description, children, class
       ref={dialogRef}
       aria-labelledby={titleId}
       aria-describedby={description ? descriptionId : undefined}
-      className={cn("w-[min(92vw,32rem)] max-h-[85dvh] overflow-auto rounded-xl border border-border bg-popover p-0 text-popover-foreground shadow-2xl backdrop:bg-black/50", className)}
+      className={cn("m-auto w-[min(92vw,32rem)] max-h-[85dvh] overflow-auto rounded-xl border border-border bg-popover p-0 text-popover-foreground shadow-2xl backdrop:bg-black/50", className)}
       onCancel={event => { event.preventDefault(); onOpenChange(false); }}
       onClose={() => onOpenChange(false)}
       onClick={event => { if (event.target === event.currentTarget) onOpenChange(false); }}
