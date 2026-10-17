@@ -248,15 +248,15 @@ svg { display: block; }
 .message-role { margin-bottom: 7px; color: #737c8a; font-size: 11px; font-weight: 700; }
 .message-content { color: #303641; font-size: 14px; line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere; }
 .message-content.streaming::after { content: "▍"; color: var(--forge-primary); animation: caret 1s steps(2) infinite; }
-.message.user { padding-left: 40px; }
-.message.user .message-body { flex: 0 1 auto; max-width: min(100%, 720px); }
+.message.user { justify-content: flex-end; padding-left: 0; }
+.message.user .message-body { flex: 0 1 auto; max-width: min(100%, 720px); margin-left: auto; }
 .message.user .message-content { padding: 12px 15px; color: #272c36; background: #fff; border: 1px solid var(--forge-border); border-radius: 15px 15px 5px 15px; box-shadow: var(--forge-shadow-sm); }
 @keyframes caret { 50% { opacity: 0; } }
 
-.run-history { display: grid; gap: 10px; margin: 22px 0 0 40px; min-width: 0; }
+.run-history { display: grid; gap: 10px; margin: 0; min-width: 0; }
 .run-history-heading, .tool-activity-title, .diff-panel-title { padding: 0 0 3px; color: var(--forge-text-muted); font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
 .tool-activity { min-width: 0; overflow: hidden; background: #fff; border: 1px solid var(--forge-border); border-radius: 12px; box-shadow: var(--forge-shadow-sm); }
-.run-history .tool-activity { margin: 0; }
+.run-history-item { margin: 0; }
 .run-history-summary { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 12px 13px; font-size: 12px; list-style: none; cursor: pointer; }
 .run-history-summary::-webkit-details-marker { display: none; }
 .run-history-summary:hover { background: #fafbfc; }
@@ -348,7 +348,7 @@ svg { display: block; }
   .main { width: 100%; }
   .topbar { grid-template-columns: minmax(0, 1fr); grid-template-areas: "context" "controls"; gap: 10px; padding: 10px 12px; }
   .topbar.compare-open { grid-template-areas: "context" "controls" "compare"; }
-  .topbar > .context { display: block; max-width: 100%; }
+  .topbar > .context { display: block; max-width: 100%; padding-left: 42px; }
   .context strong { font-size: 13px; }
   .context span { margin-top: 3px; font-size: 10px; }
   .top-actions { display: flex; align-items: center; gap: 8px; }
@@ -357,7 +357,7 @@ svg { display: block; }
   .workspace-controls .field-helper { display: none; }
   .topbar-actions { flex-wrap: wrap; gap: 6px; }
   .toolbar-button { min-height: 40px; padding: 0 10px; }
-  .mobile-menu-button { display: inline-flex; }
+  .mobile-menu-button { position: absolute; top: 10px; left: 12px; z-index: 6; display: inline-flex; }
   .avatar { width: 32px; height: 32px; flex-basis: 32px; }
   .chat-inner { width: calc(100% - 28px); padding: 28px 0 20px; }
   .welcome { margin-bottom: 30px; }
@@ -365,7 +365,8 @@ svg { display: block; }
   .welcome p { font-size: 13px; }
   .messages { gap: 22px; }
   .message { gap: 9px; }
-  .message.user { padding-left: 0; }
+  .message.user { justify-content: flex-end; padding-left: 0; }
+  .message.user .message-body { margin-left: auto; }
   .message.user .message-content { padding: 11px 13px; }
   .message-content { font-size: 13px; }
   .run-history { margin-left: 0; }
