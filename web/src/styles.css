@@ -401,7 +401,9 @@ svg { display: block; }
 @keyframes pulse { 50% { opacity: .35; transform: scale(.75); } }
 
 .diff-panel { margin: 22px 0; overflow: hidden; background: #fff; border: 1px solid var(--forge-border); border-radius: var(--forge-radius-md); box-shadow: var(--forge-shadow-sm); }
-.diff-panel-title { padding: 13px 14px; border-bottom: 1px solid var(--forge-border); }
+.diff-panel-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 8px 7px 14px; border-bottom: 1px solid var(--forge-border); }
+.diff-close-button { color: var(--forge-text-muted); }
+.diff-close-button:hover { color: var(--forge-text); background: var(--forge-surface-muted); }
 .diff-file { border-bottom: 1px solid #eef0f3; }
 .diff-file:last-child { border-bottom: 0; }
 .diff-file summary { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; align-items: center; gap: 9px; padding: 11px 14px; font-size: 12px; overflow-wrap: anywhere; cursor: pointer; }
