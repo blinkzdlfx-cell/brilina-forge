@@ -20,12 +20,12 @@ export async function updatePersistentSessionCredentials(
   return getPersistentSession(token);
 }
 
-export async function listGithubConnectionsForUser(userId: string): Promise<Array<{
+export async function listGithubConnectionsForUser(userId: string, activeConnectionId?: string): Promise<Array<{
   id: string; login: string; name: string | null; avatarUrl: string | null; active: boolean;
 }>> {
   const rows = await getSql().query(
-    "SELECT c.id, COALESCE(i.provider_login, c.github_login) AS login, i.provider_name AS name, i.provider_avatar_url AS avatar_url, EXISTS (SELECT 1 FROM auth_sessions s WHERE s.user_id = c.user_id AND s.active_github_connection_id = c.id) AS active FROM github_connections c JOIN auth_identities i ON i.id = c.auth_identity_id WHERE c.user_id = $1 ORDER BY c.created_at ASC",
-    [userId]
+    "SELECT c.id, COALESCE(i.provider_login, c.github_login) AS login, i.provider_name AS name, i.provider_avatar_url AS avatar_url, (c.id = $2) AS active FROM github_connections c JOIN auth_identities i ON i.id = c.auth_identity_id WHERE c.user_id = $1 ORDER BY c.created_at ASC",
+    [userId, activeConnectionId ?? null]
   ) as Record<string, unknown>[];
   return rows.map(row => ({
     id: String(row.id), login: String(row.login), name: row.name == null ? null : String(row.name),
