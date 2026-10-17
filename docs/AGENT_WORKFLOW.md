@@ -34,6 +34,8 @@ Approved architecture constraints:
 - Native Cloudflare Worker + Workers Static Assets for hosted app/API.
 - Neon Postgres remains primary Forge database; no D1 migration.
 - GitHub remains canonical code state; preserve current REST/GraphQL service split unless evidence requires change.
+- Forge's own catalogued GitHub tools are the production execution path; the official GitHub MCP tool list is a reference inventory, not a production runtime dependency. Track adopted/deferred capabilities in `docs/GITHUB_TOOL_SYSTEM.md`.
+- Tool/category preferences may disable tools but cannot bypass mandatory server-side authorization. Uncatalogued `github.*` tools fail closed, and GitHub writes to the repository default branch are prohibited even when it is selected.
 - Provider-neutral adapter and typed controller/tool/policy boundaries.
 - No shell in Worker and no browser terminal.
 - No automatic merge or production deployment.
