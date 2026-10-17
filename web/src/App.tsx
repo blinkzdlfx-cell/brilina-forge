@@ -256,6 +256,21 @@ export function App() {
   }, [active, repositories]);
 
   const title = useMemo(() => active?.title ?? "New Forge conversation", [active]);
+  // Render persisted messages and run activity in one chronological transcript.
+  // Run activity uses its persisted run creation timestamp, so it appears between
+  // the user's prompt and the assistant's later response instead of after all messages.
+  const timeline = useMemo(() => [
+    ...messages.filter(message => message.id !== "welcome").map(message => ({
+      kind: "message" as const,
+      timestamp: message.createdAt,
+      message
+    })),
+    ...runActivities.map(run => ({
+      kind: "run" as const,
+      timestamp: run.createdAt,
+      run
+    }))
+  ].sort((left, right) => Date.parse(left.timestamp) - Date.parse(right.timestamp)), [messages, runActivities]);
   const selectedGithubRepo = repositories.find(item => item.id === selectedRepoId) ?? null;
   const sidebarCompact = collapsed && !isMobile;
   const contextPending = sessionLoading || loadingRepos || loadingBranches || !selectedRepoId || !selectedForgeRepoId || !selectedBranch;
@@ -598,6 +613,20 @@ export function App() {
 
       <main className="main">
         <header className={`topbar ${compareOpen ? "compare-open" : ""}`}>
+          <button
+            ref={mobileMenuButtonRef}
+            className="icon-button mobile-menu-button"
+            type="button"
+            onClick={toggleSidebar}
+            aria-label={mobileSidebarOpen ? "Close navigation" : "Open navigation"}
+            aria-expanded={mobileSidebarOpen}
+            aria-controls="forge-sidebar"
+            title={mobileSidebarOpen ? "Close navigation" : "Open navigation"}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </button>
           <div className="context">
             <strong>{title}</strong>
             <span>{(active?.branchName ?? selectedBranch) || "No branch selected"}</span>
@@ -634,20 +663,6 @@ export function App() {
               />
             </div>
             <div className="topbar-actions">
-              <button
-                ref={mobileMenuButtonRef}
-                className="icon-button mobile-menu-button"
-                type="button"
-                onClick={toggleSidebar}
-                aria-label={mobileSidebarOpen ? "Close navigation" : "Open navigation"}
-                aria-expanded={mobileSidebarOpen}
-                aria-controls="forge-sidebar"
-                title={mobileSidebarOpen ? "Close navigation" : "Open navigation"}
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                </svg>
-              </button>
               <button
                 className={`toolbar-button compare-toggle ${compareOpen ? "active" : ""}`}
                 type="button"
@@ -716,42 +731,35 @@ export function App() {
 
             {loadingConversation && <div className="conversation-loading" role="status">Loading conversation…</div>}
             <div className="messages">
-              {messages.filter(message => message.id !== "welcome").map(message => (
-                <article key={message.id} className={`message ${message.role}`}>
-                  {message.role === "assistant" && <img src="/brand/brilina-forge-mark.svg" alt="" />}
+              {timeline.map(entry => entry.kind === "message" ? (
+                <article key={entry.message.id} className={`message ${entry.message.role}`}>
+                  {entry.message.role === "assistant" && <img src="/brand/brilina-forge-mark.svg" alt="" />}
                   <div className="message-body">
-                    <div className="message-role">{message.role === "assistant" ? "Brilina Forge" : "You"}</div>
-                    <div className="message-content">{message.content}</div>
+                    <div className="message-role">{entry.message.role === "assistant" ? "Brilina Forge" : "You"}</div>
+                    <div className="message-content">{entry.message.content}</div>
                   </div>
                 </article>
+              ) : (
+                <details className="tool-activity run-history-item" key={entry.run.runId} aria-label="Run activity" open={entry.run.status === "running" || entry.run.status === "queued"}>
+                  <summary className="run-history-summary">
+                    <span className={`tool-state ${entry.run.status === "completed" ? "completed" : entry.run.status === "failed" || entry.run.status === "interrupted" ? "failed" : entry.run.status === "running" ? "running" : "requested"}`} />
+                    <span>Run activity · {new Date(entry.run.createdAt).toLocaleString()}</span>{entry.run.provider && entry.run.model && <span className="tool-status">{entry.run.provider} · {entry.run.model}</span>}<span className="tool-status">{entry.run.status}</span>
+                  </summary>
+                  {entry.run.tools.length === 0 && <div className="diff-empty">No tool activity recorded for this run.</div>}
+                  {entry.run.tools.map(item => <div className="tool-activity-row" key={item.callId}>
+                    <span className={`tool-state ${item.status}`} /><span>{item.toolName}</span>
+                    <span className="tool-status">{item.status === "approval" ? "Approval required" : item.detail ?? item.status}</span>
+                    {item.resultSummary && <span className="tool-result-summary">
+                      {item.resultSummary.operation && <span>{item.resultSummary.operation}</span>}
+                      {item.resultSummary.path && <code>{item.resultSummary.path}</code>}
+                      {item.resultSummary.branch && <span>on {item.resultSummary.branch}</span>}
+                      {item.resultSummary.readBackVerified && <span>GitHub read-back verified</span>}
+                      {item.resultSummary.commitUrl && <a href={item.resultSummary.commitUrl} target="_blank" rel="noreferrer">View commit</a>}
+                    </span>}
+                  </div>)}
+                  {entry.run.errorMessage && <div className="approval-note">{entry.run.errorMessage}</div>}
+                </details>
               ))}
-
-              {runActivities.length > 0 && (
-                <section className="run-history" aria-label="Run activity history">
-                  <div className="run-history-heading">Run activity</div>
-                  {runActivities.map(run => (
-                    <details className="tool-activity" key={run.runId} open={run.status === "running" || run.status === "queued"}>
-                      <summary className="run-history-summary">
-                        <span className={`tool-state ${run.status === "completed" ? "completed" : run.status === "failed" || run.status === "interrupted" ? "failed" : run.status === "running" ? "running" : "requested"}`} />
-                        <span>Run · {new Date(run.createdAt).toLocaleString()}</span>{run.provider && run.model && <span className="tool-status">{run.provider} · {run.model}</span>}<span className="tool-status">{run.status}</span>
-                      </summary>
-                      {run.tools.length === 0 && <div className="diff-empty">No tool activity recorded for this run.</div>}
-                      {run.tools.map(item => <div className="tool-activity-row" key={item.callId}>
-                        <span className={`tool-state ${item.status}`} /><span>{item.toolName}</span>
-                        <span className="tool-status">{item.status === "approval" ? "Approval required" : item.detail ?? item.status}</span>
-                        {item.resultSummary && <span className="tool-result-summary">
-                          {item.resultSummary.operation && <span>{item.resultSummary.operation}</span>}
-                          {item.resultSummary.path && <code>{item.resultSummary.path}</code>}
-                          {item.resultSummary.branch && <span>on {item.resultSummary.branch}</span>}
-                          {item.resultSummary.readBackVerified && <span>GitHub read-back verified</span>}
-                          {item.resultSummary.commitUrl && <a href={item.resultSummary.commitUrl} target="_blank" rel="noreferrer">View commit</a>}
-                        </span>}
-                      </div>)}
-                      {run.errorMessage && <div className="approval-note">{run.errorMessage}</div>}
-                    </details>
-                  ))}
-                </section>
-              )}
 
               {streaming && (
                 <article className="message assistant">
@@ -803,7 +811,9 @@ export function App() {
                 value={composer}
                 onChange={event => setComposer(event.target.value)}
                 onKeyDown={event => {
-                  if (event.key === "Enter" && !event.shiftKey) {
+                  // On phones, Enter is the keyboard's newline key. Only desktop
+                  // uses Enter to send; Shift+Enter remains a desktop newline.
+                  if (!isMobile && event.key === "Enter" && !event.shiftKey) {
                     event.preventDefault();
                     void send();
                   }
@@ -817,7 +827,7 @@ export function App() {
                 <span className="composer-status">
                   {contextPending
                     ? (!selectedRepoId ? "Select a repository and working branch to start." : "Preparing repository context…")
-                    : "Enter to send · Shift + Enter for a new line"}
+                    : isMobile ? "Enter for a new line" : "Enter to send · Shift + Enter for a new line"}
                 </span>
                 <button
                   className="send-button icon-send-button"
