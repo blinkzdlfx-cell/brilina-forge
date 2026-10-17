@@ -22,3 +22,11 @@ SELECT conname, pg_get_constraintdef(oid) AS definition
 FROM pg_constraint
 WHERE conrelid = 'github_connections'::regclass
 ORDER BY conname;
+
+-- During the staged rollout, these triggers keep legacy Worker inserts compatible.
+SELECT tgname
+FROM pg_trigger
+WHERE NOT tgisinternal
+  AND tgname IN ('github_connections_populate_auth_identity','auth_sessions_populate_active_github_connection')
+ORDER BY tgname;
+-- Expected: both trigger names are returned.
