@@ -62,3 +62,50 @@ test("GitHub MCP diagnostic reports authentication rejection without leaking tok
     globalThis.fetch = originalFetch;
   }
 });
+
+
+test("read-only MCP tool probe calls get_me and returns bounded tool output", async () => {
+  const originalFetch = globalThis.fetch;
+  const methods: string[] = [];
+  globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { method: string; params?: { name?: string; arguments?: Record<string, unknown> } };
+    methods.push(body.method);
+    if (body.method === "initialize") {
+      return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result: { protocolVersion: "2025-03-26" } }), {
+        status: 200, headers: { "MCP-Session-Id": "probe-session" }
+      });
+    }
+    if (body.method === "notifications/initialized") return new Response(null, { status: 202 });
+    if (body.method === "tools/call") {
+      assert.equal(body.params?.name, "get_me");
+      return new Response(JSON.stringify({
+        jsonrpc: "2.0", id: 3,
+        result: { content: [{ type: "text", text: "authenticated user" }], isError: false }
+      }), { status: 200 });
+    }
+    throw new Error("Unexpected MCP method");
+  }) as typeof fetch;
+
+  try {
+    const { callGithubMcpReadTool } = await import("./mcp-diagnostic.js");
+    const result = await callGithubMcpReadTool("secret-test-token", "get_me", {});
+    assert.equal(result.toolName, "get_me");
+    assert.equal(result.isError, false);
+    assert.equal(result.content[0].text, "authenticated user");
+    assert.deepEqual(methods, ["initialize", "notifications/initialized", "tools/call"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("read-only MCP tool probe rejects write tools and invalid repository paths", async () => {
+  const { callGithubMcpReadTool } = await import("./mcp-diagnostic.js");
+  await assert.rejects(
+    callGithubMcpReadTool("token", "push_files", {}),
+    /only permits read-only/
+  );
+  await assert.rejects(
+    callGithubMcpReadTool("token", "get_file_contents", { owner: "blinkzdlfx-cell", repo: "brilina-forge", path: "../secret" }),
+    /valid repository file path/
+  );
+});
