@@ -25,7 +25,7 @@ test("write tool factory exposes branch creation and create/update/upsert operat
 });
 
 test("write tools are scoped to the repository selected for the conversation", async () => {
-  const service = {} as unknown as GithubService;
+  const service = { getRepository: async () => ({ default_branch: "main" }) } as unknown as GithubService;
   const tools = createGithubWriteTools(service);
   const write = tools.find(tool => tool.name === "github.write_file");
   assert.ok(write);
@@ -57,6 +57,20 @@ test("write tools are scoped to the repository selected for the conversation", a
     path: "src/app.ts",
     content: "new",
     branch: "brilina/unselected"
+  }), false);
+});
+
+test("write tools always reject the repository default branch even when selected in context", async () => {
+  const service = { getRepository: async () => ({ default_branch: "main" }) } as unknown as GithubService;
+  const tools = createGithubWriteTools(service);
+  const write = tools.find(tool => tool.name === "github.write_file");
+  assert.ok(write);
+  const defaultBranchContext: ToolExecutionContext = {
+    ...context,
+    principal: { ...context.principal, branchName: "main" }
+  };
+  assert.equal(await write.authorize(defaultBranchContext, {
+    owner: "acme", repo: "site", path: "src/app.ts", content: "new", branch: "main"
   }), false);
 });
 
@@ -116,6 +130,7 @@ test("branch creation tool is scoped to the selected repository", async () => {
 
 test("a branch created during the current run becomes an authorized work branch", async () => {
   const service = {
+    getRepository: async () => ({ default_branch: "main" }),
     createBranch: async (_owner: string, _repo: string, branchName: string) => ({
       branch: branchName,
       sha: "base-sha",
