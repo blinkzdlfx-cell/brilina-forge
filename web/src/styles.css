@@ -597,3 +597,24 @@ svg { display: block; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+
+/* Guest authentication entry: preserve the workspace shell and make sign-in
+   discoverable when the desktop rail is collapsed or the mobile drawer is closed. */
+.sidebar-login {
+  color: var(--forge-sidebar-text);
+  text-decoration: none;
+}
+.sidebar-login:hover {
+  color: var(--forge-sidebar-text);
+  background: var(--forge-sidebar-hover);
+}
+.guest-login-trigger {
+  color: var(--forge-text-muted);
+  border-color: var(--forge-border);
+}
+.guest-login-trigger:hover {
+  color: var(--forge-primary);
+  background: var(--forge-primary-soft);
+  border-color: var(--forge-border-strong);
+}
