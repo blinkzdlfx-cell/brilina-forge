@@ -9,6 +9,12 @@ export type Session = {
   refreshTokenExpiresAt?: number;
   githubUser: GithubUser;
   createdAt: number;
+  /** Stable internal Forge identity; present for persistent sessions. */
+  forgeUserId?: string;
+  /** Explicit selected GitHub OAuth connection; never infer by user ID. */
+  githubConnectionId?: string;
+  authIdentityId?: string;
+  authSessionRowId?: string;
 };
 
 export type SessionStore = {
