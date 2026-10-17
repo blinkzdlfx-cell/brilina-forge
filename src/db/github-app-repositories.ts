@@ -97,6 +97,16 @@ export async function listGithubAppRepositoriesForUser(userId: string, installat
   }));
 }
 
+export async function getGithubAppInstallationForUser(userId: string, installationRecordId: string): Promise<{
+  installationId: number; authIdentityId: string;
+} | undefined> {
+  const rows = await getSql().query(
+    "SELECT i.installation_id, a.auth_identity_id FROM github_app_installations i JOIN github_installation_access a ON a.installation_record_id=i.id WHERE i.id=$1 AND a.user_id=$2 AND a.revoked_at IS NULL AND i.uninstalled_at IS NULL AND i.suspended_at IS NULL LIMIT 1",
+    [installationRecordId, userId]
+  ) as Record<string, unknown>[];
+  return rows[0] ? { installationId: Number(rows[0].installation_id), authIdentityId: String(rows[0].auth_identity_id) } : undefined;
+}
+
 export async function processGithubAppWebhook(input: {
   deliveryId: string; eventName: string; action?: string; payload: Record<string, unknown>;
 }): Promise<"processed" | "duplicate"> {
