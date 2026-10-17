@@ -37,6 +37,9 @@ Creates `github_tool_preferences`, keyed by Forge user, to persist enabled GitHu
 - `PUT /api/settings/github-tools` — authenticated and same-origin checked; persists enabled tool IDs/categories after server-side filtering to known, server-enabled capabilities.
 - Preferences are applied when a run constructs its ToolRegistry. Existing in-flight runs retain the tool list/context with which they started; settings affect subsequent runs.
 
+### 005_run_context_snapshot.sql
+Adds `repository_full_name_snapshot` and `branch_name_snapshot` to `runs`, then backfills existing runs from their conversation context. New runs snapshot the repository and branch at creation time; later conversation context changes must not retarget an already queued or running run.
+
 ### Provider and usage columns
 
 `runs.provider` and `runs.model` are written by `updateRunProvider` (`src/db/agent-repositories.ts`) once the runtime resolves the active provider for a run. They are nullable, so pre-Phase-5 runs are simply `NULL`.
