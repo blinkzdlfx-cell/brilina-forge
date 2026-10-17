@@ -22,7 +22,7 @@ import type { ChatMessage, Conversation, ForgeDiff, ForgeEvent, GithubBranch, Gi
 import { SelectField } from "./components/ui/SelectField";
 import { Button } from "./components/ui/button";
 import { Dialog } from "./components/ui/dialog";
-import { GitBranch, GitCompare, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Plus, Settings, Settings2, X } from "lucide-react";
+import { GitBranch, GitCompare, LogIn, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Plus, Settings, Settings2, X } from "lucide-react";
 
 const demoMessages: ChatMessage[] = [
   {
@@ -171,6 +171,18 @@ export function App() {
       });
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (!session?.authenticated) return;
+    if (window.location.pathname === "/login") window.location.replace("/");
+    try {
+      const pendingDraft = window.sessionStorage.getItem("brilina-forge:pending-message");
+      if (pendingDraft) {
+        setComposer(current => current || pendingDraft);
+        window.sessionStorage.removeItem("brilina-forge:pending-message");
+      }
+    } catch { /* session storage may be unavailable */ }
+  }, [session?.authenticated]);
 
   useEffect(() => () => { closeStream.current?.(); }, []);
 
@@ -338,7 +350,7 @@ export function App() {
   ].sort((left, right) => Date.parse(left.timestamp) - Date.parse(right.timestamp)), [messages, runActivities]);
   const selectedGithubRepo = repositories.find(item => item.id === selectedRepoId) ?? null;
   const sidebarCompact = collapsed && !isMobile;
-  const contextPending = sessionLoading || loadingRepos || loadingBranches || !selectedRepoId || !selectedForgeRepoId || !selectedBranch;
+  const contextPending = sessionLoading || loadingRepos || loadingBranches || Boolean(session?.authenticated && (!selectedRepoId || !selectedForgeRepoId || !selectedBranch));
 
   useEffect(() => {
     if (!shouldStickToBottomRef.current) return;
@@ -552,6 +564,11 @@ export function App() {
   async function send() {
     const message = composer.trim();
     if (!message || running) return;
+    if (!session?.authenticated) {
+      try { window.sessionStorage.setItem("brilina-forge:pending-message", message); } catch { /* storage may be unavailable */ }
+      window.location.assign("/login");
+      return;
+    }
     if (contextPending) {
       setError("Wait for the selected repository and working branch to finish loading before sending.");
       return;
@@ -589,7 +606,7 @@ export function App() {
     }
   }
 
-  if (sessionLoading) {
+  if (sessionLoading || (window.location.pathname === "/login" && session?.authenticated)) {
     return (
       <div className="forge-app boot-state" role="status" aria-live="polite">
         <img src="/brand/brilina-forge-mark.svg" alt="" />
@@ -612,13 +629,13 @@ export function App() {
     );
   }
 
-  if (!session.authenticated) {
+  if (!session.authenticated && window.location.pathname === "/login") {
     return (
       <div className="forge-app sign-in">
         <div className="sign-in-card">
           <img src="/brand/brilina-forge-logo.svg" alt="Brilina Forge" />
           <h1>Sign in to Brilina Forge</h1>
-          <p>Forge authorizes with GitHub. Your GitHub credentials stay server-side and are encrypted at rest.</p>
+          <p>Continue with GitHub to connect your repositories and access your Forge workspace. Your GitHub credentials stay server-side and are encrypted at rest.</p>
           <button className="sign-in-button" onClick={startGithubSignIn}>Continue with GitHub</button>
           {error && <div className="error-banner">{error}</div>}
         </div>
@@ -653,33 +670,44 @@ export function App() {
           </button>
         </div>
 
-        <button className="new-chat" onClick={newChat} disabled={running} aria-label={sidebarCompact ? "New chat" : undefined} title={sidebarCompact ? "New chat" : undefined}>
-          <Plus className="size-4" />{!sidebarCompact && "New chat"}
-        </button>
-        <button className="sidebar-settings" type="button" onClick={() => void openToolSettings()} aria-label={sidebarCompact ? "Settings" : undefined} title={sidebarCompact ? "Settings" : undefined}>
-          <Settings className="size-4" />{!sidebarCompact && "Settings"}
-        </button>
-
-        {!sidebarCompact && (
+        {session?.authenticated ? (
           <>
-            <div className="section-label">Conversations</div>
-            <div className="conversation-list">
-              {conversations.map(item => (
-                <button key={item.id} className={`conversation-item ${active?.id === item.id ? "active" : ""}`} onClick={() => selectConversation(item)}>
-                  <span>{item.title ?? "Untitled conversation"}</span>
-                </button>
-              ))}
-              {!conversations.length && <div className="empty-list">No conversations yet.</div>}
-            </div>
+            <button className="new-chat" onClick={newChat} disabled={running} aria-label={sidebarCompact ? "New chat" : undefined} title={sidebarCompact ? "New chat" : undefined}>
+              <Plus className="size-4" />{!sidebarCompact && "New chat"}
+            </button>
+            <button className="sidebar-settings" type="button" onClick={() => void openToolSettings()} aria-label={sidebarCompact ? "Settings" : undefined} title={sidebarCompact ? "Settings" : undefined}>
+              <Settings className="size-4" />{!sidebarCompact && "Settings"}
+            </button>
+
+            {!sidebarCompact && (
+              <>
+                <div className="section-label">Conversations</div>
+                <div className="conversation-list">
+                  {conversations.map(item => (
+                    <button key={item.id} className={`conversation-item ${active?.id === item.id ? "active" : ""}`} onClick={() => selectConversation(item)}>
+                      <span>{item.title ?? "Untitled conversation"}</span>
+                    </button>
+                  ))}
+                  {!conversations.length && <div className="empty-list">No conversations yet.</div>}
+                </div>
+                <div className="sidebar-spacer" />
+                <div className="workspace-card">
+                  <div className="workspace-dot" />
+                  <div>
+                    <strong>{session?.githubUser?.login ? session.githubUser.login : "Personal workspace"}</strong>
+                    <span>GitHub connected</span>
+                  </div>
+                  <button className="icon-button sign-out" onClick={() => void signOut()} aria-label="Sign out" title="Sign out"><LogOut className="size-4" /></button>
+                </div>
+              </>
+            )}
+          </>
+        ) : (
+          <>
             <div className="sidebar-spacer" />
-            <div className="workspace-card">
-              <div className="workspace-dot" />
-              <div>
-                <strong>{session?.githubUser?.login ? session.githubUser.login : "Personal workspace"}</strong>
-                <span>GitHub connected</span>
-              </div>
-              <button className="icon-button sign-out" onClick={() => void signOut()} aria-label="Sign out" title="Sign out"><LogOut className="size-4" /></button>
-            </div>
+            <a className="sidebar-settings sidebar-login" href="/login" aria-label={sidebarCompact ? "Log in" : undefined} title={sidebarCompact ? "Log in" : undefined}>
+              <LogIn className="size-4" />{!sidebarCompact && "Log in"}
+            </a>
           </>
         )}
       </aside>
@@ -691,16 +719,22 @@ export function App() {
           </button>
           <div className="context">
             <strong>{title}</strong>
-            <span>{selectedGithubRepo ? `${selectedGithubRepo.full_name} · ${(active?.branchName ?? selectedBranch) || "No branch"}` : "Select a repository to begin"}</span>
+            <span>{selectedGithubRepo ? `${selectedGithubRepo.full_name} · ${(active?.branchName ?? selectedBranch) || "No branch"}` : session?.authenticated ? "Select a repository to begin" : "Sign in to connect GitHub"}</span>
           </div>
           <div className="top-actions workspace-top-actions">
-            <Button variant="outline" size="sm" className="context-panel-trigger" type="button" onClick={() => setContextPanelOpen(true)} disabled={running} aria-haspopup="dialog">
-              <GitBranch aria-hidden="true" />
-              <span className="context-trigger-repo">{selectedGithubRepo?.full_name ?? "Choose repository"}</span>
-              <span className="context-trigger-branch">{selectedBranch || "No branch"}</span>
-              <Settings2 aria-hidden="true" />
-            </Button>
-            {session?.githubUser?.avatar_url ? <img className="avatar" src={session.githubUser.avatar_url} alt="" /> : <button className="avatar" aria-label="Forge workspace">F</button>}
+            {session?.authenticated ? (
+              <>
+                <Button variant="outline" size="sm" className="context-panel-trigger" type="button" onClick={() => setContextPanelOpen(true)} disabled={running} aria-haspopup="dialog">
+                  <GitBranch aria-hidden="true" />
+                  <span className="context-trigger-repo">{selectedGithubRepo?.full_name ?? "Choose repository"}</span>
+                  <span className="context-trigger-branch">{selectedBranch || "No branch"}</span>
+                  <Settings2 aria-hidden="true" />
+                </Button>
+                {session.githubUser?.avatar_url ? <img className="avatar" src={session.githubUser.avatar_url} alt="" /> : <button className="avatar" aria-label="Forge workspace">F</button>}
+              </>
+            ) : isMobile ? (
+              <a className="icon-button guest-login-trigger" href="/login" aria-label="Log in" title="Log in"><LogIn aria-hidden="true" /></a>
+            ) : null}
           </div>
         </header>
         <Dialog open={toolSettingsOpen} onOpenChange={setToolSettingsOpen} title="Settings" description="Manage which native GitHub tools Forge may offer to the AI. Mandatory server-side security rules cannot be disabled." className="tool-settings-dialog">
@@ -806,7 +840,7 @@ export function App() {
               <div className="welcome">
                 <img src="/brand/brilina-forge-mark.svg" alt="" />
                 <h1>Turn ideas into working software.</h1>
-                <p>{selectedGithubRepo ? `Working from ${selectedGithubRepo.full_name}.` : "Select a repository and branch, then describe the change."}</p>
+                <p>{selectedGithubRepo ? `Working from ${selectedGithubRepo.full_name}.` : session?.authenticated ? "Select a repository and branch, then describe the change." : "Sign in to connect GitHub, choose a repository, and start building."}</p>
               </div>
             )}
 
@@ -902,16 +936,18 @@ export function App() {
                     void send();
                   }
                 }}
-                placeholder={contextPending ? (!selectedRepoId ? "Select a repository above to begin…" : "Preparing repository context…") : "Message Brilina Forge…"}
+                placeholder={!session?.authenticated ? "Message Brilina Forge…" : contextPending ? (!selectedRepoId ? "Select a repository above to begin…" : "Preparing repository context…") : "Message Brilina Forge…"}
                 rows={1}
-                disabled={running || contextPending}
+                disabled={running || Boolean(session?.authenticated && contextPending)}
                 aria-label="Message Brilina Forge"
               />
               <div className="composer-footer">
                 <span className="composer-status">
-                  {contextPending
-                    ? (!selectedRepoId ? "Select a repository and working branch to start." : "Preparing repository context…")
-                    : isMobile ? "Enter for a new line" : "Enter to send · Shift + Enter for a new line"}
+                  {!session?.authenticated
+                    ? "Sign in with GitHub to send your message."
+                    : contextPending
+                      ? (!selectedRepoId ? "Select a repository and working branch to start." : "Preparing repository context…")
+                      : isMobile ? "Enter for a new line" : "Enter to send · Shift + Enter for a new line"}
                 </span>
                 <button
                   className="send-button icon-send-button"
@@ -933,7 +969,7 @@ export function App() {
                 </button>
               </div>
             </div>
-            <p className="disclaimer">Forge can make mistakes. Review proposed changes before implementation.</p>
+            <p className="disclaimer">{session?.authenticated ? "Forge can make mistakes. Review proposed changes before implementation." : "Sign in to start a conversation. Forge can make mistakes; review proposed changes before implementation."}</p>
           </div>
         </footer>
       </main>
