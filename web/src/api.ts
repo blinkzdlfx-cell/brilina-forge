@@ -1,4 +1,4 @@
-import type { ChatMessage, Conversation, ConversationRun, ForgeDiff, ForgeEvent, ForgeRepository, GithubBranch, GithubRepository, RunAudit, SessionInfo } from "./types";
+import type { ChatMessage, Conversation, ConversationRun, ForgeDiff, ForgeEvent, ForgeRepository, GithubBranch, GithubRepository, RunAudit, SessionInfo, GithubToolSettings, GithubToolPreferences } from "./types";
 
 async function readError(response: Response, fallback: string): Promise<never> {
   try {
@@ -145,5 +145,23 @@ export async function compareBranches(owner: string, repo: string, base: string,
     { credentials: "include" }
   );
   if (!response.ok) await readError(response, "Unable to load the branch comparison");
+  return response.json();
+}
+
+
+export async function getGithubToolSettings(): Promise<GithubToolSettings> {
+  const response = await fetch("/api/settings/github-tools", { credentials: "include" });
+  if (!response.ok) await readError(response, "Unable to load GitHub tool settings");
+  return response.json();
+}
+
+export async function saveGithubToolSettings(preferences: GithubToolPreferences): Promise<GithubToolSettings> {
+  const response = await fetch("/api/settings/github-tools", {
+    method: "PUT",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(preferences)
+  });
+  if (!response.ok) await readError(response, "Unable to save GitHub tool settings");
   return response.json();
 }
