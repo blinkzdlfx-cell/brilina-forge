@@ -879,7 +879,7 @@ export function App() {
           </button>
           <div className="context">
             <strong>{title}</strong>
-            <span>{selectedGithubRepo ? `${selectedGithubRepo.full_name} · ${(active?.branchName ?? selectedBranch) || "No branch"}` : session?.authenticated ? "Select a repository to begin" : "Sign in to connect GitHub"}</span>
+            <span>{selectedGithubRepo ? `${selectedGithubRepo.full_name} · ${(active?.branchName ?? selectedBranch) || "No branch"}` : selectedInstallationRepo ? `${selectedInstallationRepo.fullName} · ${(active?.branchName ?? selectedBranch) || "No branch"}` : active?.repositoryFullName ? `${active.repositoryFullName} · ${active.branchName ?? "No branch"}` : session?.authenticated ? "Select a repository to begin" : "Sign in to connect GitHub"}</span>
           </div>
           <div className="top-actions workspace-top-actions">
             {session?.authenticated ? (
@@ -1145,7 +1145,7 @@ export function App() {
                     void send();
                   }
                 }}
-                placeholder={!session?.authenticated ? "Message Brilina Forge…" : contextPending ? (!selectedRepoId ? "Select a repository above to begin…" : "Preparing repository context…") : "Message Brilina Forge…"}
+                placeholder={!session?.authenticated ? "Message Brilina Forge…" : contextPending ? (contextType === "installation" ? "Select an installation repository above to begin…" : !selectedRepoId ? "Select a repository above to begin…" : "Preparing repository context…") : "Message Brilina Forge…"}
                 rows={1}
                 disabled={running || Boolean(session?.authenticated && contextPending)}
                 aria-label="Message Brilina Forge"
