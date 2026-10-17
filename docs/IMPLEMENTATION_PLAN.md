@@ -172,3 +172,51 @@ Production execution uses Forge-owned GitHub tools through the existing REST/Gra
 - No deployment or database migration was performed from this session.
 
 **Current checkpoint:** source changes are committed directly to `main`, including the catalogue, registry filters, preferences repository/API/UI, default-branch write protection, run-context snapshot code, and MCP route cleanup. The additive migrations 004 and 005 are not applied; the exact upstream 46-name snapshot is not available in the retrieved evidence; and automated plus live GitHub acceptance tests remain outstanding. Do not start owner acceptance testing until those preconditions are prepared.
+
+## 5. Authentication foundation and multiple GitHub accounts — priority batch
+
+**Owner decision (2026-10-17):** Sign in to Forge with GitHub first. Add Google and email sign-in later through the same Forge identity/session architecture. A single Forge user must be able to connect multiple GitHub accounts and switch between them without creating separate Forge accounts.
+
+**Current state from source inspection:** the Worker already has GitHub OAuth start/callback/logout routes, an opaque brilina_session cookie, Neon-backed sessions, and encrypted GitHub token storage. However, the current session resolver binds one session to one GitHub user/connection, and createPersistentSession upserts github_connections on user_id; this is a one-connection-per-Forge-user model. The public product architecture must move to a stable Forge identity with separately linked authentication identities, GitHub account connections, and GitHub App installations. Do not assume the existing login flow already supports multiple accounts or the final GitHub App model.
+
+### Auth Batch 1 — Database and identity model (current priority)
+- Inspect the actual schema, constraints, repository/session queries, and existing tests before designing migrations.
+- Preserve existing users, workspaces, sessions, conversations, repositories, and runs. Do not create duplicate Forge users when linking another GitHub identity.
+- Introduce versioned, additive Neon migrations for provider identities and multiple GitHub connections/installations. Backfill existing GitHub-only users and their current connections without losing credentials or ownership.
+- Remove the github_connections(user_id) uniqueness assumption only after all reads/writes have been updated to address a connection explicitly; add a stable connection identifier and explicit installation/account identifiers where needed.
+- Keep secrets encrypted at rest. Session cookies contain random opaque IDs; only hashes of session IDs are stored in Neon.
+- Keep migrations in repository files, test on a temporary Neon branch, inspect backfill counts and unresolved rows, then ask before applying to production. Migrations 004 and 005 are still pending on production and must be applied from the provided SQL script before the dependent GitHub-tool settings/run-snapshot path is treated as usable.
+- **Acceptance:** migration tests pass on a temporary branch; existing records map deterministically; no duplicated Forge identity/workspace; no credentials exposed; rollback/recovery plan is documented.
+
+### Auth Batch 2 — Session and identity linking
+- Keep **Continue with GitHub** as the initial sign-in method, using the GitHub App's user authorization flow with state and PKCE.
+- Separate Forge user from authentication-provider identities and repository connections. First sign-in provisions a Forge user; subsequent sign-in from an already-linked GitHub identity returns to that same Forge user.
+- Add a safe explicit account-link flow for connecting a second GitHub identity to the signed-in Forge user. Require proof of control; never auto-link solely on matching email.
+- Build the identity/provider interface so Google and email can later link to the same Forge user/session contract without redesigning repository access.
+- **Acceptance:** sign-in, callback, session restoration, account linking, collision prevention, and error paths have automated tests.
+
+### Auth Batch 3 — GitHub App installation and repository access
+- Register the Brilina Forge GitHub App once for the product; each user or organization installs that same app and chooses all or selected repositories in GitHub.
+- Model a GitHub account identity separately from app installation. A user may connect multiple personal accounts and organization installations.
+- Support public/private repositories when the selected installation and user are authorized. The backend verifies installation scope and permissions for every operation; UI filters are not a security boundary.
+- Decide per operation whether to use an installation token (app-led automation) or user access token (on behalf of the authenticated GitHub user). Never conflate the two.
+- **Acceptance:** isolation tests prove one connected account/installation cannot read or modify another connection's unauthorized repository.
+
+### Auth Batch 4 — Account UI and lifecycle
+- Add an account menu with Forge identity, connected GitHub accounts, Connect another GitHub account, settings, and Sign out.
+- Add account selector plus repository/branch context selector. Account changes load only the selected account's authorized installations/repositories and reject stale responses.
+- Sign out revokes the Forge session and clears its cookie, but does not silently disconnect accounts or uninstall the GitHub App. Disconnect and uninstall/revocation are separate actions.
+- Handle token refresh/expiry, revoked access, removed installations, and unavailable repositories with explicit recovery states.
+- Bind each run to an immutable connection/installation + repository + branch snapshot. Switching accounts cannot redirect a running task.
+- **Acceptance:** desktop/mobile account switching, logout, reconnection, revoked-installation handling, and in-flight context isolation pass automated and manual checks.
+
+### Required execution order and dependencies
+1. Complete schema/source inventory and write the migration design.
+2. Apply and verify pending migrations 004 and 005 on production only after the owner runs the supplied SQL in Neon and reports the verification results; do not rerun them if already applied.
+3. Implement additive identity/connection migrations on a temporary branch and verify backfills.
+4. Implement server-side identity/session and explicit GitHub account linking.
+5. Implement GitHub App installation/token resolution and per-operation authorization.
+6. Implement account/repository selectors and lifecycle UI.
+7. Re-run the GitHub tool system, immutable run context, and core AI-to-GitHub acceptance gates before depending on this architecture for further autonomous workflows.
+
+**Security/rollout constraints:** do not expose tokens to browser storage; do not trust account/repository IDs supplied by the client without server-side ownership checks; do not automatically merge identities based on email; do not delete existing Forge history; do not deploy production or change production schema without explicit authorization and verified migration evidence.
