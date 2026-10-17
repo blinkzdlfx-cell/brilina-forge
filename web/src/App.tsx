@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   compareBranches,
+  getGithubToolSettings,
+  saveGithubToolSettings,
   createConversation,
   listConversations,
   listConversationMessages,
@@ -16,11 +18,11 @@ import {
   syncGithubRepository,
   updateConversationContext
 } from "./api";
-import type { ChatMessage, Conversation, ForgeDiff, ForgeEvent, GithubBranch, GithubRepository, RunAudit, RunStatus, SessionInfo } from "./types";
+import type { ChatMessage, Conversation, ForgeDiff, ForgeEvent, GithubBranch, GithubRepository, RunAudit, RunStatus, SessionInfo, GithubToolCategory, GithubToolDefinition, GithubToolPreferences } from "./types";
 import { SelectField } from "./components/ui/SelectField";
 import { Button } from "./components/ui/button";
 import { Dialog } from "./components/ui/dialog";
-import { GitBranch, GitCompare, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Plus, Settings2, X } from "lucide-react";
+import { GitBranch, GitCompare, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Plus, Settings, Settings2, X } from "lucide-react";
 
 const demoMessages: ChatMessage[] = [
   {
@@ -84,6 +86,13 @@ export function App() {
   const [diffBase, setDiffBase] = useState("");
   const [compareOpen, setCompareOpen] = useState(false);
   const [contextPanelOpen, setContextPanelOpen] = useState(false);
+  const [toolSettingsOpen, setToolSettingsOpen] = useState(false);
+  const [toolSettingsLoading, setToolSettingsLoading] = useState(false);
+  const [toolSettingsSaving, setToolSettingsSaving] = useState(false);
+  const [toolSettingsError, setToolSettingsError] = useState<string | null>(null);
+  const [toolDefinitions, setToolDefinitions] = useState<GithubToolDefinition[]>([]);
+  const [toolPreferences, setToolPreferences] = useState<GithubToolPreferences | null>(null);
+  const [savedToolPreferences, setSavedToolPreferences] = useState<GithubToolPreferences | null>(null);
   const [loadingDiff, setLoadingDiff] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const closeStream = useRef<(() => void) | null>(null);
@@ -94,6 +103,58 @@ export function App() {
   const mobileMenuButtonRef = useRef<HTMLButtonElement | null>(null);
   const sidebarToggleRef = useRef<HTMLButtonElement | null>(null);
   const shouldStickToBottomRef = useRef(true);
+
+  const openToolSettings = async () => {
+    setToolSettingsOpen(true);
+    setToolSettingsLoading(true);
+    setToolSettingsError(null);
+    try {
+      const result = await getGithubToolSettings();
+      setToolDefinitions(result.definitions);
+      setToolPreferences({ enabledToolNames: [...result.preferences.enabledToolNames], enabledCategories: [...result.preferences.enabledCategories] });
+      setSavedToolPreferences({ enabledToolNames: [...result.preferences.enabledToolNames], enabledCategories: [...result.preferences.enabledCategories] });
+    } catch (settingsError) {
+      setToolSettingsError(settingsError instanceof Error ? settingsError.message : "Unable to load GitHub tool settings.");
+    } finally {
+      setToolSettingsLoading(false);
+    }
+  };
+
+  const updateToolCategory = (category: GithubToolCategory, enabled: boolean) => {
+    setToolPreferences(current => {
+      if (!current) return current;
+      const categoryNames = toolDefinitions.filter(tool => tool.category === category && tool.defaultEnabled).map(tool => tool.name);
+      return {
+        enabledToolNames: [...new Set(enabled ? [...current.enabledToolNames, ...categoryNames] : current.enabledToolNames.filter(name => !categoryNames.includes(name)))],
+        enabledCategories: [...new Set(enabled ? [...current.enabledCategories, category] : current.enabledCategories.filter(item => item !== category))]
+      };
+    });
+  };
+
+  const updateToolEnabled = (name: string, category: GithubToolCategory, enabled: boolean) => {
+    setToolPreferences(current => {
+      if (!current) return current;
+      return {
+        enabledToolNames: enabled ? [...new Set([...current.enabledToolNames, name])] : current.enabledToolNames.filter(item => item !== name),
+        enabledCategories: enabled ? [...new Set([...current.enabledCategories, category])] : current.enabledCategories
+      };
+    });
+  };
+
+  const persistToolSettings = async () => {
+    if (!toolPreferences) return;
+    setToolSettingsSaving(true);
+    setToolSettingsError(null);
+    try {
+      const result = await saveGithubToolSettings(toolPreferences);
+      setToolPreferences(result.preferences);
+      setSavedToolPreferences({ enabledToolNames: [...result.preferences.enabledToolNames], enabledCategories: [...result.preferences.enabledCategories] });
+    } catch (settingsError) {
+      setToolSettingsError(settingsError instanceof Error ? settingsError.message : "Unable to save GitHub tool settings.");
+    } finally {
+      setToolSettingsSaving(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -595,6 +656,9 @@ export function App() {
         <button className="new-chat" onClick={newChat} disabled={running} aria-label={sidebarCompact ? "New chat" : undefined} title={sidebarCompact ? "New chat" : undefined}>
           <Plus className="size-4" />{!sidebarCompact && "New chat"}
         </button>
+        <button className="new-chat" type="button" onClick={() => void openToolSettings()} aria-label={sidebarCompact ? "Settings" : undefined} title={sidebarCompact ? "Settings" : undefined}>
+          <Settings className="size-4" />{!sidebarCompact && "Settings"}
+        </button>
 
         {!sidebarCompact && (
           <>
@@ -639,6 +703,63 @@ export function App() {
             {session?.githubUser?.avatar_url ? <img className="avatar" src={session.githubUser.avatar_url} alt="" /> : <button className="avatar" aria-label="Forge workspace">F</button>}
           </div>
         </header>
+        <Dialog open={toolSettingsOpen} onOpenChange={setToolSettingsOpen} title="Settings" description="Manage which native GitHub tools Forge may offer to the AI. Mandatory server-side security rules cannot be disabled." className="tool-settings-dialog">
+          <div className="grid gap-4 p-4 sm:p-5">
+            <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
+              These preferences control tool availability, not GitHub permissions. They can restrict what the AI can call, but cannot bypass repository scope, branch protection, or authorization checks.
+            </div>
+            {toolSettingsLoading && <p role="status" className="text-sm text-muted-foreground">Loading saved settings…</p>}
+            {toolSettingsError && <p role="alert" className="text-sm text-destructive">{toolSettingsError}</p>}
+            {!toolSettingsLoading && toolPreferences && (
+              <div className="grid gap-4">
+                {Array.from(new Set(toolDefinitions.filter(tool => tool.defaultEnabled).map(tool => tool.category))).map(category => {
+                  const categoryTools = toolDefinitions.filter(tool => tool.category === category && tool.defaultEnabled);
+                  const categoryEnabled = toolPreferences.enabledCategories.includes(category);
+                  const label = ({
+                    "repository-read": "Repository information",
+                    "branch-read": "Branches",
+                    "file-read": "Files and source",
+                    "diff-review": "Diff and review",
+                    "branch-write": "Working branches",
+                    "file-write": "File changes"
+                  } as Partial<Record<GithubToolCategory, string>>)[category] ?? category;
+                  return (
+                    <section key={category} className="grid gap-2 rounded-lg border border-border p-3">
+                      <label className="flex cursor-pointer items-start gap-3">
+                        <input type="checkbox" className="mt-1 size-4 accent-primary" checked={categoryEnabled} onChange={event => updateToolCategory(category, event.target.checked)} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-semibold text-foreground">{label}</span>
+                          <span className="block text-xs text-muted-foreground">Enable or disable this group of tools.</span>
+                        </span>
+                      </label>
+                      <div className="ml-7 grid gap-3 border-l border-border pl-3">
+                        {categoryTools.map(tool => (
+                          <label key={tool.name} className="flex cursor-pointer items-start gap-3">
+                            <input type="checkbox" className="mt-1 size-4 accent-primary" checked={categoryEnabled && toolPreferences.enabledToolNames.includes(tool.name)} disabled={!categoryEnabled} onChange={event => updateToolEnabled(tool.name, category, event.target.checked)} />
+                            <span className="min-w-0 flex-1">
+                              <span className="block break-all text-sm font-medium text-foreground">{tool.name}</span>
+                              <span className="block text-xs text-muted-foreground">{tool.description}</span>
+                              <span className="mt-1 inline-flex rounded-full border border-border px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">{tool.risk === "read" ? "Read-only" : "Writes to repository"}</span>
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </section>
+                  );
+                })}
+              </div>
+            )}
+            <div className="flex flex-col-reverse gap-2 border-t border-border pt-4 sm:flex-row sm:justify-between">
+              <Button variant="outline" type="button" onClick={() => {
+                if (savedToolPreferences) setToolPreferences({ enabledToolNames: [...savedToolPreferences.enabledToolNames], enabledCategories: [...savedToolPreferences.enabledCategories] });
+              }} disabled={toolSettingsSaving || toolSettingsLoading || !savedToolPreferences}>Discard changes</Button>
+              <Button type="button" onClick={() => void persistToolSettings()} disabled={toolSettingsSaving || toolSettingsLoading || !toolPreferences}>
+                {toolSettingsSaving ? "Saving…" : "Save settings"}
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+
         <Dialog open={contextPanelOpen} onOpenChange={setContextPanelOpen} title="Repository & branch" description="Choose the repository and working branch for this conversation." className="context-dialog">
           <div className="context-panel-content">
             <div className="context-panel-section">
