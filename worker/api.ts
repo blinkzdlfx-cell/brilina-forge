@@ -17,7 +17,25 @@ import {
   updateSessionCredentials,
   type Session
 } from "../src/auth/session.js";
-import { createNeonSessionStore } from "../src/db/repositories.js";
+import {
+  createNeonSessionStore,
+  linkGithubIdentityToSession,
+  listGithubConnectionsForUser,
+  switchActiveGithubConnection
+} from "../src/db/repositories.js";
+import {
+  createGithubAppInstallationState,
+  consumeGithubAppInstallationState,
+  listGithubAppInstallationsForUser,
+  listGithubAppRepositoriesForUser,
+  processGithubAppWebhook,
+  saveGithubAppInstallation
+} from "../src/db/github-app-repositories.js";
+import {
+  getGithubAppInstallation,
+  listGithubInstallationRepositories,
+  verifyGithubAppWebhookSignature
+} from "../src/github/app.js";
 import { GithubApiError, GithubClient } from "../src/github/client.js";
 import { GithubService } from "../src/github/service.js";
 import {
@@ -175,7 +193,8 @@ async function sessionForRequest(request: Request): Promise<Session> {
 
 async function forgeContext(request: Request) {
   const session = await sessionForRequest(request);
-  return { session, ...(await getForgeUserContext(session.githubUser.id)) };
+  if (!session.forgeUserId) throw Object.assign(new Error("Forge identity is unavailable; sign in again"), { statusCode: 401 });
+  return { session, ...(await getForgeUserContext(session.forgeUserId)) };
 }
 
 async function githubService(request: Request): Promise<GithubService> {
@@ -403,15 +422,16 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
     }
 
     if (path === "/auth/github/start" && method === "GET") {
+      const intent = url.searchParams.get("intent") === "link" ? "link" : "login";
+      if (intent === "link") await sessionForRequest(request);
       const authorization = createGithubAuthorization();
-      return new Response(null, {
-        status: 302,
-        headers: {
-          Location: authorization.url,
-          "Set-Cookie": cookie(OAUTH_STATE_COOKIE, authorization.stateCookieValue, 600, "Lax"),
-          "Cache-Control": "no-store"
-        }
+      const headers = new Headers({
+        Location: authorization.url,
+        "Set-Cookie": cookie(OAUTH_STATE_COOKIE, authorization.stateCookieValue, 600, "Lax"),
+        "Cache-Control": "no-store"
       });
+      headers.append("Set-Cookie", intent === "link" ? cookie("brilina_oauth_intent", "link", 600, "Lax") : clearCookie("brilina_oauth_intent"));
+      return new Response(null, { status: 302, headers });
     }
 
     if (path === "/auth/github/callback" && method === "GET") {
@@ -433,17 +453,30 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
 
       try {
         const result = await exchangeGithubCode(code, state, verifier);
-        const session = await createSession(result.accessToken, result.user, {
+        const intent = parseCookie(request.headers.get("Cookie"), "brilina_oauth_intent");
+        const credentials = {
           refreshToken: result.refreshToken,
           expiresAt: result.expiresAt,
           refreshTokenExpiresAt: result.refreshTokenExpiresAt
-        });
+        };
+        let session: Session | undefined;
+        let redirect = "/";
+        if (intent === "link") {
+          const existingToken = parseCookie(request.headers.get("Cookie"), "brilina_session");
+          if (!existingToken) throw Object.assign(new Error("Sign in before linking another GitHub account"), { statusCode: 401 });
+          session = await linkGithubIdentityToSession(existingToken, result.accessToken, result.user, credentials);
+          if (!session) throw new Error("Could not restore the Forge session after linking GitHub");
+          redirect = "/?github_account=linked";
+        } else {
+          session = await createSession(result.accessToken, result.user, credentials);
+        }
         const headers = new Headers({
-          Location: new URL("/", config.publicBaseUrl).toString(),
+          Location: new URL(redirect, config.publicBaseUrl).toString(),
           "Cache-Control": "no-store"
         });
         headers.append("Set-Cookie", clearCookie(OAUTH_STATE_COOKIE));
-        headers.append("Set-Cookie", sessionCookie(session.id));
+        headers.append("Set-Cookie", clearCookie("brilina_oauth_intent"));
+        if (intent !== "link") headers.append("Set-Cookie", sessionCookie(session.id));
         return new Response(null, { status: 302, headers });
       } catch (error) {
         console.error(error);
@@ -484,10 +517,88 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
     if (path === "/api/session" && method === "GET") {
       try {
         const session = await sessionForRequest(request);
-        return json({ authenticated: true, githubUser: session.githubUser, tokenExpiresAt: session.expiresAt ?? null });
+        return json({
+          authenticated: true,
+          forgeUserId: session.forgeUserId,
+          githubUser: session.githubUser,
+          activeGithubConnectionId: session.githubConnectionId,
+          githubConnections: session.forgeUserId ? await listGithubConnectionsForUser(session.forgeUserId) : [],
+          tokenExpiresAt: session.expiresAt ?? null
+        });
       } catch {
         return json({ authenticated: false });
       }
+    }
+
+    if (path === "/api/auth/connections" && method === "GET") {
+      const { session, userId } = await forgeContext(request);
+      return json({ activeConnectionId: session.githubConnectionId ?? null, connections: await listGithubConnectionsForUser(userId) });
+    }
+
+    if (path === "/api/auth/connections/active" && method === "POST") {
+      assertSameOrigin(request);
+      const { session } = await forgeContext(request);
+      const body = await request.json() as { connectionId?: string };
+      if (!body.connectionId || !UUID_PATTERN.test(body.connectionId)) return json({ error: "invalid_connection_id" }, 400);
+      const updated = await switchActiveGithubConnection(session.id, body.connectionId);
+      if (!updated) return json({ error: "session_expired" }, 401);
+      return json({ activeConnectionId: updated.githubConnectionId, githubUser: updated.githubUser });
+    }
+
+    if (path === "/auth/github-app/install" && method === "GET") {
+      const session = await sessionForRequest(request);
+      const state = await createGithubAppInstallationState(session);
+      const target = new URL(`https://github.com/apps/${config.githubApp.slug()}/installations/new`);
+      target.searchParams.set("state", state);
+      return new Response(null, { status: 302, headers: { Location: target.toString(), "Cache-Control": "no-store" } });
+    }
+
+    if (path === "/auth/github-app/callback" && method === "GET") {
+      const sessionToken = parseCookie(request.headers.get("Cookie"), "brilina_session");
+      const state = url.searchParams.get("state");
+      const installationId = Number(url.searchParams.get("installation_id"));
+      const setupAction = url.searchParams.get("setup_action");
+      if (!sessionToken || !state || !Number.isSafeInteger(installationId) || installationId <= 0 || !["install", "update"].includes(setupAction ?? "")) {
+        return json({ error: "invalid_github_app_callback" }, 400);
+      }
+      const session = await sessionForRequest(request);
+      const stateOwner = await consumeGithubAppInstallationState(state, sessionToken);
+      if (!stateOwner || stateOwner.userId !== session.forgeUserId || stateOwner.authIdentityId !== session.authIdentityId) {
+        return json({ error: "github_app_state_invalid_or_expired" }, 400);
+      }
+      const installation = await getGithubAppInstallation(installationId);
+      const repositories = await listGithubInstallationRepositories(installationId);
+      await saveGithubAppInstallation(stateOwner.userId, stateOwner.authIdentityId, installation, repositories);
+      return new Response(null, { status: 302, headers: { Location: new URL("/?github_app=installed", config.publicBaseUrl).toString(), "Cache-Control": "no-store" } });
+    }
+
+    if (path === "/api/github-app/installations" && method === "GET") {
+      const { userId } = await forgeContext(request);
+      return json({ installations: await listGithubAppInstallationsForUser(userId) });
+    }
+
+    if (path === "/api/github-app/repositories" && method === "GET") {
+      const { userId } = await forgeContext(request);
+      const installationRecordId = url.searchParams.get("installationId") ?? "";
+      if (!UUID_PATTERN.test(installationRecordId)) return json({ error: "invalid_installation_id" }, 400);
+      return json({ repositories: await listGithubAppRepositoriesForUser(userId, installationRecordId) });
+    }
+
+    if (path === "/api/github-app/webhook" && method === "POST") {
+      const rawBody = await request.text();
+      if (!(await verifyGithubAppWebhookSignature(rawBody, request.headers.get("X-Hub-Signature-256")))) {
+        return json({ error: "invalid_webhook_signature" }, 401);
+      }
+      const deliveryId = request.headers.get("X-GitHub-Delivery");
+      const eventName = request.headers.get("X-GitHub-Event");
+      if (!deliveryId || !eventName) return json({ error: "missing_webhook_headers" }, 400);
+      let payload: Record<string, unknown>;
+      try { payload = JSON.parse(rawBody) as Record<string, unknown>; }
+      catch { return json({ error: "invalid_webhook_json" }, 400); }
+      const outcome = await processGithubAppWebhook({
+        deliveryId, eventName, action: typeof payload.action === "string" ? payload.action : undefined, payload
+      });
+      return json({ received: true, outcome });
     }
 
     if (path === "/api/devices/for-session" && method === "GET") {
@@ -547,13 +658,13 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
 
     if (path === "/api/github/repositories/sync" && method === "POST") {
       assertSameOrigin(request);
-      const { userId, workspaceId } = await forgeContext(request);
+      const { session, userId, workspaceId } = await forgeContext(request);
       const body = await request.json() as { nodeId?: string; owner?: string; name?: string; fullName?: string; defaultBranch?: string };
       if (!body.nodeId || !body.owner || !body.name || !body.fullName || !body.defaultBranch) return json({ error: "invalid_repository" }, 400);
       const repository = await (await githubService(request)).getRepository(body.owner, body.name);
       if (repository.full_name !== body.fullName) return json({ error: "repository_context_mismatch" }, 409);
       return json(await syncRepository({
-        userId, workspaceId, githubNodeId: body.nodeId, owner: repository.owner.login,
+        userId, workspaceId, githubConnectionId: session.githubConnectionId ?? "", githubNodeId: body.nodeId, owner: repository.owner.login,
         name: repository.name, fullName: repository.full_name, defaultBranch: repository.default_branch
       }));
     }
