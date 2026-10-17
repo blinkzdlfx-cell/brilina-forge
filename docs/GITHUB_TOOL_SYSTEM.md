@@ -25,19 +25,20 @@ Status meanings:
 
 ## Forge tool catalog (source-verified)
 
-| Forge tool ID | Capability / equivalent from the reference catalog | Category | Risk | Status / notes |
+| Forge tool ID | Observed upstream MCP reference | Capability | Category | Risk | Status / notes |
 |---|---|---|---|---|
-| `github.get_repository` | Read repository metadata | repository-read | read | Adopted equivalent; conversation-repository scope required |
-| `github.get_repository_context` | Aggregate repository identity, default branch, branches, and tree | repository-read | read | Adopted equivalent; repository is taken from the run principal |
-| `github.list_branches` | List branches | branch-read | read | Adopted equivalent |
-| `github.get_tree` | Read repository tree at a ref | file-read | read | Adopted equivalent |
-| `github.read_file` | Read file contents at a ref | file-read | read | Adopted equivalent |
-| `github.get_diff` | Compare two refs / summarize changed files | diff-review | read | Adopted equivalent |
-| `github.create_work_branch` | Create a working branch | branch-write | write | Adopted equivalent; branch creation must remain scoped to selected repo/base |
-| `github.create_file` | Create file and commit on working branch | file-write | write | Adopted equivalent; reads back content after write |
-| `github.update_file` | Replace file and commit on working branch | file-write | write | Adopted equivalent; reads back content after write |
-| `github.write_file` | Create-or-update file and commit on working branch | file-write | write | Adopted equivalent; overlapping semantics with create/update should be rationalized after regression evidence, not removed blindly |
-| Companion execution tool | Dispatch approved local companion work | local-execution | high | Existing non-GitHub capability; keep separate from GitHub catalog and enforce its own policy |
+| `github.get_repository` | No direct mapping established | Read repository metadata | repository-read | read | Adopted equivalent; conversation-repository scope required |
+| `github.get_repository_context` | Forge-native aggregation | Aggregate repository identity, default branch, branches, and tree | repository-read | read | Adopted equivalent; repository is taken from the run principal |
+| `github.list_branches` | `list_branches` | List branches | branch-read | read | Adopted equivalent |
+| `github.get_tree` | No direct mapping established | Read repository tree at a ref | file-read | read | Adopted equivalent |
+| `github.read_file` | `get_file_contents` | Read file contents at a ref | file-read | read | Adopted equivalent |
+| `github.get_diff` | Forge-native REST compare | Compare two refs / summarize changed files | diff-review | read | Adopted equivalent |
+| `github.create_work_branch` | `create_branch` | Create a working branch | branch-write | write | Adopted equivalent; branch creation must remain scoped to selected repo/base |
+| `github.create_file` | Partial file-write overlap; no exact one-to-one mapping recorded | Create file and commit on working branch | file-write | write | Adopted equivalent; reads back content after write |
+| `github.update_file` | Partial file-write overlap; no exact one-to-one mapping recorded | Replace file and commit on working branch | file-write | write | Adopted equivalent; reads back content after write |
+| `github.write_file` | Partial file-write overlap; no exact one-to-one mapping recorded | Create-or-update file and commit on working branch | file-write | write | Adopted equivalent; overlapping semantics with create/update should be rationalized after regression evidence, not removed blindly |
+| `github.push_files` | `push_files` | Atomic multi-file commit on one working branch | file-write | write | Adopted equivalent; verifies every file after the commit |
+| Companion execution tool | Not an upstream GitHub MCP tool | Dispatch approved local companion work | local-execution | high | Existing non-GitHub capability; keep separate from GitHub catalog and enforce its own policy |
 
 ## Mandatory security invariants
 
