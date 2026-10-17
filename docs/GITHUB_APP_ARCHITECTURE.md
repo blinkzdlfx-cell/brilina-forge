@@ -78,3 +78,7 @@ Before live installation testing, configure the single Brilina Forge GitHub App:
 - Save the App ID, App slug, generated private key, and webhook secret as Cloudflare Worker secrets/variables: `GITHUB_APP_ID`, `GITHUB_APP_SLUG`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_WEBHOOK_SECRET`.
 - Keep `GITHUB_MULTI_ACCOUNT_ENABLED=false` until migration 008 is applied and verified.
 - Do not commit private keys, webhook secrets, access tokens, or installation tokens into the repository.
+
+
+### Installation callback verification
+A new installation is linked only after a valid signed `installation.created` webhook confirms that the sender GitHub ID matches the GitHub identity bound to the current Forge session. The callback does not trust the `installation_id` query parameter alone. If the webhook has not arrived yet, the state remains unused so the callback can be retried. An `update` callback is accepted only for an installation already linked to the same Forge user. Webhook delivery IDs are idempotent and failed deliveries can be retried.
