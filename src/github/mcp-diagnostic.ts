@@ -194,11 +194,11 @@ function validateReadToolArguments(toolName: string, args: unknown): asserts arg
       throw Object.assign(new Error("Unsupported get_file_contents argument"), { statusCode: 400 });
     }
     if (typeof input.path !== "string" || input.path.length < 1 || input.path.length > 500 ||
-        /[\\u0000-\\u001f\\u007f]/.test(input.path) || input.path.split("/").includes("..")) {
+        /[\u0000-\u001f\u007f]/.test(input.path) || input.path.split("/").includes("..")) {
       throw Object.assign(new Error("A valid repository file path is required"), { statusCode: 400 });
     }
     if (input.ref !== undefined && (typeof input.ref !== "string" || input.ref.length < 1 || input.ref.length > 255 ||
-        /[\\u0000-\\u001f\\u007f]/.test(input.ref))) {
+        /[\u0000-\u001f\u007f]/.test(input.ref))) {
       throw Object.assign(new Error("Invalid repository ref"), { statusCode: 400 });
     }
     return;
