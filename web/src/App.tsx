@@ -503,6 +503,12 @@ export function App() {
   async function handleConnectionChange(value: string) {
     if (!value || value === session?.activeGithubConnectionId) return;
     try {
+      if (active && contextType === "oauth") {
+        await updateConversationContext(active.id, {
+          repositoryId: null, branchName: null, contextType: "oauth",
+          installationRecordId: null, installationRepositoryId: null
+        });
+      }
       await switchGithubConnection(value);
       window.location.reload();
     } catch (err) {
