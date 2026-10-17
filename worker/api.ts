@@ -38,6 +38,8 @@ import { neonAgentAuditStore } from "../src/db/agent-repositories.js";
 import { recordUsage } from "../src/db/usage-repositories.js";
 import { AgentController } from "../src/agent/controller.js";
 import { ToolRegistry } from "../src/agent/registry.js";
+import { listGithubToolDefinitions, type GithubToolCategory } from "../src/agent/tool-catalog.js";
+import { getGithubToolPreferences, saveGithubToolPreferences } from "../src/db/github-tool-preferences.js";
 import { createGithubReadTools } from "../src/agent/tools/github-read-context.js";
 import { createCompanionExecTool } from "../src/agent/tools/companion-exec.js";
 import { createProviderRuntime } from "../src/ai/factory.js";
@@ -244,6 +246,11 @@ async function executeRun(
     const providerRuntime = createProviderRuntime();
     const registry = new ToolRegistry();
     for (const tool of createGithubReadTools(service)) registry.register(tool);
+    const toolPreferences = await getGithubToolPreferences(userId);
+    registry.setAvailabilityPreferences({
+      enabledNames: new Set(toolPreferences.enabledToolNames),
+      enabledCategories: new Set(toolPreferences.enabledCategories)
+    });
 
     const deviceId = deviceForSession(sessionId);
     registry.register(createCompanionExecTool({
@@ -506,6 +513,29 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
           ...(failure.diagnostic ? { diagnostic: failure.diagnostic } : {})
         }, status);
       }
+    }
+
+    if (path === "/api/settings/github-tools" && method === "GET") {
+      const { userId } = await forgeContext(request);
+      return json({
+        definitions: listGithubToolDefinitions(),
+        preferences: await getGithubToolPreferences(userId)
+      });
+    }
+
+    if (path === "/api/settings/github-tools" && method === "PUT") {
+      assertSameOrigin(request);
+      const { userId } = await forgeContext(request);
+      const body = await request.json() as { enabledToolNames?: unknown; enabledCategories?: unknown };
+      if (!Array.isArray(body.enabledToolNames) || !body.enabledToolNames.every(item => typeof item === "string") ||
+          !Array.isArray(body.enabledCategories) || !body.enabledCategories.every(item => typeof item === "string")) {
+        return json({ error: "invalid_tool_preferences" }, 400);
+      }
+      const preferences = await saveGithubToolPreferences(userId, {
+        enabledToolNames: body.enabledToolNames,
+        enabledCategories: body.enabledCategories as GithubToolCategory[]
+      });
+      return json({ definitions: listGithubToolDefinitions(), preferences });
     }
 
     if (path === "/api/session" && method === "GET") {
