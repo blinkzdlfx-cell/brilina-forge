@@ -249,3 +249,35 @@ The owner requested that the related stages be completed as one coherent effort,
 - Production database is unchanged by this work.
 - Existing failing test history: `push_files` read-back verification assertion and `GithubService.writeFiles` commit-message validation. Recheck current HEAD rather than assuming these still fail or have been fixed.
 - The next handoff checkpoint is `docs/CURRENT_STATE_AND_CONTINUATION.md`. Keep it updated at each migration, source, and test gate.
+
+
+## Auth + GitHub App implementation checkpoint — 2026-10-17
+
+**Implementation branch:** `feat/auth-github-app-complete`. This is an integration branch; do not merge or deploy until its CI passes and the production migration sequence is approved.
+
+### Database migration evidence
+- `db/migrations/006_auth_identity_connections.sql`, `007_github_app_installations.sql`, and `008_enable_multiple_github_connections.sql` have been exercised on temporary Neon branch `auth-migration-006-validation-20261017` (`br-noisy-rain-zamdr0q8`), not production.
+- Before migration, that branch had 1 Forge user, 1 GitHub connection, 3 sessions, 1 workspace, 6 conversations, 15 repositories, and 50 runs.
+- After 006–008: one GitHub identity was backfilled; connection identity/session ownership mismatch counts were zero; no session lacked its active connection; all 50 runs retained repository/branch snapshots; all 5 GitHub App tables existed; and the legacy single-column `github_connections(user_id)` unique constraint was removed only by migration 008.
+- Migration 006 was re-executed on the temporary branch to verify idempotent behavior. The 007 conversation-context additions and 008 constraint change were also exercised.
+- Production remains unchanged by this work. Migrations 004 and 005 are already applied; never rerun them.
+
+### Source work now present on the integration branch
+- Persistent sessions resolve a Forge user separately from the selected GitHub identity/connection.
+- Credential refresh targets one explicit connection; account linking requires an authenticated existing session and refuses identities already owned by another Forge user.
+- Account linking is feature-gated by `GITHUB_MULTI_ACCOUNT_ENABLED=false` until migration 008 is applied.
+- GitHub App JWT signing, installation-token acquisition, installation repository listing, installation state bound to a Forge session, ownership-checked installation/repository APIs, and signed/idempotent webhook handling are implemented in source.
+- Conversation context can select either an OAuth connection-backed repository or an authorized App installation/repository. Run creation snapshots the context type, connection or installation, repository, and branch; execution resolves the credential from that snapshot and rechecks installation/repository authorization.
+- The context dialog includes connected-account switching/linking, App installation setup, installation selection, and installation repository/branch selection.
+- These are source claims awaiting automated CI and runtime acceptance; do not mark the architecture complete yet.
+
+### Safe production rollout gate (do not skip)
+1. First run CI and fix every failure; inspect the full diff.
+2. Owner applies migration 006 and 007 in production, in order, using the committed SQL files and their verification queries. Both are additive and compatible with the old Worker.
+3. Deploy the verified new source with `GITHUB_MULTI_ACCOUNT_ENABLED=false`; test sign-in/session continuity and App installation paths.
+4. Only after the new Worker is live and stable, owner applies migration 008. The old Worker must not be running against schema 008 because its old upsert expects `UNIQUE(user_id)`.
+5. Set `GITHUB_MULTI_ACCOUNT_ENABLED=true` only after migration 008 verification. Then test account linking/switching.
+6. Complete one combined acceptance pass: existing login, linking/switching, App installation scope, repository authorization, immutable run context, webhook lifecycle, and the real configured-provider write/read-back/diff workflow.
+
+### Required return-to item
+After the combined auth/App gate passes, return to the deferred core workflow that triggered the architecture decision: a real AI run must use an authorized non-default working branch, write a file, read it back, present actual diff/commit evidence, and prove a mid-run context change cannot redirect the run. Also recheck the previously failing Phase 1 tests rather than assuming their historical status is current.
