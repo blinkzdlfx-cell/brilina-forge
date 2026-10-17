@@ -5,7 +5,7 @@ import type { AgentAuditStore, RunRecord, RunStatus, ToolStatus } from "../agent
 export const neonAgentAuditStore: AgentAuditStore & { updateRunProvider(id: string, provider: string, model: string): Promise<void> } = {
   async createRun(input): Promise<RunRecord> {
     const rows = (await getSql().query(
-      "INSERT INTO runs (conversation_id, user_id, status) VALUES ($1, $2, 'queued') RETURNING id, status",
+      "INSERT INTO runs (conversation_id, user_id, status, repository_full_name_snapshot, branch_name_snapshot) SELECT c.id, c.user_id, 'queued', r.github_full_name, c.branch_name FROM conversations c LEFT JOIN repositories r ON r.id = c.repository_id WHERE c.id = $1 AND c.user_id = $2 RETURNING id, status",
       [input.conversationId, input.userId]
     )) as Record<string, unknown>[];
     if (!rows[0]) throw new Error("Failed to create agent run");
@@ -43,3 +43,15 @@ export const neonAgentAuditStore: AgentAuditStore & { updateRunProvider(id: stri
     );
   }
 };
+
+export async function getRunContextSnapshot(runId: string, conversationId: string): Promise<{ repositoryFullName: string | null; branchName: string | null } | undefined> {
+  const rows = await getSql().query(
+    "SELECT repository_full_name_snapshot, branch_name_snapshot FROM runs WHERE id = $1 AND conversation_id = $2 LIMIT 1",
+    [runId, conversationId]
+  ) as Record<string, unknown>[];
+  if (!rows[0]) return undefined;
+  return {
+    repositoryFullName: rows[0].repository_full_name_snapshot == null ? null : String(rows[0].repository_full_name_snapshot),
+    branchName: rows[0].branch_name_snapshot == null ? null : String(rows[0].branch_name_snapshot)
+  };
+}
