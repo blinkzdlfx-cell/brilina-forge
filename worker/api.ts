@@ -103,6 +103,22 @@ function json(value: unknown, status = 200, headers?: HeadersInit): Response {
   });
 }
 
+function safeAuthErrorDetails(error: unknown): Record<string, string> {
+  const value = error && typeof error === "object"
+    ? error as { name?: unknown; message?: unknown; code?: unknown; constraint?: unknown; table?: unknown; column?: unknown }
+    : {};
+  const field = (input: unknown, max = 300): string | undefined =>
+    typeof input === "string" && input.length ? input.slice(0, max) : undefined;
+  return {
+    ...(field(value.name) ? { errorName: field(value.name)! } : {}),
+    ...(field(value.message) ? { errorMessage: field(value.message)! } : {}),
+    ...(field(value.code, 80) ? { databaseCode: field(value.code, 80)! } : {}),
+    ...(field(value.constraint, 160) ? { databaseConstraint: field(value.constraint, 160)! } : {}),
+    ...(field(value.table, 160) ? { databaseTable: field(value.table, 160)! } : {}),
+    ...(field(value.column, 160) ? { databaseColumn: field(value.column, 160)! } : {})
+  };
+}
+
 function errorResponse(error: unknown): Response {
   if (error instanceof GithubApiError) {
     return json({ error: "github_api_error", message: error.message }, error.status || 502);
@@ -502,8 +518,10 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
       const verifier = verifierFromStateCookie(boundState);
       if (!verifier) return json({ error: "oauth_verifier_missing" }, 400);
 
+      let authStage = "github_code_exchange";
       try {
         const result = await exchangeGithubCode(code, state, verifier);
+        authStage = "session_persistence";
         const intent = parseCookie(request.headers.get("Cookie"), "brilina_oauth_intent");
         const credentials = {
           refreshToken: result.refreshToken,
@@ -513,6 +531,7 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
         let session: Session | undefined;
         let redirect = "/";
         if (intent === "link") {
+          authStage = "github_identity_link";
           const existingToken = parseCookie(request.headers.get("Cookie"), "brilina_session");
           if (!existingToken) throw Object.assign(new Error("Sign in before linking another GitHub account"), { statusCode: 401 });
           session = await linkGithubIdentityToSession(existingToken, result.accessToken, result.user, credentials);
@@ -530,7 +549,11 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
         if (intent !== "link") headers.append("Set-Cookie", sessionCookie(session.id));
         return new Response(null, { status: 302, headers });
       } catch (error) {
-        console.error(error);
+        console.error(JSON.stringify({
+          event: "github_oauth_callback_failed",
+          stage: authStage,
+          ...safeAuthErrorDetails(error)
+        }));
         return json({ error: "github_auth_failed" }, 401);
       }
     }
