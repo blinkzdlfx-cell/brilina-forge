@@ -735,7 +735,10 @@ export function App() {
 {diff && (
               <div className="diff-panel">
                 <div className="diff-panel-title">
-                  {diffBase} → {selectedBranch} · {diff.ahead_by} ahead, {diff.behind_by} behind · {diff.total_commits} commits
+                  <span>{diffBase} → {selectedBranch} · {diff.ahead_by} ahead, {diff.behind_by} behind · {diff.total_commits} commits</span>
+                  <button className="icon-button diff-close-button" type="button" onClick={() => setDiff(null)} aria-label="Close comparison results" title="Close comparison results">
+                    <X className="size-4" aria-hidden="true" />
+                  </button>
                 </div>
                 {diff.files.length === 0 && <div className="diff-empty">No file differences between these refs.</div>}
                 {diff.files.map(file => (
