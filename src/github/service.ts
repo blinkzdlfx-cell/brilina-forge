@@ -67,6 +67,12 @@ function encodeBase64Utf8(value: string): string {
   return btoa(binary);
 }
 
+function decodeBase64Utf8(value: string): string {
+  const binary = atob(value.replace(/\\s/g, ""));
+  const bytes = Uint8Array.from(binary, character => character.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
 function encodeRefPath(ref: string): string {
   return ref.split("/").map(encodeURIComponent).join("/");
 }
@@ -255,6 +261,72 @@ export class GithubService {
         })
       }
     );
+  }
+
+  async writeFiles(
+    owner: string,
+    repo: string,
+    files: Array<{ path: string; content: string }>,
+    message: string,
+    branch: string
+  ): Promise<{ branch: string; files: Array<{ path: string; sha: string; htmlUrl: string }>; commit: { sha: string; html_url: string; message: string }; readBackVerified: true }> {
+    assertRepo(owner, repo);
+    await this.assertWritableBranch(owner, repo, branch);
+    if (!Array.isArray(files) || files.length < 1 || files.length > 25) {
+      throw Object.assign(new Error("Batch writes require between 1 and 25 files"), { statusCode: 400 });
+    }
+    const seenPaths = new Set<string>();
+    let totalBytes = 0;
+    for (const file of files) {
+      assertPath(file.path);
+      if (seenPaths.has(file.path)) throw Object.assign(new Error("Duplicate path in batch: " + file.path), { statusCode: 400 });
+      seenPaths.add(file.path);
+      if (typeof file.content !== "string") throw Object.assign(new Error("Each batch file must contain UTF-8 text"), { statusCode: 400 });
+      const size = new TextEncoder().encode(file.content).byteLength;
+      if (size > MAX_FILE_BYTES) throw Object.assign(new Error("File exceeds the per-file write limit: " + file.path), { statusCode: 413 });
+      totalBytes += size;
+    }
+    if (totalBytes > 2_000_000) throw Object.assign(new Error("Batch exceeds the 2 MB total write limit"), { statusCode: 413 });
+    const commitMessage = message.trim() || "Update " + files.length + " files";
+    if (commitMessage.length > 200 || /[\\u0000-\\u001f\\u007f]/.test(commitMessage)) {
+      throw Object.assign(new Error("Invalid commit message"), { statusCode: 400 });
+    }
+
+    const prefix = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git`;
+    const ref = await this.client.rest<{ object: { sha: string } }>(`${prefix}/ref/heads/${encodeRefPath(branch)}`);
+    const parent = await this.client.rest<{ tree: { sha: string } }>(`${prefix}/commits/${ref.object.sha}`);
+    const blobs = await Promise.all(files.map(async file => {
+      const blob = await this.client.rest<{ sha: string }>(`${prefix}/blobs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: encodeBase64Utf8(file.content), encoding: "base64" })
+      });
+      return { path: file.path, mode: "100644", type: "blob", sha: blob.sha };
+    }));
+    const tree = await this.client.rest<{ sha: string }>(`${prefix}/trees`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ base_tree: parent.tree.sha, tree: blobs })
+    });
+    const commit = await this.client.rest<{ sha: string; html_url: string; message: string }>(`${prefix}/commits`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: commitMessage, tree: tree.sha, parents: [ref.object.sha] })
+    });
+    await this.client.rest(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/refs/heads/${encodeRefPath(branch)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sha: commit.sha, force: false })
+    });
+
+    const verifiedFiles = await Promise.all(files.map(async file => {
+      const readBack = await this.getFile(owner, repo, file.path, branch);
+      if (decodeBase64Utf8(readBack.content) !== file.content) {
+        throw new Error("GitHub batch write verification failed for " + file.path);
+      }
+      return { path: file.path, sha: readBack.sha, htmlUrl: readBack.html_url };
+    }));
+    return { branch, files: verifiedFiles, commit, readBackVerified: true };
   }
 
   async createFile(owner: string, repo: string, path: string, content: string, message: string, branch: string): Promise<GithubWriteResponse> {
