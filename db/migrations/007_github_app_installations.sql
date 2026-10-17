@@ -100,14 +100,13 @@ BEGIN
     ALTER TABLE conversations ADD CONSTRAINT conversations_github_context_type_check
       CHECK (github_context_type IN ('oauth', 'installation'));
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'conversations_installation_context_check') THEN
-    ALTER TABLE conversations ADD CONSTRAINT conversations_installation_context_check
-      CHECK (
-        (github_context_type = 'oauth' AND github_app_installation_id IS NULL AND github_installation_repository_id IS NULL)
-        OR
-        (github_context_type = 'installation' AND github_app_installation_id IS NOT NULL AND github_installation_repository_id IS NOT NULL)
-      );
-  END IF;
+  ALTER TABLE conversations DROP CONSTRAINT IF EXISTS conversations_installation_context_check;
+  ALTER TABLE conversations ADD CONSTRAINT conversations_installation_context_check
+    CHECK (
+      (github_context_type = 'oauth' AND github_app_installation_id IS NULL AND github_installation_repository_id IS NULL)
+      OR
+      (github_context_type = 'installation' AND repository_id IS NULL AND github_app_installation_id IS NOT NULL AND github_installation_repository_id IS NOT NULL)
+    );
 END $;
 
 ALTER TABLE runs ADD COLUMN IF NOT EXISTS github_connection_id_snapshot UUID;
