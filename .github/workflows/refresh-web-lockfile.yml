@@ -1,0 +1,52 @@
+name: Refresh web lockfile
+on:
+  push:
+    branches: [main]
+    paths:
+      - "web/package.json"
+      - ".github/workflows/refresh-web-lockfile.yml"
+permissions:
+  contents: write
+jobs:
+  refresh-and-verify:
+    if: "!contains(github.event.head_commit.message, '[lockfile-refresh]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Regenerate lockfile from package manifest
+        working-directory: web
+        run: npm install --package-lock-only --ignore-scripts
+      - name: Verify clean install
+        working-directory: web
+        run: npm ci
+      - name: Build web and package Worker assets
+        run: npm run build
+      - name: Typecheck backend phase 1
+        run: npm run typecheck:phase1
+      - name: Run phase 1 tests
+        run: npm run test:phase1
+      - name: Run Worker tests
+        run: npm run test:worker
+      - name: Audit web dependencies
+        working-directory: web
+        run: npm audit --audit-level=high
+      - name: Audit root dependencies
+        run: npm audit --audit-level=high
+      - name: Wrangler deployment dry-run
+        run: npx wrangler@4.68.0 deploy --dry-run
+      - name: Commit generated lockfile
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add web/package-lock.json
+          if git diff --cached --quiet; then
+            echo "Lockfile already synchronized."
+            exit 0
+          fi
+          git commit -m "chore: refresh web dependency lockfile [lockfile-refresh]"
+          git push origin main
