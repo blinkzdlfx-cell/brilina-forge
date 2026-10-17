@@ -28,7 +28,8 @@ export async function createPersistentSession(
   const workspaceName = githubUser.login + "'s Forge";
   const sql = getSql();
 
-  await sql.transaction([
+  try {
+    await sql.transaction([
     sql.query(
       "INSERT INTO forge_users (github_user_id, github_login, github_name, github_avatar_url) SELECT $1, $2, $3, $4 WHERE NOT EXISTS (SELECT 1 FROM auth_identities WHERE provider = 'github' AND provider_subject = $1::text) ON CONFLICT (github_user_id) DO UPDATE SET github_login = EXCLUDED.github_login, github_name = EXCLUDED.github_name, github_avatar_url = EXCLUDED.github_avatar_url, updated_at = now()",
       [githubUser.id, githubUser.login, githubUser.name, githubUser.avatar_url]
@@ -53,7 +54,24 @@ export async function createPersistentSession(
       "INSERT INTO auth_sessions (user_id, active_github_connection_id, session_token_hash, expires_at) SELECT c.user_id, c.id, $1, $2 FROM github_connections c JOIN auth_identities i ON i.id = c.auth_identity_id WHERE i.provider = 'github' AND i.provider_subject = $3::text",
       [tokenHash, new Date(expiresAt), githubUser.id]
     )
-  ]);
+    ]);
+  } catch (error) {
+    const value = error && typeof error === "object"
+      ? error as { name?: unknown; message?: unknown; code?: unknown; constraint?: unknown; table?: unknown; column?: unknown }
+      : {};
+    const field = (input: unknown, max = 300): string | undefined =>
+      typeof input === "string" && input.length ? input.slice(0, max) : undefined;
+    console.error(JSON.stringify({
+      event: "forge_persistent_session_transaction_failed",
+      ...(field(value.name) ? { errorName: field(value.name)! } : {}),
+      ...(field(value.message) ? { errorMessage: field(value.message)! } : {}),
+      ...(field(value.code, 80) ? { databaseCode: field(value.code, 80)! } : {}),
+      ...(field(value.constraint, 160) ? { databaseConstraint: field(value.constraint, 160)! } : {}),
+      ...(field(value.table, 160) ? { databaseTable: field(value.table, 160)! } : {}),
+      ...(field(value.column, 160) ? { databaseColumn: field(value.column, 160)! } : {})
+    }));
+    throw error;
+  }
 
   const session = await getPersistentSession(token);
   if (!session) throw new Error("Failed to create durable Forge session");
