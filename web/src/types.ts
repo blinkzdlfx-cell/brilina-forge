@@ -81,3 +81,28 @@ export type ForgeDiff = {
   total_commits: number;
   files: ForgeDiffFile[];
 };
+
+
+export type GithubToolCategory =
+  | "repository-read" | "branch-read" | "file-read" | "diff-review"
+  | "branch-write" | "file-write" | "issue-management"
+  | "pull-request-management" | "actions-and-checks"
+  | "releases-and-deployments" | "security-administration";
+
+export type GithubToolDefinition = {
+  name: string;
+  category: GithubToolCategory;
+  risk: "read" | "write" | "high";
+  defaultEnabled: boolean;
+  description: string;
+};
+
+export type GithubToolPreferences = {
+  enabledToolNames: string[];
+  enabledCategories: GithubToolCategory[];
+};
+
+export type GithubToolSettings = {
+  definitions: GithubToolDefinition[];
+  preferences: GithubToolPreferences;
+};
