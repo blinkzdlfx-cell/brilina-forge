@@ -28,6 +28,7 @@ import {
 import {
   createGithubAppInstallationState,
   consumeGithubAppInstallationState,
+  verifyGithubAppInstallationCallback,
   listGithubAppInstallationsForUser,
   listGithubAppRepositoriesForUser,
   getGithubAppInstallationForUser,
@@ -614,8 +615,18 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
         return json({ error: "invalid_github_app_callback" }, 400);
       }
       const session = await sessionForRequest(request);
+      const verifiedOwner = await verifyGithubAppInstallationCallback({
+        state, sessionToken, installationId, setupAction: setupAction as "install" | "update"
+      });
+      if (!verifiedOwner) {
+        return json({
+          error: "github_app_installation_not_confirmed",
+          message: "GitHub has not yet confirmed this installation for the connected account. Wait a few seconds and refresh this page; if it still fails, restart installation from Forge."
+        }, 409);
+      }
       const stateOwner = await consumeGithubAppInstallationState(state, sessionToken);
-      if (!stateOwner || stateOwner.userId !== session.forgeUserId || stateOwner.authIdentityId !== session.authIdentityId) {
+      if (!stateOwner || stateOwner.userId !== session.forgeUserId || stateOwner.authIdentityId !== session.authIdentityId ||
+          stateOwner.userId !== verifiedOwner.userId || stateOwner.authIdentityId !== verifiedOwner.authIdentityId) {
         return json({ error: "github_app_state_invalid_or_expired" }, 400);
       }
       const installation = await getGithubAppInstallation(installationId);
