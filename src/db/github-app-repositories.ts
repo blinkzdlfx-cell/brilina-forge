@@ -112,7 +112,7 @@ export async function processGithubAppWebhook(input: {
 }): Promise<"processed" | "duplicate"> {
   const sql = getSql();
   const inserted = await sql.query(
-    "INSERT INTO github_app_webhook_deliveries (delivery_id,event_name,action_name) VALUES ($1,$2,$3) ON CONFLICT (delivery_id) DO NOTHING RETURNING delivery_id",
+    "INSERT INTO github_app_webhook_deliveries (delivery_id,event_name,action_name) VALUES ($1,$2,$3) ON CONFLICT (delivery_id) DO UPDATE SET processing_error=NULL WHERE github_app_webhook_deliveries.processing_error IS NOT NULL RETURNING delivery_id",
     [input.deliveryId, input.eventName, input.action ?? null]
   ) as Record<string, unknown>[];
   if (!inserted[0]) return "duplicate";
@@ -127,7 +127,8 @@ export async function processGithubAppWebhook(input: {
       } else if (input.eventName === "installation" && input.action === "unsuspend") {
         await sql.query("UPDATE github_app_installations SET suspended_at=NULL, updated_at=now() WHERE installation_id=$1", [installation.id]);
       } else if (input.eventName === "installation_repositories" && (input.action === "removed" || input.action === "added")) {
-        const repositories = (input.payload.repositories as Array<{ id?: number }> | undefined) ?? [];
+        const repositoryKey = input.action === "removed" ? "repositories_removed" : "repositories_added";
+        const repositories = (input.payload[repositoryKey] as Array<{ id?: number }> | undefined) ?? [];
         if (input.action === "removed") {
           const ids = repositories.map(repo => repo.id).filter((id): id is number => Number.isSafeInteger(id));
           if (ids.length) await sql.query(
