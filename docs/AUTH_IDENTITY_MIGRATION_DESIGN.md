@@ -60,3 +60,8 @@ The next major stage is the GitHub App integration: app registration/configurati
 - Never delete or recreate existing Forge users to simulate linking.
 - Keep run context immutable: a run must capture the selected connection/installation, repository, and branch at creation.
 - Do not deploy or mutate production database schema without explicit owner authorization and verified temporary-branch results.
+
+
+## Implementation checkpoint — 2026-10-17
+
+Migration 006 is committed and was tested on temporary Neon branch `br-noisy-rain-zamdr0q8`; migrations 007 and 008 were tested there as well. The tested baseline retained 1 Forge user, 1 connection, 3 sessions, 1 workspace, 6 conversations, 15 repositories, and 50 runs; identity/connection/session mismatch counts were zero. Production was not changed. Source implementation is in integration branch `feat/auth-github-app-complete`; it is not accepted until CI and live integration tests pass. See `docs/IMPLEMENTATION_PLAN.md` for the staged production rollout, including why migration 008 must follow deployment of the new Worker.
