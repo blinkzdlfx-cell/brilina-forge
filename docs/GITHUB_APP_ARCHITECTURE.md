@@ -87,3 +87,7 @@ A new installation is linked only after a valid signed `installation.created` we
 ## Final source/temporary-schema checkpoint — 2026-10-17
 
 The current integration head is `32ba5e8af530f27850002cb5d681860a78251dfe` on `feat/auth-github-app-complete`, PR #14. CI run `39062142344` passed build, typecheck, Phase 1 tests, Worker tests, Wrangler dry-run, and dependency audits. Temporary Neon verification confirmed the staged 006+007 schema preserves the legacy unique constraint and compatibility triggers; the 006–008 schema removes only the legacy single-column uniqueness and retains clean connection/session ownership and run snapshots. Production remains unchanged. Follow the exact staged rollout in `docs/CURRENT_STATE_AND_CONTINUATION.md`; live App setup, callback/webhook, account-switching and real AI write/read-back/diff acceptance are still pending.
+
+
+### Documentation-head verification — 2026-10-17
+The documentation-complete integration head is `f18722e8cb8438a96765da064af7d53be840e2a5`. GitHub Actions run `39063266378` completed successfully on this exact SHA; both `verify` and `security-audit` jobs passed. This is the current source/documentation verification checkpoint. It still does not imply a production merge/deploy or live GitHub App acceptance.
