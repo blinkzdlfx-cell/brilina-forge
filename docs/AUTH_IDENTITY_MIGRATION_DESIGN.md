@@ -38,7 +38,7 @@ Do not drop the current unique constraint or make the current GitHub profile col
 6. Only after provider-identity reads/writes no longer depend on the legacy columns, make `forge_users.github_user_id` and `github_login` nullable so future Google/email-first identities can exist. Keep legacy profile columns during the compatibility window; do not drop them in this migration.
 7. Preserve all existing workspace and conversation IDs. Do not delete or duplicate users, workspaces, sessions, repositories, or run history.
 
-The exact SQL migration will be committed only after the repository source and test inventory confirms the final FK names and query requirements. The migration must include assertions/preflight queries and a documented rollback/recovery procedure. If a migration has partially run, stop and inspect the live schema rather than blindly rerunning it.
+The additive SQL migration is committed as `db/migrations/006_auth_identity_connections.sql` after inspecting the actual table definitions and session queries. Its ownership constraints are additive and the old one-connection constraint remains until application source has been migrated. It must be tested on a temporary Neon branch before production. The migration must include assertions/preflight queries and a documented rollback/recovery procedure. If a migration has partially run, stop and inspect the live schema rather than blindly rerunning it.
 
 ## Required implementation sequence (five foundation steps)
 
