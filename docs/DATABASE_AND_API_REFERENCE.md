@@ -29,6 +29,14 @@ Migration `003_companion_work_results.sql` creates the durable `companion_work_r
 
 See db/migrations/*.sql for authoritative constraints and foreign keys.
 
+### 004_github_tool_preferences.sql
+Creates `github_tool_preferences`, keyed by Forge user, to persist enabled GitHub tool IDs and enabled tool categories as JSON arrays. Apply this migration after `003_companion_work_results.sql` before using the GitHub tool settings API. The preferences only restrict tool discovery; they are not a grant of GitHub permissions and cannot bypass server-side policy.
+
+### GitHub tool settings API
+- `GET /api/settings/github-tools` — authenticated; returns the known tool definitions and the current user's saved preferences (catalog defaults when no row exists).
+- `PUT /api/settings/github-tools` — authenticated and same-origin checked; persists enabled tool IDs/categories after server-side filtering to known, server-enabled capabilities.
+- Preferences are applied when a run constructs its ToolRegistry. Existing in-flight runs retain the tool list/context with which they started; settings affect subsequent runs.
+
 ### Provider and usage columns
 
 `runs.provider` and `runs.model` are written by `updateRunProvider` (`src/db/agent-repositories.ts`) once the runtime resolves the active provider for a run. They are nullable, so pre-Phase-5 runs are simply `NULL`.
