@@ -639,6 +639,22 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
       return json({ repositories: await listGithubAppRepositoriesForUser(userId, installationRecordId) });
     }
 
+    if (path === "/api/github-app/branches" && method === "GET") {
+      const { userId } = await forgeContext(request);
+      const installationRecordId = url.searchParams.get("installationId") ?? "";
+      const fullName = url.searchParams.get("repository") ?? "";
+      if (!UUID_PATTERN.test(installationRecordId) || !/^[^/]+\/[^/]+$/.test(fullName)) return json({ error: "invalid_installation_repository" }, 400);
+      const installation = await getGithubAppInstallationForUser(userId, installationRecordId);
+      if (!installation) return json({ error: "installation_not_authorized" }, 403);
+      const allowedRepositories = await listGithubAppRepositoriesForUser(userId, installationRecordId);
+      if (!allowedRepositories.some(repository => repository.fullName.toLowerCase() === fullName.toLowerCase())) {
+        return json({ error: "repository_not_authorized_by_installation" }, 403);
+      }
+      const service = new GithubService(new GithubClient(await createGithubInstallationToken(installation.installationId)));
+      const [owner, name] = fullName.split("/");
+      return json(await service.listBranches(owner, name));
+    }
+
     if (path === "/api/github-app/webhook" && method === "POST") {
       const rawBody = await request.text();
       if (!(await verifyGithubAppWebhookSignature(rawBody, request.headers.get("X-Hub-Signature-256")))) {
