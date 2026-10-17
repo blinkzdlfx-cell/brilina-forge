@@ -109,3 +109,38 @@ test("read-only MCP tool probe rejects write tools and invalid repository paths"
     /valid repository file path/
   );
 });
+
+
+test("read-only MCP tool probe accepts ordinary repository paths", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { method: string };
+    if (body.method === "initialize") {
+      return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result: { protocolVersion: "2025-03-26" } }), {
+        status: 200, headers: { "MCP-Session-Id": "valid-path-session" }
+      });
+    }
+    if (body.method === "notifications/initialized") return new Response(null, { status: 202 });
+    if (body.method === "tools/call") {
+      return new Response(JSON.stringify({
+        jsonrpc: "2.0", id: 3,
+        result: { content: [{ type: "text", text: "file contents" }], isError: false }
+      }), { status: 200 });
+    }
+    throw new Error("Unexpected MCP method");
+  }) as typeof fetch;
+
+  try {
+    const { callGithubMcpReadTool } = await import("./mcp-diagnostic.js");
+    const result = await callGithubMcpReadTool("token", "get_file_contents", {
+      owner: "blinkzdlfx-cell",
+      repo: "brilina-forge",
+      path: "src/github/mcp-diagnostic.ts",
+      ref: "main"
+    });
+    assert.equal(result.isError, false);
+    assert.equal(result.content[0].text, "file contents");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
