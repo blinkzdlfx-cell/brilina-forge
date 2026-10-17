@@ -281,3 +281,10 @@ The owner requested that the related stages be completed as one coherent effort,
 
 ### Required return-to item
 After the combined auth/App gate passes, return to the deferred core workflow that triggered the architecture decision: a real AI run must use an authorized non-default working branch, write a file, read it back, present actual diff/commit evidence, and prove a mid-run context change cannot redirect the run. Also recheck the previously failing Phase 1 tests rather than assuming their historical status is current.
+
+
+### CI evidence update — 2026-10-17
+- Draft PR: #14, head commit `d5ad4e1029e0ea2a3572df698c9ee70624d3ee91`.
+- GitHub Actions CI passed for that commit: web/build, Phase 1 typecheck, Phase 1 tests, Worker tests, Wrangler deploy dry-run, and both dependency security audits.
+- The two historical Phase 1 failures were fixed: the batch-write authorization test was failing because its control-character regex matched literal letters; the service commit-message regex had the same double-escaping defect. The latest run also confirms the Worker test suite passes after restoring the full connection-aware session repository implementation.
+- This is automated CI evidence only. Live OAuth, GitHub App installation/webhook, production migration, and actual AI-to-GitHub acceptance remain pending.
