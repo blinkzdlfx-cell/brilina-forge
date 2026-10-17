@@ -65,7 +65,7 @@ export function filterAvailableGithubTools<T extends Pick<ForgeTool, "name">>(
 ): T[] {
   return tools.filter(tool => {
     const definition = DEFINITION_BY_NAME.get(tool.name);
-    if (!definition) return true; // Non-GitHub tools have their own policy.
+    if (!definition) return !tool.name.startsWith("github."); // Non-GitHub tools have their own policy; uncatalogued GitHub tools fail closed.
     if (!definition.defaultEnabled) return false;
     if (enabledNames && !enabledNames.has(tool.name)) return false;
     if (enabledCategories && !enabledCategories.has(definition.category)) return false;
