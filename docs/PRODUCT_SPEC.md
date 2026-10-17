@@ -152,3 +152,37 @@ Authorize by user, workspace, repository, and branch. Deny unknown/high-risk cap
 - **Blocked/unverified:** evidence or access is missing.
 
 Never infer completion from documentation, source presence, a mock, a passing typecheck, a read-only operation, or a model claim. Every batch records SHA, changed files, exact commands/results, live checks, known gaps, and next step.
+
+## 10. Authentication, identity, and GitHub account connections
+
+### 10.1 Initial sign-in and future providers
+- Initial public-release sign-in is **Continue with GitHub**, implemented through the Brilina Forge GitHub App authorization flow.
+- Keep Forge identity separate from GitHub account connections. The first GitHub identity establishes or links to a Forge user according to a deterministic, collision-safe account-linking policy.
+- Design identity storage so Google and email authentication can be added later as additional identity providers without replacing the Forge user or changing the session model.
+- Do not silently merge accounts based only on matching email addresses. Account linking requires proof of control of both identities and an explicit user action.
+- A successful sign-in creates a server-managed Forge session. The browser receives only a cryptographically random opaque session ID in a Secure (in HTTPS), HttpOnly, SameSite cookie; persist only a hash of the session ID in Neon.
+- Validate session expiry and revocation on the server. Protect state-changing cookie-authenticated routes with same-origin/CSRF protections. Do not expose GitHub tokens or refresh tokens to frontend JavaScript.
+
+### 10.2 Multiple GitHub accounts
+- One Forge user may connect multiple GitHub accounts and multiple GitHub App installations.
+- The account-management UI must support adding, listing, switching, reconnecting, and disconnecting GitHub accounts without logging the user out of Forge.
+- A GitHub account connection is distinct from a GitHub App installation. An installation belongs to a personal account or organization and has its own granted repository set and app permissions.
+- Repository access is the intersection of the selected installation's permissions/repositories and the acting GitHub identity's own access. Never treat a frontend selection as authorization.
+- Every repository operation must resolve an explicit connection/installation and re-check server-side ownership, installation scope, permissions, repository, and branch.
+- Repository and branch selections belong to the conversation/workspace. Every run snapshots the chosen Forge user, GitHub connection/installation, repository, and branch so changing the active selector cannot redirect an in-flight run.
+- Existing conversations and history remain available when switching GitHub accounts; do not migrate or expose one GitHub account's repository records into another account's scope without validating access.
+
+### 10.3 Session lifecycle and controls
+- Sign out revokes the current Forge session and clears the browser cookie. It does not automatically disconnect GitHub accounts or uninstall the GitHub App.
+- Disconnecting a GitHub account removes/revokes that connection's stored credentials and handles conversations/repositories that depended on it without deleting unrelated Forge history.
+- Uninstall/revocation of a GitHub App installation must invalidate that installation's access and make affected repositories unavailable until access is restored.
+- Token refresh, expiration, revoked consent, deleted/disabled accounts, and missing installation permissions must have explicit recoverable UI states.
+- The account menu provides the current Forge identity, connected GitHub accounts, account management/settings, and Sign out. The workspace context controls expose the active GitHub account, repository, and branch without overcrowding the transcript.
+
+### 10.4 Authorization design
+- Use GitHub App fine-grained permissions and installation-scoped repository access for repository work; use user authorization only where the workflow requires user attribution or user-bound resources.
+- Do not assume GitHub App installation access tokens and GitHub App user access tokens are interchangeable. Select token type per operation and enforce the intersection of app permissions, installation repository grants, and user access.
+- Initial repository permissions should be least-privilege and validated against the actual REST/GraphQL operations. Do not request Actions, issues, pull-request, administration, or workflow-write permissions until a shipped feature requires them.
+- Support both public and private repositories when the user/installation has access and the app has the relevant permissions.
+- Account and installation switches must never change the immutable context or credentials already bound to a running AI task.
+
