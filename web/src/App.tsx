@@ -13,12 +13,19 @@ import {
   loadSession,
   signOut,
   startGithubSignIn,
+  startGithubAccountLink,
+  switchGithubConnection,
+  listGithubAppInstallations,
+  listGithubAppRepositories,
+  listGithubAppBranches,
+  startGithubAppInstallation,
+  refreshGithubAppInstallation,
   startRun,
   streamRun,
   syncGithubRepository,
   updateConversationContext
 } from "./api";
-import type { ChatMessage, Conversation, ForgeDiff, ForgeEvent, GithubBranch, GithubRepository, RunAudit, RunStatus, SessionInfo, GithubToolCategory, GithubToolDefinition, GithubToolPreferences } from "./types";
+import type { ChatMessage, Conversation, ForgeDiff, ForgeEvent, GithubBranch, GithubRepository, GithubAppInstallation, GithubAppRepository, RunAudit, RunStatus, SessionInfo, GithubToolCategory, GithubToolDefinition, GithubToolPreferences } from "./types";
 import { SelectField } from "./components/ui/SelectField";
 import { Button } from "./components/ui/button";
 import { Dialog } from "./components/ui/dialog";
@@ -70,6 +77,11 @@ export function App() {
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [repositories, setRepositories] = useState<GithubRepository[]>([]);
+  const [appInstallations, setAppInstallations] = useState<GithubAppInstallation[]>([]);
+  const [installationRepositories, setInstallationRepositories] = useState<GithubAppRepository[]>([]);
+  const [selectedInstallationId, setSelectedInstallationId] = useState<string | null>(null);
+  const [selectedInstallationRepoId, setSelectedInstallationRepoId] = useState<string | null>(null);
+  const [contextType, setContextType] = useState<"oauth" | "installation">("oauth");
   const [branches, setBranches] = useState<GithubBranch[]>([]);
   const [loadingBranches, setLoadingBranches] = useState(false);
   const [active, setActive] = useState<Conversation | null>(null);
@@ -249,6 +261,10 @@ export function App() {
     if (!session?.authenticated) {
       setConversations([]);
       setRepositories([]);
+      setAppInstallations([]);
+      setInstallationRepositories([]);
+      setSelectedInstallationId(null);
+      setSelectedInstallationRepoId(null);
       setActive(null);
       setMessages(demoMessages);
       setLoadingRepos(false);
@@ -256,10 +272,11 @@ export function App() {
     }
 
     setLoadingRepos(true);
-    void Promise.all([listConversations(), listGithubRepositories()])
-      .then(([items, repoItems]) => {
+    void Promise.all([listConversations(), listGithubRepositories(), listGithubAppInstallations()])
+      .then(([items, repoItems, installations]) => {
         setConversations(items);
         setRepositories(repoItems);
+        setAppInstallations(installations);
         let lastConversationId: string | null = null;
         try { lastConversationId = window.localStorage.getItem("brilina-forge:last-conversation"); } catch { /* storage may be unavailable */ }
         if (lastConversationId === "__new__") {
@@ -282,16 +299,36 @@ export function App() {
     let cancelled = false;
     setLoadingConversation(true);
     const requestId = ++branchRequestId.current;
+    setContextType(active.githubContextType === "installation" ? "installation" : "oauth");
     setSelectedForgeRepoId(active.repositoryId);
     setSelectedBranch(active.branchName ?? "");
-    const githubRepo = repositories.find(item => item.full_name === active.repositoryFullName);
+    setSelectedInstallationId(active.installationRecordId ?? null);
+    setSelectedInstallationRepoId(active.installationRepositoryId ?? null);
+    const githubRepo = active.githubContextType === "installation" ? null : repositories.find(item => item.full_name === active.repositoryFullName);
     setSelectedRepoId(githubRepo?.id ?? null);
     setError(null);
-
-    // A restored conversation must restore its branch choices as well as its selected branch.
-    // Otherwise the controlled select has a value but no matching options.
     setBranches([]);
-    if (githubRepo) {
+    if (active.githubContextType === "installation" && active.installationRecordId && active.installationRepositoryId) {
+      setLoadingBranches(true);
+      void listGithubAppRepositories(active.installationRecordId)
+        .then(async items => {
+          if (cancelled || requestId !== branchRequestId.current) return;
+          setInstallationRepositories(items);
+          const repo = items.find(item => item.id === active.installationRepositoryId);
+          if (!repo) throw new Error("The selected installation repository is no longer available");
+          const branchItems = await listGithubAppBranches(active.installationRecordId!, repo.fullName);
+          if (!cancelled && requestId === branchRequestId.current) setBranches(branchItems);
+        })
+        .catch(err => {
+          if (!cancelled) {
+            setBranches([]);
+            setError(err instanceof Error ? err.message : "Unable to load installation repository branches");
+          }
+        })
+        .finally(() => {
+          if (!cancelled && requestId === branchRequestId.current) setLoadingBranches(false);
+        });
+    } else if (githubRepo) {
       setLoadingBranches(true);
       void listGithubBranches(githubRepo.owner.login, githubRepo.name)
         .then(items => {
@@ -349,8 +386,13 @@ export function App() {
     }))
   ].sort((left, right) => Date.parse(left.timestamp) - Date.parse(right.timestamp)), [messages, runActivities]);
   const selectedGithubRepo = repositories.find(item => item.id === selectedRepoId) ?? null;
+  const selectedInstallationRepo = installationRepositories.find(item => item.id === selectedInstallationRepoId) ?? null;
   const sidebarCompact = collapsed && !isMobile;
-  const contextPending = sessionLoading || loadingRepos || loadingBranches || Boolean(session?.authenticated && (!selectedRepoId || !selectedForgeRepoId || !selectedBranch));
+  const contextPending = sessionLoading || loadingRepos || loadingBranches || Boolean(session?.authenticated && (
+    contextType === "installation"
+      ? (!selectedInstallationId || !selectedInstallationRepoId || !selectedBranch)
+      : (!selectedRepoId || !selectedForgeRepoId || !selectedBranch)
+  ));
 
   useEffect(() => {
     if (!shouldStickToBottomRef.current) return;
@@ -396,9 +438,12 @@ export function App() {
     }
   }
 
-  async function applyConversationContext(repositoryId: string | null, branchName: string | null) {
+  async function applyConversationContext(
+    repositoryId: string | null, branchName: string | null,
+    context?: { contextType?: "oauth" | "installation"; installationRecordId?: string | null; installationRepositoryId?: string | null }
+  ) {
     if (!active) return;
-    const updated = await updateConversationContext(active.id, { repositoryId, branchName });
+    const updated = await updateConversationContext(active.id, { repositoryId, branchName, ...context });
     setActive(updated);
     setConversations(items => items.map(item => item.id === updated.id ? updated : item));
   }
@@ -411,6 +456,10 @@ export function App() {
     setCompareOpen(false);
     setLoadingDiff(false);
     const githubId = value ? Number(value) : null;
+    setContextType("oauth");
+    setSelectedInstallationId(null);
+    setSelectedInstallationRepoId(null);
+    setInstallationRepositories([]);
     setError(null);
     setSelectedRepoId(githubId);
     setBranches([]);
@@ -440,7 +489,7 @@ export function App() {
         ? repository.default_branch
         : branchItems[0]?.name ?? "";
       setSelectedBranch(defaultBranch);
-      if (active) await applyConversationContext(forgeRepo.id, defaultBranch || null);
+      if (active) await applyConversationContext(forgeRepo.id, defaultBranch || null, { contextType: "oauth", installationRecordId: null, installationRepositoryId: null });
     } catch (err) {
       if (requestId === branchRequestId.current) setError(err instanceof Error ? err.message : "Unable to select repository");
     } finally {
@@ -457,11 +506,26 @@ export function App() {
     setLoadingDiff(false);
     setSelectedBranch(value);
     if (diffBase === value) setDiffBase("");
-    if (!active || !selectedForgeRepoId) return;
+    if (!active) return;
+    if (contextType === "installation" && selectedInstallationId && selectedInstallationRepoId) {
+      try {
+        const updated = await updateConversationContext(active.id, {
+          repositoryId: null, branchName: value || null, contextType: "installation",
+          installationRecordId: selectedInstallationId, installationRepositoryId: selectedInstallationRepoId
+        });
+        setActive(updated);
+        setConversations(items => items.map(item => item.id === updated.id ? updated : item));
+      } catch (err) { setError(err instanceof Error ? err.message : "Unable to select installation branch"); }
+      return;
+    }
+    if (!selectedForgeRepoId) return;
     try {
       const updated = await updateConversationContext(active.id, {
         repositoryId: selectedForgeRepoId,
-        branchName: value || null
+        branchName: value || null,
+        contextType: "oauth",
+        installationRecordId: null,
+        installationRepositoryId: null
       });
       setActive(updated);
       setConversations(items => items.map(item => item.id === updated.id ? updated : item));
