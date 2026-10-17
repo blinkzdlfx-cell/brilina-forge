@@ -202,3 +202,29 @@ This section supersedes the older “Current automated status” note above.
 - Simulated a legacy Worker-style connection insert and session insert. Assertions passed: the connection acquired its `auth_identities` row and the session acquired its `active_github_connection_id`.
 - Verification on that branch showed 0 connections without identities, 0 sessions without active connections, 0 runs missing existing repository/branch snapshots, and the old `UNIQUE(user_id)` constraint still present. This supports the staged rollout: 006 + 007 first; new Worker deploy; 008 only after that.
 - Both temporary Neon branches are non-production. Production remains unchanged.
+
+
+## Final implementation handoff checkpoint — 2026-10-17 (latest verified)
+
+**Current integration head:** `32ba5e8af530f27850002cb5d681860a78251dfe` on `feat/auth-github-app-complete`; draft PR #14 remains open against `main`. Do not assume the feature is live on production while the PR is unmerged.
+
+**Automated verification:** GitHub Actions run [39062142344](https://github.com/blinkzdlfx-cell/brilina-forge/actions/runs/39062142344) completed successfully for this exact head. The `verify` job passed `npm ci`, `npm run build`, `npm run typecheck:phase1`, `npm run test:phase1`, `npm run test:worker`, and Wrangler deploy dry-run. The security-audit job passed both dependency audits.
+
+**Fresh temporary Neon verification:**
+- Compatibility branch `auth-migration-006-007-compat-20261017` (`br-restless-violet-zanlwa4j`) has migrations 006 + 007 but not 008. Read-only checks confirmed the five GitHub App tables exist, webhook installer columns both exist, both compatibility triggers exist, context consistency count is 0, all existing 50 runs retain repository/branch snapshots, and all connection/session ownership mismatch counts are 0. The legacy `UNIQUE(user_id)` constraint is still present as required before the Worker rollout.
+- Validation branch `auth-migration-006-validation-20261017` (`br-noisy-rain-zamdr0q8`) has migrations 006–008. Read-only checks confirmed zero connection identity/session ownership mismatches, zero runs missing existing context, and removal of the single-column `UNIQUE(user_id)` constraint while preserving the composite ownership constraints. `forge_users.github_user_id` and `github_login` are nullable after 008 as intended.
+- Both branches are temporary/non-production. Production has not been changed by this work. Existing production migrations 004 and 005 must not be rerun.
+
+**Implementation is ready for owner-controlled rollout, not yet live-accepted.** Live GitHub App configuration, browser OAuth/install callback, webhook delivery, account switching, installation authorization, and real provider-backed write/read-back/diff tests remain owner/configuration-dependent. No secrets were created or exposed.
+
+### Owner rollout checklist (follow this order)
+1. Review and merge PR #14 only after confirming its green CI at the head above. The Worker code must be deployed before migration 008.
+2. In production Neon `neondb`, run `db/migrations/006_auth_identity_connections.sql`, then `db/manual/verify_006_auth_identity_connections.sql`; expect zero ownership/missing-link counts, both compatibility triggers, and the old single-column `github_connections(user_id)` uniqueness still present.
+3. Run `db/migrations/007_github_app_installations.sql`, then `db/manual/verify_007_github_app_installations.sql`; expect all five tables present, two webhook columns present, and all orphan/context-invalid counts zero.
+4. Deploy the merged Worker with `GITHUB_MULTI_ACCOUNT_ENABLED=false`. Configure the GitHub App values as documented in `docs/GITHUB_APP_ARCHITECTURE.md`: setup callback `https://brilina-forge.blinkzdlfx.workers.dev/auth/github-app/callback`, webhook `https://brilina-forge.blinkzdlfx.workers.dev/api/github-app/webhook`, webhook events `installation` and `installation_repositories`, repository metadata read and contents read/write. Set `GITHUB_APP_ID` and `GITHUB_APP_SLUG` as Worker variables; set `GITHUB_APP_PRIVATE_KEY` and `GITHUB_APP_WEBHOOK_SECRET` as encrypted Worker secrets. Keep existing OAuth/database/encryption/provider variables unchanged. The App's setup URL must match `GITHUB_APP_SETUP_CALLBACK_URL`.
+5. Smoke-test existing GitHub login/session continuity and the deployed Worker before proceeding. Do not enable multi-account yet.
+6. Only with the new Worker deployed and stable, run `db/migrations/008_enable_multiple_github_connections.sql`, then `db/manual/verify_008_multiple_github_connections.sql`. Confirm zero ownership/missing-link counts and that only the single-column `UNIQUE(user_id)` constraint is absent; keep composite constraints.
+7. Set `GITHUB_MULTI_ACCOUNT_ENABLED=true` only after step 6 verification. Test linking and switching accounts, then App install/repository selection and webhook lifecycle.
+8. After combined auth/App acceptance, return to the deferred real AI-to-GitHub gate: authorized non-default working branch, write, read-back, actual commit/diff evidence, no default-branch write, and immutable run context when selectors change mid-run.
+
+**Do not run migration 008 before deploying the new Worker.** The old Worker expects one GitHub connection per Forge user. If any verification query differs from the expected results above, stop and report the output rather than enabling multi-account support.
