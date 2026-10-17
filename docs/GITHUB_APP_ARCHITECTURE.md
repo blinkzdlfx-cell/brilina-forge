@@ -56,3 +56,8 @@
 - Attempt cross-user, cross-installation, removed-repository, and suspended-installation operations; all must fail closed.
 - Create a run, switch selected account/installation/repository/branch mid-run, and prove the run still uses its original immutable context.
 - Run the real AI-to-GitHub acceptance: create/use a non-default working branch, write a test file, read it back, show actual diff/commit, and verify no default-branch mutation.
+
+
+## Implementation status — 2026-10-17
+
+The initial server-side implementation is in `feat/auth-github-app-complete`: App JWT and installation-token client, session-bound installation state, installation/access/repository persistence, ownership-filtered installation/repository/branch APIs, signed webhook handling, and conversation/run installation context. Account/install selectors have been added to the context dialog. Automated CI and live browser/GitHub acceptance have not yet passed; do not treat the architecture as complete until the recorded acceptance checklist below is demonstrated. The installation cache is never the authorization source of truth: each run rechecks the selected installation and repository authorization before token use.
