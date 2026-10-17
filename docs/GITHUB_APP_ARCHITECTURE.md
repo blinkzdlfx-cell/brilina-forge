@@ -65,3 +65,16 @@ The initial server-side implementation is in `feat/auth-github-app-complete`: Ap
 
 ## Automated verification result — 2026-10-17
 CI passed on integration commit `d5ad4e1029e0ea2a3572df698c9ee70624d3ee91`: build, phase-1 typecheck, phase-1 tests, Worker tests, Wrangler dry-run, and dependency security audits. This does not substitute for live GitHub App configuration, installation callback/webhook verification, production schema rollout, or the real AI write/read-back/diff acceptance.
+
+
+## GitHub App dashboard setup checklist
+
+Before live installation testing, configure the single Brilina Forge GitHub App:
+
+- **Setup URL:** `https://brilina-forge.blinkzdlfx.workers.dev/auth/github-app/callback`
+- **Webhook URL:** `https://brilina-forge.blinkzdlfx.workers.dev/api/github-app/webhook`
+- **Webhook events:** `installation` and `installation_repositories` (the installation-created delivery is used to verify who installed the App before a new installation is linked).
+- **Core permissions:** repository metadata read and contents read/write. Add issues, pull requests, Actions, deployments, or security permissions only when those tool categories are enabled and needed.
+- Save the App ID, App slug, generated private key, and webhook secret as Cloudflare Worker secrets/variables: `GITHUB_APP_ID`, `GITHUB_APP_SLUG`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_WEBHOOK_SECRET`.
+- Keep `GITHUB_MULTI_ACCOUNT_ENABLED=false` until migration 008 is applied and verified.
+- Do not commit private keys, webhook secrets, access tokens, or installation tokens into the repository.
