@@ -500,6 +500,99 @@ export function App() {
     }
   }
 
+  async function handleConnectionChange(value: string) {
+    if (!value || value === session?.activeGithubConnectionId) return;
+    try {
+      await switchGithubConnection(value);
+      window.location.reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to switch GitHub account");
+    }
+  }
+
+  async function handleContextTypeChange(value: string) {
+    if (value !== "oauth" && value !== "installation") return;
+    setContextType(value);
+    setBranches([]);
+    setSelectedBranch("");
+    setSelectedForgeRepoId(null);
+    setSelectedRepoId(null);
+    setSelectedInstallationRepoId(null);
+    setError(null);
+    if (value === "oauth") {
+      setSelectedInstallationId(null);
+      setInstallationRepositories([]);
+      return;
+    }
+    const initialInstallation = selectedInstallationId ?? appInstallations.find(item => !item.suspended)?.id ?? null;
+    setSelectedInstallationId(initialInstallation);
+    if (!initialInstallation) return;
+    setLoadingRepos(true);
+    try {
+      const items = await listGithubAppRepositories(initialInstallation);
+      setInstallationRepositories(items);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load installation repositories");
+    } finally {
+      setLoadingRepos(false);
+    }
+  }
+
+  async function handleInstallationChange(value: string) {
+    setSelectedInstallationId(value || null);
+    setSelectedInstallationRepoId(null);
+    setSelectedForgeRepoId(null);
+    setSelectedRepoId(null);
+    setSelectedBranch("");
+    setBranches([]);
+    if (!value) { setInstallationRepositories([]); return; }
+    setLoadingRepos(true);
+    setError(null);
+    try {
+      const items = await listGithubAppRepositories(value);
+      setInstallationRepositories(items);
+    } catch (err) {
+      setInstallationRepositories([]);
+      setError(err instanceof Error ? err.message : "Unable to load installation repositories");
+    } finally {
+      setLoadingRepos(false);
+    }
+  }
+
+  async function handleInstallationRepositoryChange(value: string) {
+    const requestId = ++branchRequestId.current;
+    setSelectedInstallationRepoId(value || null);
+    setSelectedRepoId(null);
+    setSelectedForgeRepoId(null);
+    setSelectedBranch("");
+    setBranches([]);
+    if (!value || !selectedInstallationId) return;
+    const repository = installationRepositories.find(item => item.id === value);
+    if (!repository) return;
+    setLoadingBranches(true);
+    setError(null);
+    try {
+      const items = await listGithubAppBranches(selectedInstallationId, repository.fullName);
+      if (requestId !== branchRequestId.current) return;
+      setBranches(items);
+      const defaultBranch = items.some(item => item.name === repository.defaultBranch)
+        ? repository.defaultBranch : items[0]?.name ?? "";
+      setSelectedBranch(defaultBranch);
+      if (active) {
+        const updated = await updateConversationContext(active.id, {
+          repositoryId: null, branchName: defaultBranch || null, contextType: "installation",
+          installationRecordId: selectedInstallationId, installationRepositoryId: repository.id
+        });
+        setActive(updated);
+        setConversations(items => items.map(item => item.id === updated.id ? updated : item));
+      }
+    } catch (err) {
+      if (requestId === branchRequestId.current) setError(err instanceof Error ? err.message : "Unable to select installation repository");
+    } finally {
+      if (requestId === branchRequestId.current) setLoadingBranches(false);
+    }
+  }
+
   async function handleBranchChange(value: string) {
     diffRequestId.current += 1;
     setDiff(null);
@@ -538,8 +631,11 @@ export function App() {
     if (active) return active;
     const conversation = await createConversation({
       title: "New conversation",
-      repositoryId: selectedForgeRepoId ?? undefined,
-      branchName: selectedBranch || undefined
+      repositoryId: contextType === "oauth" ? selectedForgeRepoId ?? undefined : undefined,
+      branchName: selectedBranch || undefined,
+      contextType,
+      installationRecordId: contextType === "installation" ? selectedInstallationId : null,
+      installationRepositoryId: contextType === "installation" ? selectedInstallationRepoId : null
     });
     setConversations(items => [conversation, ...items]);
     setActive(conversation);
