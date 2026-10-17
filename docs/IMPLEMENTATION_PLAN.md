@@ -296,3 +296,12 @@ After the combined auth/App gate passes, return to the deferred core workflow th
 - Simulated a legacy Worker-style connection insert and session insert. Assertions passed: the connection acquired its `auth_identities` row and the session acquired its `active_github_connection_id`.
 - Verification on that branch showed 0 connections without identities, 0 sessions without active connections, 0 runs missing existing repository/branch snapshots, and the old `UNIQUE(user_id)` constraint still present. This supports the staged rollout: 006 + 007 first; new Worker deploy; 008 only after that.
 - Both temporary Neon branches are non-production. Production remains unchanged.
+
+
+## Final auth + GitHub App source gate — 2026-10-17
+
+- **Latest integration head:** `32ba5e8af530f27850002cb5d681860a78251dfe`, branch `feat/auth-github-app-complete`, PR #14 open against `main`.
+- **CI:** run `39062142344` passed on that exact SHA: build, Phase 1 typecheck/tests, Worker tests, Wrangler deploy dry-run, and both dependency audits.
+- **Temporary DB gates:** latest read-only verification on `br-restless-violet-zanlwa4j` (006+007, pre-008) confirms the legacy unique constraint and compatibility triggers remain, both webhook fields exist, and context/ownership mismatch counts are zero. Verification on `br-noisy-rain-zamdr0q8` (006–008) confirms the unique-per-user constraint is removed only in the final stage and all identity/session/run-context checks are clean. Neither is production.
+- **Production rollout remains owner-controlled:** merge/review PR, apply 006 and verify, apply 007 and verify, deploy new Worker with `GITHUB_MULTI_ACCOUNT_ENABLED=false`, smoke-test existing login/session, then apply 008 and verify. Only then set the flag to true and test linking/switching. See `docs/CURRENT_STATE_AND_CONTINUATION.md` for exact sequence and expected query results.
+- **Not yet proven:** live GitHub App credentials/callback/webhook, installation access under real accounts, and real provider-backed AI-to-GitHub write/read-back/diff. Do not mark the architecture fully accepted until those gates pass.
