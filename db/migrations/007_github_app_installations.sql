@@ -91,6 +91,25 @@ CREATE TABLE IF NOT EXISTS github_app_webhook_deliveries (
   processing_error TEXT
 );
 
+ALTER TABLE conversations ADD COLUMN IF NOT EXISTS github_app_installation_id UUID REFERENCES github_app_installations(id) ON DELETE SET NULL;
+ALTER TABLE conversations ADD COLUMN IF NOT EXISTS github_installation_repository_id UUID REFERENCES github_installation_repositories(id) ON DELETE SET NULL;
+ALTER TABLE conversations ADD COLUMN IF NOT EXISTS github_context_type TEXT NOT NULL DEFAULT 'oauth';
+DO $
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'conversations_github_context_type_check') THEN
+    ALTER TABLE conversations ADD CONSTRAINT conversations_github_context_type_check
+      CHECK (github_context_type IN ('oauth', 'installation'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'conversations_installation_context_check') THEN
+    ALTER TABLE conversations ADD CONSTRAINT conversations_installation_context_check
+      CHECK (
+        (github_context_type = 'oauth' AND github_app_installation_id IS NULL AND github_installation_repository_id IS NULL)
+        OR
+        (github_context_type = 'installation' AND github_app_installation_id IS NOT NULL AND github_installation_repository_id IS NOT NULL)
+      );
+  END IF;
+END $;
+
 ALTER TABLE runs ADD COLUMN IF NOT EXISTS github_connection_id_snapshot UUID;
 ALTER TABLE runs ADD COLUMN IF NOT EXISTS github_app_installation_id_snapshot UUID;
 ALTER TABLE runs ADD COLUMN IF NOT EXISTS github_context_type_snapshot TEXT;
