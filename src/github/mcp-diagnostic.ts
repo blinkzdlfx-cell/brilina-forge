@@ -215,7 +215,7 @@ export async function callGithubMcpReadTool(
   accessToken: string,
   toolName: string,
   args: unknown
-): Promise<{ toolName: GithubMcpReadToolName; isError: boolean; content: Array<{ type: string; text?: string }>; structuredContent?: unknown }> {
+): Promise<{ toolName: GithubMcpReadToolName; isError: boolean; content: Array<{ type: string; text?: string }>; structuredContentPreview?: string }> {
   if (toolName !== "get_me" && toolName !== "list_branches" && toolName !== "get_file_contents") {
     throw Object.assign(new Error("This diagnostic only permits read-only GitHub MCP tools"), { statusCode: 400 });
   }
@@ -267,16 +267,20 @@ export async function callGithubMcpReadTool(
   const rawContent = Array.isArray(result.content) ? result.content : [];
   const content = rawContent.flatMap((item): Array<{ type: string; text?: string }> => {
     if (!item || typeof item !== "object") return [];
-    const entry = item as { type?: unknown; text?: unknown };
+    const entry = item as { type?: unknown; text?: unknown; name?: unknown; title?: unknown; resource?: { text?: unknown } };
     if (typeof entry.type !== "string") return [];
-    return [{ type: entry.type, ...(typeof entry.text === "string" ? { text: entry.text.slice(0, 20_000) } : {}) }];
+    const textValue = typeof entry.text === "string" ? entry.text
+      : typeof entry.resource?.text === "string" ? entry.resource.text
+        : typeof entry.title === "string" ? entry.title
+          : typeof entry.name === "string" ? entry.name : undefined;
+    return [{ type: entry.type, ...(textValue !== undefined ? { text: textValue.slice(0, 20_000) } : {}) }];
   }).slice(0, 20);
   return {
     toolName,
     isError: result.isError === true,
     content,
     ...(result.structuredContent && typeof result.structuredContent === "object"
-      ? { structuredContent: result.structuredContent }
+      ? { structuredContentPreview: JSON.stringify(result.structuredContent).slice(0, 20_000) }
       : {})
   };
 }
