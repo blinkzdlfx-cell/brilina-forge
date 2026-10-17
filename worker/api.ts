@@ -461,6 +461,26 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
 
     // Official GitHub MCP diagnostic/probe endpoints are intentionally not exposed by the production Worker. Forge uses its native, catalogued tools.
 
+    if (path === "/api/settings/github-tools" && method === "GET") {
+      const { userId } = await forgeContext(request);
+      return json({ definitions: listGithubToolDefinitions(), preferences: await getGithubToolPreferences(userId) });
+    }
+
+    if (path === "/api/settings/github-tools" && method === "PUT") {
+      assertSameOrigin(request);
+      const { userId } = await forgeContext(request);
+      const body = await request.json() as { enabledToolNames?: unknown; enabledCategories?: unknown };
+      if (!Array.isArray(body.enabledToolNames) || !body.enabledToolNames.every((item): item is string => typeof item === "string") ||
+          !Array.isArray(body.enabledCategories) || !body.enabledCategories.every((item): item is string => typeof item === "string")) {
+        return json({ error: "invalid_tool_preferences" }, 400);
+      }
+      const preferences = await saveGithubToolPreferences(userId, {
+        enabledToolNames: body.enabledToolNames,
+        enabledCategories: body.enabledCategories as GithubToolCategory[]
+      });
+      return json({ definitions: listGithubToolDefinitions(), preferences });
+    }
+
     if (path === "/api/session" && method === "GET") {
       try {
         const session = await sessionForRequest(request);
