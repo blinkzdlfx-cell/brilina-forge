@@ -31,7 +31,7 @@ export async function createPersistentSession(
   try {
     await sql.transaction([
     sql.query(
-      "INSERT INTO forge_users (github_user_id, github_login, github_name, github_avatar_url) SELECT $1, $2, $3, $4 WHERE NOT EXISTS (SELECT 1 FROM auth_identities WHERE provider = 'github' AND provider_subject = $1::text) ON CONFLICT (github_user_id) DO UPDATE SET github_login = EXCLUDED.github_login, github_name = EXCLUDED.github_name, github_avatar_url = EXCLUDED.github_avatar_url, updated_at = now()",
+      "INSERT INTO forge_users (github_user_id, github_login, github_name, github_avatar_url) SELECT $1, $2, $3, $4 WHERE NOT EXISTS (SELECT 1 FROM auth_identities WHERE provider = 'github' AND provider_subject = $1::bigint::text) ON CONFLICT (github_user_id) DO UPDATE SET github_login = EXCLUDED.github_login, github_name = EXCLUDED.github_name, github_avatar_url = EXCLUDED.github_avatar_url, updated_at = now()",
       [githubUser.id, githubUser.login, githubUser.name, githubUser.avatar_url]
     ),
     sql.query(
@@ -43,7 +43,7 @@ export async function createPersistentSession(
       [workspaceSlug]
     ),
     sql.query(
-      "INSERT INTO auth_identities (user_id, provider, provider_subject, provider_login, provider_name, provider_avatar_url) SELECT id, 'github', $1::text, $2, $3, $4 FROM forge_users WHERE github_user_id = $1 ON CONFLICT (provider, provider_subject) DO NOTHING",
+      "INSERT INTO auth_identities (user_id, provider, provider_subject, provider_login, provider_name, provider_avatar_url) SELECT id, 'github', $1::bigint::text, $2, $3, $4 FROM forge_users WHERE github_user_id = $1 ON CONFLICT (provider, provider_subject) DO NOTHING",
       [githubUser.id, githubUser.login, githubUser.name, githubUser.avatar_url]
     ),
     sql.query(
