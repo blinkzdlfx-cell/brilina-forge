@@ -288,3 +288,11 @@ After the combined auth/App gate passes, return to the deferred core workflow th
 - GitHub Actions CI passed for that commit: web/build, Phase 1 typecheck, Phase 1 tests, Worker tests, Wrangler deploy dry-run, and both dependency security audits.
 - The two historical Phase 1 failures were fixed: the batch-write authorization test was failing because its control-character regex matched literal letters; the service commit-message regex had the same double-escaping defect. The latest run also confirms the Worker test suite passes after restoring the full connection-aware session repository implementation.
 - This is automated CI evidence only. Live OAuth, GitHub App installation/webhook, production migration, and actual AI-to-GitHub acceptance remain pending.
+
+ 
+### Rollout-compatibility validation addendum — 2026-10-17
+- A second temporary Neon branch `auth-migration-006-007-compat-20261017` (`br-restless-violet-zanlwa4j`) was created from production before migration 008.
+- Migrations 006 and 007 were exercised there with the compatibility triggers from the final migration 006 file.
+- Simulated a legacy Worker-style connection insert and session insert. Assertions passed: the connection acquired its `auth_identities` row and the session acquired its `active_github_connection_id`.
+- Verification on that branch showed 0 connections without identities, 0 sessions without active connections, 0 runs missing existing repository/branch snapshots, and the old `UNIQUE(user_id)` constraint still present. This supports the staged rollout: 006 + 007 first; new Worker deploy; 008 only after that.
+- Both temporary Neon branches are non-production. Production remains unchanged.
