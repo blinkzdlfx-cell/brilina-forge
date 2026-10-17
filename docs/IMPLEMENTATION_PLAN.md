@@ -187,12 +187,14 @@ Production execution uses Forge-owned GitHub tools through the existing REST/Gra
 - This is UI routing only; it does not claim to implement multiple GitHub identities or GitHub App installation support. Keep those in the authentication batches below.
 
 ### Auth Batch 1 — Database and identity model (current priority)
+
+**Five-step foundation sequence:** (1) inventory/design, (2) additive schema/backfill on a temporary Neon branch, (3) explicit connection-scoped sessions, (4) safe identity linking, and (5) acceptance/hardening. Step 1 is now documented in [`docs/AUTH_IDENTITY_MIGRATION_DESIGN.md`](./AUTH_IDENTITY_MIGRATION_DESIGN.md). After these five foundation steps pass their acceptance gate, proceed to the separate GitHub App installation/token/repository-authorization architecture; account UI/lifecycle and immutable run-context integration follow as defined below.
 - Inspect the actual schema, constraints, repository/session queries, and existing tests before designing migrations.
 - Preserve existing users, workspaces, sessions, conversations, repositories, and runs. Do not create duplicate Forge users when linking another GitHub identity.
 - Introduce versioned, additive Neon migrations for provider identities and multiple GitHub connections/installations. Backfill existing GitHub-only users and their current connections without losing credentials or ownership.
 - Remove the github_connections(user_id) uniqueness assumption only after all reads/writes have been updated to address a connection explicitly; add a stable connection identifier and explicit installation/account identifiers where needed.
 - Keep secrets encrypted at rest. Session cookies contain random opaque IDs; only hashes of session IDs are stored in Neon.
-- Keep migrations in repository files, test on a temporary Neon branch, inspect backfill counts and unresolved rows, then ask before applying to production. Migrations 004 and 005 are still pending on production and must be applied from the provided SQL script before the dependent GitHub-tool settings/run-snapshot path is treated as usable.
+- Keep migrations in repository files, test on a temporary Neon branch, inspect backfill counts and unresolved rows, then ask before applying new migrations to production. Migrations 004 and 005 were applied by the owner and verified in production on 2026-10-17: `github_tool_preferences` exists with expected columns; `runs` has both snapshot columns; all 50 existing runs have repository and branch snapshots. Do not rerun 004/005.
 - **Acceptance:** migration tests pass on a temporary branch; existing records map deterministically; no duplicated Forge identity/workspace; no credentials exposed; rollback/recovery plan is documented.
 
 ### Auth Batch 2 — Session and identity linking
