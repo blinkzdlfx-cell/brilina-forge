@@ -470,6 +470,9 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
 
     if (path === "/auth/github/start" && method === "GET") {
       const intent = url.searchParams.get("intent") === "link" ? "link" : "login";
+      if (intent === "link" && !config.githubMultiAccountEnabled) {
+        return json({ error: "multi_account_migration_pending", message: "Connecting another GitHub account will be available after the database migration is enabled." }, 503);
+      }
       if (intent === "link") await sessionForRequest(request);
       const authorization = createGithubAuthorization();
       const headers = new Headers({
