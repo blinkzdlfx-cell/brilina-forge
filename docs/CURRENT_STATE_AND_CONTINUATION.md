@@ -228,3 +228,7 @@ This section supersedes the older “Current automated status” note above.
 8. After combined auth/App acceptance, return to the deferred real AI-to-GitHub gate: authorized non-default working branch, write, read-back, actual commit/diff evidence, no default-branch write, and immutable run context when selectors change mid-run.
 
 **Do not run migration 008 before deploying the new Worker.** The old Worker expects one GitHub connection per Forge user. If any verification query differs from the expected results above, stop and report the output rather than enabling multi-account support.
+
+
+### Documentation-head verification — 2026-10-17
+The documentation-complete integration head is `f18722e8cb8438a96765da064af7d53be840e2a5`. GitHub Actions run `39063266378` completed successfully on this exact SHA; both `verify` and `security-audit` jobs passed. This is the current source/documentation verification checkpoint. It still does not imply a production merge/deploy or live GitHub App acceptance.
