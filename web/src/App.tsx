@@ -18,6 +18,9 @@ import {
 } from "./api";
 import type { ChatMessage, Conversation, ForgeDiff, ForgeEvent, GithubBranch, GithubRepository, RunAudit, RunStatus, SessionInfo } from "./types";
 import { SelectField } from "./components/ui/SelectField";
+import { Button } from "./components/ui/button";
+import { Dialog } from "./components/ui/dialog";
+import { GitBranch, GitCompare, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Plus, Settings2, X } from "lucide-react";
 
 const demoMessages: ChatMessage[] = [
   {
@@ -80,6 +83,7 @@ export function App() {
   const [diff, setDiff] = useState<ForgeDiff | null>(null);
   const [diffBase, setDiffBase] = useState("");
   const [compareOpen, setCompareOpen] = useState(false);
+  const [contextPanelOpen, setContextPanelOpen] = useState(false);
   const [loadingDiff, setLoadingDiff] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const closeStream = useRef<(() => void) | null>(null);
@@ -579,12 +583,12 @@ export function App() {
             aria-expanded={isMobile ? mobileSidebarOpen : !sidebarCompact}
             title={isMobile ? "Close sidebar" : sidebarCompact ? "Expand sidebar" : "Collapse sidebar"}
           >
-            {isMobile ? "×" : sidebarCompact ? "›" : "‹"}
+            {isMobile ? <X className="size-4" /> : sidebarCompact ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
           </button>
         </div>
 
         <button className="new-chat" onClick={newChat} disabled={running} aria-label={sidebarCompact ? "New chat" : undefined} title={sidebarCompact ? "New chat" : undefined}>
-          <span>＋</span>{!sidebarCompact && "New chat"}
+          <Plus className="size-4" />{!sidebarCompact && "New chat"}
         </button>
 
         {!sidebarCompact && (
@@ -605,107 +609,60 @@ export function App() {
                 <strong>{session?.githubUser?.login ? session.githubUser.login : "Personal workspace"}</strong>
                 <span>GitHub connected</span>
               </div>
-              <button className="icon-button sign-out" onClick={() => void signOut()} aria-label="Sign out">⏻</button>
+              <button className="icon-button sign-out" onClick={() => void signOut()} aria-label="Sign out" title="Sign out"><LogOut className="size-4" /></button>
             </div>
           </>
         )}
       </aside>
 
       <main className="main">
-        <header className={`topbar ${compareOpen ? "compare-open" : ""}`}>
-          <button
-            ref={mobileMenuButtonRef}
-            className="icon-button mobile-menu-button"
-            type="button"
-            onClick={toggleSidebar}
-            aria-label={mobileSidebarOpen ? "Close navigation" : "Open navigation"}
-            aria-expanded={mobileSidebarOpen}
-            aria-controls="forge-sidebar"
-            title={mobileSidebarOpen ? "Close navigation" : "Open navigation"}
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
+        <header className="topbar workspace-topbar">
+          <button ref={mobileMenuButtonRef} className="icon-button mobile-menu-button" type="button" onClick={toggleSidebar} aria-label={mobileSidebarOpen ? "Close navigation" : "Open navigation"} aria-expanded={mobileSidebarOpen} aria-controls="forge-sidebar" title={mobileSidebarOpen ? "Close navigation" : "Open navigation"}>
+            <Menu aria-hidden="true" />
           </button>
           <div className="context">
             <strong>{title}</strong>
-            <span>{(active?.branchName ?? selectedBranch) || "No branch selected"}</span>
+            <span>{selectedGithubRepo ? `${selectedGithubRepo.full_name} · ${(active?.branchName ?? selectedBranch) || "No branch"}` : "Select a repository to begin"}</span>
           </div>
-<div className="top-actions">
-            <div className="workspace-controls">
+          <div className="top-actions workspace-top-actions">
+            <Button variant="outline" size="sm" className="context-panel-trigger" type="button" onClick={() => setContextPanelOpen(true)} disabled={running} aria-haspopup="dialog">
+              <GitBranch aria-hidden="true" />
+              <span className="context-trigger-repo">{selectedGithubRepo?.full_name ?? "Choose repository"}</span>
+              <span className="context-trigger-branch">{selectedBranch || "No branch"}</span>
+              <Settings2 aria-hidden="true" />
+            </Button>
+            {session?.githubUser?.avatar_url ? <img className="avatar" src={session.githubUser.avatar_url} alt="" /> : <button className="avatar" aria-label="Forge workspace">F</button>}
+          </div>
+        </header>
+        <Dialog open={contextPanelOpen} onOpenChange={setContextPanelOpen} title="Repository & branch" description="Choose the repository and working branch for this conversation." className="context-dialog">
+          <div className="context-panel-content">
+            <div className="context-panel-section">
+              <h3>Repository</h3>
+              <SelectField id="repository-select" label="Repository" value={selectedRepoId === null ? "" : String(selectedRepoId)} onChange={value => void handleRepositoryChange(value)} placeholder={loadingRepos ? "Loading…" : "Select repository"} disabled={loadingRepos || running} options={repositories.map(repository => ({ value: String(repository.id), label: repository.full_name }))} />
+            </div>
+            <div className="context-panel-section">
+              <h3>Working branch</h3>
               <SelectField
-                id="repository-select"
-                label="Repository"
-                value={selectedRepoId === null ? "" : String(selectedRepoId)}
-                onChange={value => void handleRepositoryChange(value)}
-                placeholder={loadingRepos ? "Loading…" : "Select repository"}
-                disabled={loadingRepos || running}
-                options={repositories.map(repository => ({ value: String(repository.id), label: repository.full_name }))}
-              />
-              <SelectField
-                id="branch-select"
-                label="Working branch"
-                value={selectedBranch}
-                onChange={value => void handleBranchChange(value)}
+                id="branch-select" label="Working branch" value={selectedBranch} onChange={value => void handleBranchChange(value)}
                 placeholder={loadingBranches ? "Loading branches…" : branches.length ? "Select branch" : "No branches loaded"}
                 disabled={!selectedForgeRepoId || loadingBranches || running || branches.length === 0}
-                helperText={
-                  loadingBranches ? "Loading branches…" :
-                  !selectedRepoId ? "Choose a repository first." :
-                  !selectedForgeRepoId ? "Connecting repository…" :
-                  branches.length === 0 ? "No branches loaded. Check the error message." :
-                  `${branches.length} branches available`
-                }
-                options={branches.map(branch => ({
-                  value: branch.name,
-                  label: `${branch.name}${branch.protected ? " · protected" : ""}`
-                }))}
+                helperText={loadingBranches ? "Loading branches…" : !selectedRepoId ? "Choose a repository first." : !selectedForgeRepoId ? "Connecting repository…" : branches.length === 0 ? "No branches loaded. Check the error message." : `${branches.length} branches available`}
+                options={branches.map(branch => ({ value: branch.name, label: `${branch.name}${branch.protected ? " · protected" : ""}` }))}
               />
             </div>
-            <div className="topbar-actions">
-              <button
-                className={`toolbar-button compare-toggle ${compareOpen ? "active" : ""}`}
-                type="button"
-                onClick={() => setCompareOpen(value => !value)}
-                aria-expanded={compareOpen}
-                aria-controls="branch-compare-controls"
-                disabled={!selectedForgeRepoId || branches.length < 2 || running}
-              >
-                <span aria-hidden="true">⇄</span> Compare
-              </button>
-              {session?.githubUser?.avatar_url
-                ? <img className="avatar" src={session.githubUser.avatar_url} alt="" />
-                : <button className="avatar" aria-label="Forge workspace">F</button>}
+            <div className="context-panel-section context-panel-compare">
+              <div className="context-panel-section-heading">
+                <div><h3>Compare branches</h3><p>Review actual GitHub changes against another branch.</p></div>
+                <Button variant="outline" size="sm" type="button" onClick={() => setCompareOpen(value => !value)} aria-expanded={compareOpen}><GitCompare aria-hidden="true" />{compareOpen ? "Hide" : "Compare"}</Button>
+              </div>
+              {compareOpen && <div className="context-panel-compare-controls">
+                <SelectField id="compare-base" label="Base branch" value={diffBase} onChange={setDiffBase} placeholder="Choose base" disabled={!selectedForgeRepoId || loadingBranches || running || branches.length === 0} options={branches.filter(branch => branch.name !== selectedBranch).map(branch => ({ value: branch.name, label: branch.name }))} />
+                <Button type="button" className="context-panel-compare-submit" disabled={!diffBase || !selectedBranch || diffBase === selectedBranch || loadingDiff} onClick={() => { void loadDiff(diffBase, selectedBranch); setContextPanelOpen(false); }}><GitCompare aria-hidden="true" />{loadingDiff ? "Comparing…" : "Compare changes"}</Button>
+              </div>}
             </div>
+            <p className="context-panel-note">The selected context is used for new runs. Existing run activity remains attached to its original run.</p>
           </div>
-          {compareOpen && (
-            <div className="compare-toolbar" id="branch-compare-controls">
-              <div className="compare-toolbar-copy">
-                <strong>Compare branches</strong>
-                <span>Review changes against your working branch.</span>
-              </div>
-              <div className="compare-toolbar-controls">
-                <SelectField
-                  id="compare-base"
-                  label="Base branch"
-                  value={diffBase}
-                  onChange={setDiffBase}
-                  placeholder="Choose base"
-                  disabled={!selectedForgeRepoId || loadingBranches || running || branches.length === 0}
-                  options={branches.filter(branch => branch.name !== selectedBranch).map(branch => ({ value: branch.name, label: branch.name }))}
-                />
-                <button
-                  className="toolbar-button compare-submit"
-                  disabled={!diffBase || !selectedBranch || diffBase === selectedBranch || loadingDiff}
-                  onClick={() => void loadDiff(diffBase, selectedBranch)}
-                  type="button"
-                >
-                  {loadingDiff ? "Comparing…" : "Compare changes"}
-                </button>
-              </div>
-            </div>
-          )}
-        </header>
+        </Dialog>
 
         <section
           className="chat"
