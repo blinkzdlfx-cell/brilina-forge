@@ -503,6 +503,7 @@ export function App() {
     setRunning(true);
     setStreaming("");
 
+    let requestStage: "creating conversation" | "starting the run" = "creating conversation";
     try {
       const conversation = await ensureConversation();
       setMessages(items => [
@@ -510,16 +511,20 @@ export function App() {
         { id: crypto.randomUUID(), role: "user", content: message, createdAt: new Date().toISOString() }
       ]);
 
+      requestStage = "starting the run";
       const { runId } = await startRun(conversation.id, message);
       setRunActivities(items => [{ runId, status: "queued", createdAt: new Date().toISOString(), tools: [] }, ...items.filter(item => item.runId !== runId)]);
       closeStream.current = streamRun(runId, event => handleRunEvent(runId, event), () => {
         setRunning(false);
-        setError("The run event stream disconnected.");
+        setError("The run event stream disconnected. The run may still be processing; check the conversation activity before retrying.");
       });
     } catch (err) {
       setRunning(false);
       setComposer(message);
-      setError(err instanceof Error ? err.message : "Run failed");
+      const detail = err instanceof Error ? err.message : "Unknown request error";
+      setError(detail === "Failed to fetch"
+        ? `Could not reach the Forge backend while ${requestStage}. No HTTP response was received; check the connection and Worker request logs.`
+        : detail);
     }
   }
 
