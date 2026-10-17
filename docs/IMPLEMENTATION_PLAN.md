@@ -126,3 +126,46 @@ Known open/unverified:
 - Never discard or overwrite local uncommitted changes.
 - Never invent successful integrations or add mock data to conceal missing functionality.
 - If actual repository state conflicts with this plan, report and reconcile before implementation.
+
+
+## 4. GitHub tool system rollout (2026-10-17)
+
+The production direction is Forge-owned GitHub tools using the existing REST/GraphQL service, not the official GitHub MCP server as a production execution dependency. The upstream 46-tool MCP discovery is a capability reference. Adopted equivalents and future additions must be logged in `docs/GITHUB_TOOL_SYSTEM.md`; do not claim an exact upstream name-to-Forge mapping until the original 46-name snapshot is preserved.
+
+### Batch A — Source inventory and dependency map
+- **Status:** partial / documentation established.
+- Added `docs/GITHUB_TOOL_SYSTEM.md` with architecture, source-verified current Forge tool IDs, categories, default capability policy, and mandatory security invariants.
+- The exact 46-name upstream payload and a definitive one-to-one mapping still need to be captured from the original MCP discovery evidence. Do not invent those names.
+
+### Batch B — Catalog and availability foundation
+- **Status:** source foundation implemented; automated CI verification pending.
+- Added `src/agent/tool-catalog.ts` with category/risk/default metadata for the ten currently registered GitHub tools and a fail-closed filter for unknown `github.*` tools.
+- Updated `ToolRegistry` so model discovery and tool lookup use the availability filter. Non-GitHub tools remain governed by their own policy.
+- Added `src/agent/registry.test.ts` for default visibility, category disabling, fail-closed unknown tools, and the rule that preferences cannot enable uncatalogued tools.
+- **Not yet complete:** preferences are not persisted per user and no settings UI/API has been wired to the registry. Do not describe user-facing tool settings as finished.
+
+### Batch C — Core repository/branch/file/diff capabilities
+- **Status:** existing source capabilities retained; live end-to-end acceptance pending.
+- Current catalog maps repository metadata/context, branch listing, tree/file reads, diff comparison, work-branch creation, and file create/update/write tools.
+- Existing write tools scope operations to the conversation repository and authorized work branch and verify write content by reading it back.
+- **Not yet proven:** a real configured-provider run performing a write on an approved non-default branch and returning actual read-back plus reviewable diff/commit evidence.
+
+### Batch D — Expanded capability groups and preferences
+- **Status:** pending.
+- Add persistent per-user tool/category preferences and a settings UI/API. Preferences must only reduce the safe default set; the server's policy gate remains mandatory.
+- Add issues, pull requests, Actions/checks, and other capabilities only after a concrete workflow and required GitHub permissions are documented. Do not implement all upstream capabilities indiscriminately.
+- Keep high-impact operations (merge/deploy/security administration) excluded from autonomous defaults.
+
+### Batch E — Agent integration and regression
+- **Status:** registry integration implemented; CI and regression evidence pending.
+- `ModelContext` obtains tools from `ToolRegistry.list()`; controller lookup goes through `ToolRegistry.get()`. Disabled or uncatalogued GitHub tools therefore do not resolve to executable tools.
+- Run the new tests, existing agent/tool tests, typecheck, Worker tests, production build, and CI on the resulting HEAD. Investigate rather than assume results.
+
+### Batch F — Cleanup and dependent workflows
+- **Status:** pending; do not remove old integration paths yet.
+- Once native tools pass the write/read-back/diff gate, remove the official MCP diagnostic/probe from production-facing UI and runtime paths only if no remaining diagnostic use is required.
+- Keep the existing REST/GraphQL division unless tested evidence supports changing it.
+- After GitHub tools are reliable, resume dependent work: durable run/event replay, complete write-to-diff presentation, run-history reload, and later UI Batch 4+.
+- No production deployment or destructive database changes are authorized by this plan alone.
+
+**Current checkpoint:** the catalog document and registry foundation/test have been committed directly to `main`; no local test runner or CI result has been observed in this editing session. GitHub CI and the live non-default-branch write test remain required evidence. User-facing persistent settings and batches A–F are not all complete.
