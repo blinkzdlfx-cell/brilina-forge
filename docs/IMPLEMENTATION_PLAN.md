@@ -171,7 +171,7 @@ Production execution uses Forge-owned GitHub tools through the existing REST/Gra
 - After the tool-system acceptance gate passes, continue the dependent workflow work: durable event replay/reconnect, reliable run-history reload, verified write-to-diff presentation, and later UI modernization batches. Do not declare these dependent items complete based only on tool registration.
 - No deployment or database migration was performed from this session.
 
-**Current checkpoint:** source changes are committed directly to `main`, including the catalogue, registry filters, preferences repository/API/UI, default-branch write protection, run-context snapshot code, and MCP route cleanup. The additive migrations 004 and 005 are not applied; the exact upstream 46-name snapshot is not available in the retrieved evidence; and automated plus live GitHub acceptance tests remain outstanding. Do not start owner acceptance testing until those preconditions are prepared.
+**Current checkpoint:** source changes are committed directly to `main`, including the catalogue, registry filters, preferences repository/API/UI, default-branch write protection, run-context snapshot code, and MCP route cleanup. Migrations 004 and 005 were applied and schema/data verified in production by the owner on 2026-10-17; the exact upstream 46-name snapshot is not available in the retrieved evidence; and automated plus live GitHub acceptance tests remain outstanding. Do not start owner acceptance testing until those preconditions are prepared.
 
 ## 5. Authentication foundation and multiple GitHub accounts — priority batch
 
@@ -221,7 +221,7 @@ Production execution uses Forge-owned GitHub tools through the existing REST/Gra
 
 ### Required execution order and dependencies
 1. Complete schema/source inventory and write the migration design.
-2. Apply and verify pending migrations 004 and 005 on production only after the owner runs the supplied SQL in Neon and reports the verification results; do not rerun them if already applied.
+2. **Complete:** owner applied and verified migrations 004 and 005 in production on 2026-10-17. Do not rerun them. New identity/connection migrations must be tested on a temporary Neon branch first.
 3. Implement additive identity/connection migrations on a temporary branch and verify backfills.
 4. Implement server-side identity/session and explicit GitHub account linking.
 5. Implement GitHub App installation/token resolution and per-operation authorization.
