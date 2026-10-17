@@ -1,4 +1,4 @@
-import type { ChatMessage, Conversation, ConversationRun, ForgeDiff, ForgeEvent, ForgeRepository, GithubBranch, GithubRepository, RunAudit, SessionInfo, GithubToolSettings, GithubToolPreferences } from "./types";
+import type { ChatMessage, Conversation, ConversationRun, ForgeDiff, ForgeEvent, ForgeRepository, GithubBranch, GithubRepository, RunAudit, SessionInfo, GithubToolSettings, GithubToolPreferences, GithubAppInstallation, GithubAppRepository } from "./types";
 
 async function readError(response: Response, fallback: string): Promise<never> {
   try {
@@ -18,6 +18,50 @@ export async function loadSession(): Promise<SessionInfo> {
 
 export function startGithubSignIn(): void {
   window.location.assign("/auth/github/start");
+}
+
+export function startGithubAccountLink(): void {
+  window.location.assign("/auth/github/start?intent=link");
+}
+
+export async function switchGithubConnection(connectionId: string): Promise<void> {
+  const response = await fetch("/api/auth/connections/active", {
+    method: "POST", credentials: "include", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ connectionId })
+  });
+  if (!response.ok) await readError(response, "Unable to switch GitHub account");
+}
+
+export async function listGithubAppInstallations(): Promise<GithubAppInstallation[]> {
+  const response = await fetch("/api/github-app/installations", { credentials: "include" });
+  if (!response.ok) await readError(response, "Unable to load GitHub App installations");
+  const result = await response.json() as { installations: GithubAppInstallation[] };
+  return result.installations;
+}
+
+export function startGithubAppInstallation(): void {
+  window.location.assign("/auth/github-app/install");
+}
+
+export async function listGithubAppRepositories(installationId: string): Promise<GithubAppRepository[]> {
+  const response = await fetch(`/api/github-app/repositories?installationId=${encodeURIComponent(installationId)}`, { credentials: "include" });
+  if (!response.ok) await readError(response, "Unable to load installation repositories");
+  const result = await response.json() as { repositories: GithubAppRepository[] };
+  return result.repositories;
+}
+
+export async function listGithubAppBranches(installationId: string, fullName: string): Promise<GithubBranch[]> {
+  const response = await fetch(`/api/github-app/branches?installationId=${encodeURIComponent(installationId)}&repository=${encodeURIComponent(fullName)}`, { credentials: "include" });
+  if (!response.ok) await readError(response, "Unable to load installation repository branches");
+  return response.json();
+}
+
+export async function refreshGithubAppInstallation(installationRecordId: string): Promise<void> {
+  const response = await fetch("/api/github-app/installations/refresh", {
+    method: "POST", credentials: "include", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ installationRecordId })
+  });
+  if (!response.ok) await readError(response, "Unable to refresh GitHub App installation");
 }
 
 export async function signOut(): Promise<void> {
@@ -80,7 +124,10 @@ export async function createConversation(input?: {
 
 export async function updateConversationContext(
   conversationId: string,
-  input: { repositoryId: string | null; branchName: string | null }
+  input: {
+    repositoryId: string | null; branchName: string | null; contextType?: "oauth" | "installation";
+    installationRecordId?: string | null; installationRepositoryId?: string | null;
+  }
 ): Promise<Conversation> {
   const response = await fetch(`/api/conversations/${conversationId}`, {
     method: "PATCH",
