@@ -81,7 +81,15 @@ export async function linkGithubIdentityToSession(
       [tokenHash, userId, githubUser.id]
     )
   ]);
-  return getPersistentSession(token);
+  const updatedSession = await getPersistentSession(token);
+  const linkedIdentity = await sql.query(
+    "SELECT id FROM auth_identities WHERE provider='github' AND provider_subject=$1::text AND user_id=$2 LIMIT 1",
+    [githubUser.id, userId]
+  ) as Record<string, unknown>[];
+  if (!updatedSession || !linkedIdentity[0] || updatedSession.authIdentityId !== String(linkedIdentity[0].id)) {
+    throw Object.assign(new Error("GitHub identity could not be safely linked to this Forge user"), { statusCode: 409 });
+  }
+  return updatedSession;
 }
 
 export type GithubConnectionCredentials = {
