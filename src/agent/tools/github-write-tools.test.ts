@@ -181,6 +181,7 @@ test("write_file fails verification when GitHub read-back differs from requested
 
 test("branches created by one run are not authorized in another run", async () => {
   const service = {
+    getRepository: async () => ({ default_branch: "main" }),
     createBranch: async (_owner: string, _repo: string, branchName: string) => ({
       branch: branchName,
       sha: "base-sha",
