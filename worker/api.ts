@@ -748,10 +748,18 @@ export async function handleApi(request: Request, env: Env): Promise<Response | 
     if (path === "/api/conversations" && method === "POST") {
       assertSameOrigin(request);
       const { userId, workspaceId } = await forgeContext(request);
-      const body = await request.json() as { title?: string; repositoryId?: string; branchName?: string };
+      const body = await request.json() as {
+        title?: string; repositoryId?: string; branchName?: string; contextType?: "oauth" | "installation";
+        installationRecordId?: string | null; installationRepositoryId?: string | null;
+      };
       if (body.title !== undefined) assertSafeTitle(String(body.title));
       if (body.branchName !== undefined && body.branchName !== null) assertSafeBranchName(String(body.branchName).trim());
-      return json(await createConversation({ userId, workspaceId, title: body.title, repositoryId: body.repositoryId, branchName: body.branchName }), 201);
+      if (body.contextType !== undefined && body.contextType !== "oauth" && body.contextType !== "installation") return json({ error: "invalid_context_type" }, 400);
+      return json(await createConversation({
+        userId, workspaceId, title: body.title, repositoryId: body.repositoryId, branchName: body.branchName,
+        contextType: body.contextType, installationRecordId: body.installationRecordId ?? null,
+        installationRepositoryId: body.installationRepositoryId ?? null
+      }), 201);
     }
 
     const conversationMatch = path.match(/^\/api\/conversations\/([^/]+)$/);
