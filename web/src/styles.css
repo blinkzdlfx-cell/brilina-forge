@@ -1,5 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 /* Semantic tokens shared by Tailwind utilities and shadcn/ui components. */
 @theme inline {
@@ -75,8 +76,83 @@
   --forge-shadow-sm: 0 2px 8px rgb(16 24 40 / 4%);
   --forge-shadow-md: 0 12px 34px rgb(16 24 40 / 9%);
   --forge-focus-ring: 0 0 0 3px rgb(79 70 229 / 19%);
+  /* Sidebar intentionally contrasts with the light workspace; theme-specific tokens prevent white-on-white drawers. */
+  --forge-sidebar-bg: #171923;
+  --forge-sidebar-border: #282b37;
+  --forge-sidebar-text: #e8eaf2;
+  --forge-sidebar-muted: #aeb5c4;
+  --forge-sidebar-label: #8f97a8;
+  --forge-sidebar-item: #c8cbd5;
+  --forge-sidebar-hover: #242734;
+  --forge-sidebar-active: #292c3b;
+  --forge-sidebar-active-border: #36394a;
+  --forge-sidebar-card: #20232e;
+  --forge-sidebar-card-border: #303442;
+  --forge-sidebar-card-title: #f3f4f8;
+  --forge-sidebar-card-muted: #9da5b5;
   --forge-motion-fast: 140ms ease;
   --forge-motion-normal: 200ms ease;
+}
+.dark {
+  color-scheme: dark;
+  --background: oklch(0.17 0.012 260);
+  --foreground: oklch(0.94 0.006 260);
+  --card: oklch(0.21 0.014 260);
+  --card-foreground: oklch(0.94 0.006 260);
+  --popover: oklch(0.20 0.014 260);
+  --popover-foreground: oklch(0.94 0.006 260);
+  --primary: oklch(0.70 0.16 276);
+  --primary-foreground: oklch(0.16 0.02 260);
+  --secondary: oklch(0.27 0.015 260);
+  --secondary-foreground: oklch(0.92 0.008 260);
+  --muted: oklch(0.25 0.014 260);
+  --muted-foreground: oklch(0.72 0.015 260);
+  --accent: oklch(0.29 0.035 276);
+  --accent-foreground: oklch(0.94 0.006 260);
+  --destructive: oklch(0.65 0.19 25);
+  --border: oklch(0.34 0.014 260);
+  --input: oklch(0.34 0.014 260);
+  --ring: oklch(0.70 0.16 276);
+  --forge-bg: #12141b;
+  --forge-surface: #1b1e27;
+  --forge-surface-muted: #252936;
+  --forge-border: #303442;
+  --forge-border-strong: #414758;
+  --forge-text: #e8eaf2;
+  --forge-text-muted: #aeb5c4;
+  --forge-text-subtle: #8f97a8;
+  --forge-primary: #818cf8;
+  --forge-primary-hover: #6366f1;
+  --forge-primary-soft: #292c3b;
+  --forge-sidebar-bg: #171923;
+  --forge-sidebar-border: #282b37;
+  --forge-sidebar-text: #e8eaf2;
+  --forge-sidebar-muted: #aeb5c4;
+  --forge-sidebar-label: #8f97a8;
+  --forge-sidebar-item: #c8cbd5;
+  --forge-sidebar-hover: #242734;
+  --forge-sidebar-active: #292c3b;
+  --forge-sidebar-active-border: #36394a;
+  --forge-sidebar-card: #20232e;
+  --forge-sidebar-card-border: #303442;
+  --forge-sidebar-card-title: #f3f4f8;
+  --forge-sidebar-card-muted: #9da5b5;
+}
+/* A future light-mode switch can opt into a light navigation rail without losing its edge against the workspace. */
+.theme-light {
+  --forge-sidebar-bg: #ffffff;
+  --forge-sidebar-border: #d9dee8;
+  --forge-sidebar-text: #20242c;
+  --forge-sidebar-muted: #626c7b;
+  --forge-sidebar-label: #737c8a;
+  --forge-sidebar-item: #414957;
+  --forge-sidebar-hover: #f1f3f8;
+  --forge-sidebar-active: #e9edff;
+  --forge-sidebar-active-border: #c7d2fe;
+  --forge-sidebar-card: #f7f8fb;
+  --forge-sidebar-card-border: #dfe3eb;
+  --forge-sidebar-card-title: #20242c;
+  --forge-sidebar-card-muted: #626c7b;
 }
 
 * { box-sizing: border-box; }
@@ -117,9 +193,9 @@ svg { display: block; }
   height: 100%;
   padding: 18px 14px 14px;
   overflow: hidden;
-  color: #e8eaf2;
-  background: #171923;
-  border-right: 1px solid #282b37;
+  color: var(--forge-sidebar-text);
+  background: var(--forge-sidebar-bg);
+  border-right: 1px solid var(--forge-sidebar-border);
   transition: flex-basis var(--forge-motion-normal), width var(--forge-motion-normal), transform var(--forge-motion-normal);
 }
 .sidebar.collapsed { flex-basis: 76px; width: 76px; align-items: center; padding-right: 10px; padding-left: 10px; }
@@ -142,8 +218,8 @@ svg { display: block; }
   cursor: pointer;
 }
 .icon-button:hover { color: inherit; background: rgb(255 255 255 / 8%); }
-.sidebar .icon-button { color: #aeb5c4; }
-.sidebar .icon-button:hover { color: #fff; background: #2a2d3a; }
+.sidebar .icon-button { color: var(--forge-sidebar-muted); }
+.sidebar .icon-button:hover { color: var(--forge-sidebar-text); background: var(--forge-sidebar-hover); }
 .sidebar .brand-row .sidebar-toggle { width: 30px; height: 30px; font-size: 20px; }
 .new-chat {
   display: flex;
@@ -166,7 +242,7 @@ svg { display: block; }
 .new-chat:active:not(:disabled), .sign-in-button:active:not(:disabled), .send-button:active:not(:disabled) { transform: translateY(1px); }
 .new-chat:disabled, .sign-in-button:disabled, .send-button:disabled { opacity: .5; cursor: not-allowed; }
 .collapsed .new-chat { width: 44px; min-width: 44px; padding: 0; font-size: 20px; }
-.section-label { padding: 0 10px 9px; color: #8f97a8; font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.section-label { padding: 0 10px 9px; color: var(--forge-sidebar-label); font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
 .conversation-list { display: grid; gap: 3px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 2px; }
 .conversation-item {
   display: block;
@@ -174,7 +250,7 @@ svg { display: block; }
   min-width: 0;
   padding: 10px 11px;
   overflow: hidden;
-  color: #c8cbd5;
+  color: var(--forge-sidebar-item);
   background: transparent;
   border: 1px solid transparent;
   border-radius: 9px;
@@ -184,15 +260,15 @@ svg { display: block; }
   white-space: nowrap;
   cursor: pointer;
 }
-.conversation-item:hover { color: #fff; background: #242734; }
-.conversation-item.active { color: #fff; background: #292c3b; border-color: #36394a; box-shadow: inset 2px 0 0 #818cf8; }
-.empty-list { padding: 12px 10px; color: #8f97a8; font-size: 12px; line-height: 1.5; }
+.conversation-item:hover { color: var(--forge-sidebar-text); background: var(--forge-sidebar-hover); }
+.conversation-item.active { color: var(--forge-sidebar-text); background: var(--forge-sidebar-active); border-color: var(--forge-sidebar-active-border); box-shadow: inset 2px 0 0 #818cf8; }
+.empty-list { padding: 12px 10px; color: var(--forge-sidebar-label); font-size: 12px; line-height: 1.5; }
 .sidebar-spacer { flex: 1; min-height: 18px; }
-.workspace-card { display: flex; flex: 0 0 auto; align-items: center; gap: 10px; min-width: 0; padding: 11px 9px; background: #20232e; border: 1px solid #303442; border-radius: 12px; }
+.workspace-card { display: flex; flex: 0 0 auto; align-items: center; gap: 10px; min-width: 0; padding: 11px 9px; background: var(--forge-sidebar-card); border: 1px solid var(--forge-sidebar-card-border); border-radius: 12px; }
 .workspace-card > div:nth-child(2) { min-width: 0; flex: 1; }
 .workspace-card strong, .workspace-card span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.workspace-card strong { color: #f3f4f8; font-size: 12px; font-weight: 600; }
-.workspace-card span { margin-top: 4px; color: #9da5b5; font-size: 10px; }
+.workspace-card strong { color: var(--forge-sidebar-card-title); font-size: 12px; font-weight: 600; }
+.workspace-card span { margin-top: 4px; color: var(--forge-sidebar-card-muted); font-size: 10px; }
 .workspace-dot { width: 8px; height: 8px; flex: 0 0 auto; background: #34d399; border-radius: 50%; box-shadow: 0 0 0 4px rgb(52 211 153 / 12%); }
 .sign-out { width: 32px; height: 32px; margin-left: auto; }
 
