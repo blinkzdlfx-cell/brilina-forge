@@ -190,7 +190,7 @@ export function createGithubUpdateTool(
       return scopedToConversation(context, args) &&
         validText(args.path, "path", 4096) &&
         validText(args.branch, "branch", 255) &&
-        authorizedWorkBranch(context, args.branch, branchesCreatedDuringRun) &&
+        await authorizedWorkBranch(service, context, args, branchesCreatedDuringRun) &&
         typeof args.content === "string" &&
         new TextEncoder().encode(args.content).byteLength <= 900000 &&
         (args.message === undefined || (validText(args.message, "message", 200) && !/[\u0000-\u001f\u007f]/.test(args.message)));
@@ -227,7 +227,7 @@ export function createGithubWriteTool(
       return scopedToConversation(context, args) &&
         validText(args.path, "path", 4096) &&
         validText(args.branch, "branch", 255) &&
-        authorizedWorkBranch(context, args.branch, branchesCreatedDuringRun) &&
+        await authorizedWorkBranch(service, context, args, branchesCreatedDuringRun) &&
         typeof args.content === "string" &&
         new TextEncoder().encode(args.content).byteLength <= 900000 &&
         (args.message === undefined || (validText(args.message, "message", 200) && !/[\u0000-\u001f\u007f]/.test(args.message)));
