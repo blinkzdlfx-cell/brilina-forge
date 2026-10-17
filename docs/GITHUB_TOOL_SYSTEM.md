@@ -72,4 +72,5 @@ These are initial product defaults, not a claim that persistent user settings or
 
 ## Change log
 
-- 2026-10-17 — Established the Forge-owned inventory and policy contract. Source-verified the ten GitHub tool IDs above in `src/agent/tools/github-read-context.ts` and `src/agent/tools/github-write-tools.ts`. The live upstream tool-name snapshot and persistent user preferences remain explicit implementation tasks; no exact upstream names have been guessed.
+- 2026-10-17 — Established the Forge-owned inventory and policy contract. Source-verified the ten GitHub tool IDs above in `src/agent/tools/github-read-context.ts` and `src/agent/tools/github-write-tools.ts`. Added the initial availability catalog and registry filtering; uncatalogued `github.*` tools fail closed. Added a server-side check against GitHub's current default-branch metadata to reject file writes to the default branch, including when it is selected in the UI. Automated CI verification is still pending.
+- Still open: preserve the exact live upstream 46-name tool snapshot and implement persistent user preferences/settings UI/API. No exact upstream names have been guessed.
