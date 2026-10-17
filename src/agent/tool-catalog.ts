@@ -38,7 +38,8 @@ const DEFINITIONS: GithubToolDefinition[] = [
   { name: "github.create_work_branch", category: "branch-write", risk: "write", defaultEnabled: true, description: "Create a work branch in the selected repository." },
   { name: "github.create_file", category: "file-write", risk: "write", defaultEnabled: true, description: "Create a file on an authorized work branch and verify it by reading it back." },
   { name: "github.update_file", category: "file-write", risk: "write", defaultEnabled: true, description: "Replace a file on an authorized work branch and verify it by reading it back." },
-  { name: "github.write_file", category: "file-write", risk: "write", defaultEnabled: true, description: "Create or update a file on an authorized work branch and verify it by reading it back." }
+  { name: "github.write_file", category: "file-write", risk: "write", defaultEnabled: true, description: "Create or update a file on an authorized work branch and verify it by reading it back." },
+  { name: "github.push_files", category: "file-write", risk: "write", defaultEnabled: true, description: "Atomically create or update multiple files on an authorized work branch and verify every file by reading it back." }
 ];
 
 const DEFINITION_BY_NAME = new Map(DEFINITIONS.map(definition => [definition.name, definition]));
