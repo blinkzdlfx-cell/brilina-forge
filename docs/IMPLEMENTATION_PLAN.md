@@ -20,17 +20,17 @@ Known open/unverified:
 
 **Progress metric:** accepted UI modernization batch gates, not subjective visual impressions. There are five planned UI batches (1–5); a batch counts only after its automated gate and required owner/live acceptance evidence are recorded.
 
-- **Accepted UI batches:** 0 of 5 (0% acceptance-gated completion). Batch 1 is the Tailwind + shadcn/ui foundation and has not been completed. This batch count measures planned modernization batches, not whether individual corrections work.
+- **Accepted UI batches:** 1 of 5 (20% acceptance-gated completion). Batch 1 (Tailwind + shadcn/ui foundation) was owner-accepted after the live app was checked. Batch 2 is being implemented and remains pending automated verification and component review. This batch count measures planned modernization batches, not whether individual corrections work.
 - **Targeted correction status: owner-reported live verification PASSED on 2026-10-17.** The owner tested the deployed mobile UI and reported PASS for all five checks: hamburger position/drawer, user/assistant alignment, run activity placement, mobile newline, and send button. Automated verification of the latest correction commits remains unconfirmed.
 - **Targeted corrections implemented in source:**
   1. Mobile navigation button moved to the left edge of the mobile top bar.
   2. User messages aligned to the right; assistant messages remain left-aligned.
   3. Run activity rendered in the same chronological transcript using run/message timestamps, so the run activity appears before the assistant response produced by that run rather than in a block after all messages.
   4. Mobile Enter inserts a newline; the send icon sends. Desktop Enter sends and Shift+Enter inserts a newline.
-- **shadcn/ui status:** Tailwind CSS v4 via the Vite plugin, semantic CSS variables, `@/*` Vite/TypeScript aliases, `components.json`, shared `cn()` utility, and required class/icon/Radix dependencies are now present. Existing screen CSS and behavior remain in place; component migration is deferred to later batches. npm regenerated `web/package-lock.json` in GitHub Actions rather than hand-editing it.
+- **shadcn/ui status:** Batch 1 foundation is owner-accepted. Batch 2 has added reusable Button, Input, Textarea, Field, Card, Badge, Separator, Skeleton, Alert, Dialog, and Sheet components, and widened `cn()` to accept standard `ClassValue` inputs. Semantic light/dark tokens and theme-aware sidebar tokens were added; the current dark mobile drawer remains dark by default, while a future `.theme-light` can use a white drawer with a distinct border and dark readable text. A `.dark` token palette and class-driven Tailwind dark variant are prepared, but there is intentionally no theme toggle yet and the full existing screen is not yet dark-mode-ready.
 - **Source checkpoints:** 2ba185d (web/src/App.tsx); 45df39d (web/src/styles.css); documentation updated through 5e2f514. Owner live test results are recorded above. Automated test/CI results for the latest correction commits have not yet been recorded.
-- **Current gate:** mobile targeted corrections are owner-reported live-verified; desktop keyboard behavior is not yet owner-tested. Batch 1 automated install/build/typecheck/tests/audits/Wrangler dry-run passed in the lockfile-refresh workflow run `39033141891` against the same application source tree; the generated lockfile was committed as `8886fa94af7dcbc38ed9e4b019eaa301cda1b7b1`. Regular CI run `39033219732` passed on commit `26739cc56651f337e586ceed8cd8e93dada4657e`. A live anonymous request returned the expected Brilina Forge GitHub sign-in screen; authenticated workspace and owner visual acceptance remain pending before Batch 1 is accepted.
-- **Next implementation batch:** complete Batch 1 (Tailwind + shadcn foundation) using the installed Vite/React versions and lockfile; then proceed through the remaining UI gates without skipping dependency order.
+- **Current gate:** Batch 1 was owner-accepted after the owner checked the live app. Its automated install/build/typecheck/tests/audits/Wrangler dry-run passed in lockfile-refresh workflow run `39033141891`; regular CI run `39033219732` passed on source checkpoint `26739cc56651f337e586ceed8cd8e93dada4657e`. The latest Batch 2 component code is at `2f5657d7a795579fff62320f2b03a2a92c63253a`; CI run `39034304815` is in progress and has passed the security-audit job so far. Batch 2 remains unaccepted pending final CI and owner review. Desktop keyboard behavior remains owner-unverified.
+- **Current implementation batch:** Batch 2 — foundational shadcn/ui components and theme-aware sidebar tokens. Do not start workspace-shell migration until Batch 2 automated checks pass and the owner reviews the component layer.
 
 ### Owner test card for the latest corrections
 1. Open the deployed Forge on a phone and refresh after the new version is deployed.
@@ -52,12 +52,14 @@ Known open/unverified:
 ### Batch 1 — Tailwind + shadcn foundation
 **Goal:** establish styling/component foundation without changing product behavior unnecessarily.  
 **Work:** Tailwind CSS v4 through `@tailwindcss/vite`; shadcn-compatible `components.json`; semantic CSS variables mapped into Tailwind; `@/*` Vite/TypeScript aliases; shared `cn()` utility; required Radix slot, class variance, class merge, and icon dependencies. Existing screen CSS and behavior remain in place; component migration is deferred until the foundation passes. The dependency lockfile must be generated by npm, not hand-edited.  
-**Acceptance:** dependency lockfile updated; build and relevant typechecks/tests pass; app still loads; no accidental backend/config changes; diff reviewed. Do not start mandatory component migration before this gate.
+**Acceptance:** dependency lockfile updated; build and relevant typechecks/tests pass; app still loads; no accidental backend/config changes; diff reviewed. **Status: owner-accepted** after the owner checked the deployed app. Existing screen behavior was preserved; shared component migration continued in Batch 2.
 
 ### Batch 2 — Foundational components and approval
 **Goal:** create a coherent, accessible base layer.  
 **Work:** build/reconcile buttons, inputs, textareas, selects/comboboxes, dialogs/sheets, tooltips, badges/status, cards, separators, skeleton/loading, dropdown/menu, toast/alerts, and icon patterns only as required by real screens. Avoid unused components.  
-**Acceptance:** component behavior and visual consistency tested; keyboard/focus/disabled/error states work; provide a compact review/demo for owner approval. Do not treat components as agent-wide standards until approved.
+**Implemented so far:** `button.tsx`, `input.tsx`, `textarea.tsx`, `field.tsx`, `card.tsx`, `badge.tsx`, `separator.tsx`, `skeleton.tsx`, `alert.tsx`, `dialog.tsx`, and `sheet.tsx`; `cn()` now supports `ClassValue`; sidebar color/background/border/hover/active/card colors use explicit theme tokens; `.dark` semantic palette and `.theme-light` sidebar contrast tokens are prepared. No screen migration or visible theme switch was added.
+
+**Acceptance:** current CI run `39034304815` must finish successfully; inspect keyboard/focus/disabled/error behavior and the final diff; then owner reviews the component layer and theme-token approach. Components are not mandatory standards for agents until the owner approves them.
 
 ### Batch 3 — Workspace shell, navigation, responsive behavior
 **Goal:** modernize application layout.  
