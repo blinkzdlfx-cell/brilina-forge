@@ -954,21 +954,70 @@ export function App() {
           </div>
         </Dialog>
 
-        <Dialog open={contextPanelOpen} onOpenChange={setContextPanelOpen} title="Repository & branch" description="Choose the repository and working branch for this conversation." className="context-dialog">
+        <Dialog open={contextPanelOpen} onOpenChange={setContextPanelOpen} title="Repository & branch" description="Choose a connected GitHub account or an authorized GitHub App installation, then select the repository and working branch." className="context-dialog">
           <div className="context-panel-content">
             <div className="context-panel-section">
-              <SelectField id="repository-select" label="Repository" value={selectedRepoId === null ? "" : String(selectedRepoId)} onChange={value => void handleRepositoryChange(value)} placeholder={loadingRepos ? "Loading…" : "Select repository"} disabled={loadingRepos || running} options={repositories.map(repository => ({ value: String(repository.id), label: repository.full_name }))} />
+              <SelectField
+                id="github-account-select" label="Connected GitHub account"
+                value={session?.activeGithubConnectionId ?? ""}
+                onChange={value => void handleConnectionChange(value)}
+                placeholder="Select GitHub account"
+                disabled={running || !(session?.githubConnections?.length)}
+                options={(session?.githubConnections ?? []).map(connection => ({ value: connection.id, label: connection.login + (connection.active ? " · active" : "") }))}
+              />
+              <div className="context-panel-actions">
+                <Button type="button" variant="outline" size="sm" onClick={startGithubAccountLink} disabled={running}>Connect another GitHub account</Button>
+                <Button type="button" variant="outline" size="sm" onClick={startGithubAppInstallation} disabled={running}>Install GitHub App</Button>
+              </div>
             </div>
+            <div className="context-panel-section">
+              <SelectField
+                id="github-context-type" label="Repository access method" value={contextType}
+                onChange={value => void handleContextTypeChange(value)}
+                disabled={running}
+                options={[
+                  { value: "oauth", label: "Connected GitHub account" },
+                  { value: "installation", label: "GitHub App installation" }
+                ]}
+              />
+            </div>
+            {contextType === "installation" ? <>
+              <div className="context-panel-section">
+                <SelectField
+                  id="github-installation-select" label="GitHub App installation"
+                  value={selectedInstallationId ?? ""}
+                  onChange={value => void handleInstallationChange(value)}
+                  placeholder={appInstallations.length ? "Select installation" : "Install the GitHub App first"}
+                  disabled={running || loadingRepos}
+                  options={appInstallations.map(item => ({ value: item.id, label: `${item.accountLogin} · ${item.accountType}${item.suspended ? " · suspended" : ""}` }))}
+                />
+                {selectedInstallationId && <Button type="button" variant="outline" size="sm" onClick={() => {
+                  void refreshGithubAppInstallation(selectedInstallationId).then(() => listGithubAppInstallations()).then(setAppInstallations).then(() => handleInstallationChange(selectedInstallationId)).catch(err => setError(err instanceof Error ? err.message : "Unable to refresh installation"));
+                }} disabled={running || loadingRepos}>Refresh installation repositories</Button>}
+              </div>
+              <div className="context-panel-section">
+                <SelectField
+                  id="installation-repository-select" label="Installation repository"
+                  value={selectedInstallationRepoId ?? ""}
+                  onChange={value => void handleInstallationRepositoryChange(value)}
+                  placeholder={loadingRepos ? "Loading…" : "Select authorized repository"}
+                  disabled={!selectedInstallationId || loadingRepos || running}
+                  options={installationRepositories.map(repository => ({ value: repository.id, label: repository.fullName + (repository.private ? " · private" : "") }))}
+                />
+              </div>
+            </> : <div className="context-panel-section">
+              <SelectField id="repository-select" label="Repository" value={selectedRepoId === null ? "" : String(selectedRepoId)} onChange={value => void handleRepositoryChange(value)} placeholder={loadingRepos ? "Loading…" : "Select repository"} disabled={loadingRepos || running} options={repositories.map(repository => ({ value: String(repository.id), label: repository.full_name }))} />
+            </div>}
             <div className="context-panel-section">
               <SelectField
                 id="branch-select" label="Working branch" value={selectedBranch} onChange={value => void handleBranchChange(value)}
                 placeholder={loadingBranches ? "Loading branches…" : branches.length ? "Select branch" : "No branches loaded"}
-                disabled={!selectedForgeRepoId || loadingBranches || running || branches.length === 0}
-                helperText={loadingBranches ? "Loading branches…" : !selectedRepoId ? "Choose a repository first." : !selectedForgeRepoId ? "Connecting repository…" : branches.length === 0 ? "No branches loaded. Check the error message." : `${branches.length} branches available`}
+                disabled={(contextType === "oauth" ? !selectedForgeRepoId : !selectedInstallationRepoId) || loadingBranches || running || branches.length === 0}
+                helperText={loadingBranches ? "Loading branches…" : contextType === "oauth" ? (!selectedRepoId ? "Choose a repository first." : !selectedForgeRepoId ? "Connecting repository…" : branches.length === 0 ? "No branches loaded. Check the error message." : `${branches.length} branches available`) : (!selectedInstallationRepoId ? "Choose an installation repository first." : branches.length === 0 ? "No branches loaded. Check the error message." : `${branches.length} branches available`)}
                 options={branches.map(branch => ({ value: branch.name, label: `${branch.name}${branch.protected ? " · protected" : ""}` }))}
               />
             </div>
-            <div className="context-panel-section context-panel-compare">
+            {contextType === "oauth" && <div className="context-panel-section context-panel-compare">
               <div className="context-panel-section-heading">
                 <div><h3>Compare branches</h3><p>Review actual GitHub changes against another branch.</p></div>
                 <Button variant="outline" size="sm" type="button" onClick={() => setCompareOpen(value => !value)} aria-expanded={compareOpen}><GitCompare aria-hidden="true" />{compareOpen ? "Hide" : "Compare"}</Button>
@@ -977,8 +1026,8 @@ export function App() {
                 <SelectField id="compare-base" label="Base branch" value={diffBase} onChange={setDiffBase} placeholder="Choose base" disabled={!selectedForgeRepoId || loadingBranches || running || branches.length === 0} options={branches.filter(branch => branch.name !== selectedBranch).map(branch => ({ value: branch.name, label: branch.name }))} />
                 <Button type="button" className="context-panel-compare-submit" disabled={!diffBase || !selectedBranch || diffBase === selectedBranch || loadingDiff} onClick={() => { void loadDiff(diffBase, selectedBranch); setContextPanelOpen(false); }}><GitCompare aria-hidden="true" />{loadingDiff ? "Comparing…" : "Compare changes"}</Button>
               </div>}
-            </div>
-            <p className="context-panel-note">The selected context is used for new runs. Existing run activity remains attached to its original run.</p>
+            </div>}
+            <p className="context-panel-note">Every run captures its selected account or installation, repository, and branch when it starts. Changing this panel will not redirect a running task.</p>
           </div>
         </Dialog>
 
