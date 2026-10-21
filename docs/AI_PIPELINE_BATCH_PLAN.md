@@ -62,3 +62,14 @@ The original five implementation stages are grouped into two core engineering ba
 - Do not add dependencies, create new Workers, change database schema, or change deployment settings without evidence and approval where needed.
 - Record exact changed files, commit SHA, commands/results, CI evidence, live-check status, and unresolved issues.
 - Do not claim the CPU incident was CPU exhaustion without runtime evidence.
+
+
+## AI pipeline Batch 1 implementation checkpoint — 2026-10-21
+
+- **Batch plan:** `docs/AI_PIPELINE_BATCH_PLAN.md` groups the work as Batch 1 (native streaming), Batch 2 (bounded context processing + reliability/observability + image intelligence), and Batch 3 (Tavily integration, last).
+- **Implementation head:** `3cff87520e0cf731b4b8cb8e4af245c7bc0203b3` on `main`.
+- **Code changes:** `src/ai/provider-model.ts` now consumes the provider's native stream and forwards text deltas; `src/agent/controller.ts` emits incremental assistant delta events; `worker/api.ts` no longer splits completed answers into artificial 80-character chunks; `src/ai/openai-compatible.ts` rejects malformed completed streamed tool-call arguments and cancels/releases stream readers on cleanup. Existing frontend `assistant.delta` handling and final-message persistence remain in place.
+- **Regression tests:** added model-level proof that the first delta arrives before the provider stream completes, controller-level delta forwarding coverage, and malformed streamed tool-call argument coverage. `package.json` now includes the provider-model and OpenAI-compatible suites in `test:phase1`.
+- **CI evidence:** GitHub Actions run 39677852935 for the exact head completed with the `verify` job passing: build, `typecheck:phase1`, `test:phase1`, `test:worker`, and Wrangler deploy dry-run all passed. The overall workflow is red only because the separate web dependency audit reports a high-severity Vite advisory (installed Vite range 7.0.0–7.3.6); the root dependency audit reported zero vulnerabilities. This audit issue is pre-existing/outside the streaming change and remains open.
+- **Limitations:** no production deployment, live-provider end-to-end test, or browser acceptance was performed. Do not claim CPU exhaustion as the incident cause; no runtime CPU evidence was collected.
+- **Batch gate:** Batch 1 automated verification is complete. Proceed to Batch 2 only as a separate increment; keep Tavily unchanged until Batch 3.
