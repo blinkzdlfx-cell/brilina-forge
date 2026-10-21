@@ -232,3 +232,19 @@ This section supersedes the older “Current automated status” note above.
 
 ### Documentation-head verification — 2026-10-17
 The documentation-complete integration head is `f18722e8cb8438a96765da064af7d53be840e2a5`. GitHub Actions run `39063266378` completed successfully on this exact SHA; both `verify` and `security-audit` jobs passed. This is the current source/documentation verification checkpoint. It still does not imply a production merge/deploy or live GitHub App acceptance.
+
+## AI pipeline documentation checkpoint (2026-10-21)
+
+**Documentation status:** requirements documented and reconciled across the product spec, architecture decision log, implementation plan, README, agent workflow, and next-task prompt. This is documentation-only; no application source, dependencies, database schema, secrets, or deployment were changed by this documentation batch.
+
+- Normative nine-requirement contract: docs/AI_PIPELINE_REQUIREMENTS.md.
+- Product contract: docs/PRODUCT_SPEC.md, section 5.5.
+- Architecture decision: docs/DECISIONS.md, ADR-020.
+- Implementation order: docs/IMPLEMENTATION_PLAN.md, AI pipeline initiative.
+- Next coding task: docs/NEXT_KILO_PROMPT.md, Pipeline Batch 1 — Native end-to-end streaming.
+- Owner clarification: Tavily is the existing working search integration and must be preserved. The earlier source-only text search did not locate its implementation; do not infer that the integration is absent. Trace its actual request/configuration path in the planned Tavily reconciliation batch.
+- Source inspection previously found an OpenAI-compatible provider adapter with a stream method, while the inspected agent model used the non-streaming completion method. The complete provider → controller → Worker SSE → frontend path still requires focused tests before it can be called native end-to-end streaming.
+- Runtime evidence for the reported CPU incident was not available during this documentation pass. CPU exhaustion remains unconfirmed; future diagnostics must separate Worker CPU time, total duration, and upstream provider latency.
+- No pipeline implementation or runtime behavior is claimed as complete. Start with Pipeline Batch 1 and record exact test/CI evidence before advancing.
+
+Documentation commits for this checkpoint: requirements document 201469e436c8a705bf3bc3682b13a32277d9449c; product spec a4e9a7455adacc857fdb08590bd16b7e271f8143; ADR-020 5348e7b10039ae22ebf9a09343c82ffdc9108244. Remaining reconciliation commits are recorded after verification.
