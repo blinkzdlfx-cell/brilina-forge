@@ -111,3 +111,17 @@ Do not create a PR as the default. Do not bypass tests, claim a live check that 
 ## ADR-019 — Future customer-controlled data and backup options (deferred)
 
 The longer-term product direction may allow customers to own/control their own database and connected services, including optional personal integrations. A separate backup database or backup layer may also be considered for resilience. Neither is part of the current implementation scope. First make the Neon-backed primary path reliable and define backup/restore objectives; later design customer ownership and backup isolation deliberately. Do not implement dual writes or imply that a second database automatically provides a tested backup.
+
+## ADR-020 — Streaming-first, batch-aware AI pipeline (approved requirements baseline, 2026-10-21)
+
+**Status:** Requirements accepted for documentation and planning. Implementation and runtime verification remain pending.
+
+- Preserve the current working Tavily search integration. Trace and test its actual runtime path; do not replace or duplicate it without a separate owner decision.
+- Complete the existing provider streaming path end to end before introducing more Workers: provider adapter → controller → Worker SSE → frontend. Do not wait for the full completion and then split it into artificial UI chunks where native streaming is available.
+- Process large search results, documents, and images in bounded logical chunks; filter/deduplicate before constructing model context; batch related findings within verified provider limits; preserve provenance and explicit partial-result status.
+- Bound buffering, concurrency, model/tool work, retries, and payload sizes. Never assume arbitrary chunking or additional Workers automatically resolves CPU or latency errors.
+- Add stage-level, redacted measurements for CPU time, wall-clock duration, provider latency, payload sizes, retries, and failure categories. Diagnose CPU-limit failures only from runtime evidence.
+- Preserve the original user request, conversation context, immutable run repository/branch snapshot, tool-call pairing, and source evidence across all processing stages.
+- Keep image intelligence routing as a later bounded stage after the existing streaming and context-processing path is reliable; verify model limits rather than guessing.
+
+The full nine-requirement contract and five-stage implementation sequence are in [AI Pipeline Requirements](AI_PIPELINE_REQUIREMENTS.md). The product specification and unified implementation plan remain authoritative for product behavior and batch acceptance. This ADR does not authorize production deployment or claim any implementation has passed tests.
