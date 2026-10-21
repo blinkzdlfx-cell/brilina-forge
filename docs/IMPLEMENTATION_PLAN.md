@@ -309,3 +309,66 @@ After the combined auth/App gate passes, return to the deferred core workflow th
 
 ### Documentation-head verification — 2026-10-17
 The documentation-complete integration head is `f18722e8cb8438a96765da064af7d53be840e2a5`. GitHub Actions run `39063266378` completed successfully on this exact SHA; both `verify` and `security-audit` jobs passed. This is the current source/documentation verification checkpoint. It still does not imply a production merge/deploy or live GitHub App acceptance.
+
+## AI pipeline initiative — owner-directed track (2026-10-21)
+
+**Requirements source:** [AI Pipeline Requirements](AI_PIPELINE_REQUIREMENTS.md). The nine requirements are mandatory acceptance criteria across this track. [Product Specification](PRODUCT_SPEC.md) and [ADR-020](DECISIONS.md#adr-020--streaming-first-batch-aware-ai-pipeline-approved-requirements-baseline-2026-10-21) establish the architecture decisions. Documentation is complete; implementation has not started and no runtime fix is claimed.
+
+**Owner clarification:** Tavily is already integrated and working. Preserve it. The earlier source-only audit did not locate its implementation by text search; this is an unresolved source-tracing item, not grounds to mark Tavily absent or replace it.
+
+### Pipeline Batch 1 — Native end-to-end streaming
+**Goal:** deliver generated coding-model text incrementally instead of waiting for the complete provider response and then splitting it into artificial chunks.
+
+- Trace provider adapter, agent model/controller, run endpoint/SSE event format, frontend consumer, and persistence.
+- Reuse the provider adapter's existing stream method where supported.
+- Keep tool-call fragments buffered until complete, parse and validate before execution, and preserve tool-call/result pairing.
+- Preserve run IDs, chronological event association, usage, final response persistence, error/cancellation behavior, and a clear non-streaming fallback only where needed.
+- Do not redesign the UI or add Workers as part of this batch.
+
+**Acceptance gate:** automated tests demonstrate first text is forwarded before provider completion, ordered chunks reach the correct run, terminal/error events are accurate, tool calls cannot execute from incomplete arguments, and final message persistence remains correct. Build/typecheck/Worker tests pass. No production deploy without explicit approval.
+
+### Pipeline Batch 2 — Bounded context processing
+**Goal:** improve processing of large tool results and Tavily search results without losing useful evidence.
+
+- Trace the existing Tavily request/configuration path before changing it.
+- Replace silent prefix-only truncation as the sole oversized-result strategy with bounded logical chunking, relevant filtering, deduplication, source provenance, and explicit partial-result status.
+- Keep source retrieval available for follow-up verification and preserve repository/branch run snapshots.
+- Apply explicit byte/character/item/context budgets; do not send unrelated repository data by default.
+
+**Acceptance gate:** tests cover oversized and malformed payloads, relevance filtering, source attribution, truncation/partial states, and preservation of required context.
+
+### Pipeline Batch 3 — Reliability and observability
+**Goal:** distinguish CPU exhaustion from provider latency and recover safely from transient failures.
+
+- Add bounded per-provider concurrency and total-work budgets.
+- Define retry, timeout, cancellation, partial-failure, and safe-resume behavior; never retry consequential side effects blindly.
+- Record redacted stage-level duration, available Worker CPU time, upstream latency, payload size, provider/model, attempts, batch counts, and normalized error categories.
+- Cover rate limits, provider errors, malformed responses, cancellation, and duplicate-side-effect prevention.
+
+**Acceptance gate:** deterministic tests demonstrate concurrency limits and safe recovery; diagnostics identify the failed stage without logging secrets.
+
+### Pipeline Batch 4 — Tavily integration reconciliation
+**Goal:** verify and test the already-working Tavily path while preserving current behavior.
+
+- Trace the real request path and configuration in source and runtime.
+- Add focused tests for normal results, provider failures/rate limits, oversized/malformed results, source URL preservation, and partial responses.
+- Integrate Batch 2 processing around Tavily without replacing it or adding a duplicate provider.
+
+**Acceptance gate:** regression tests pass and the existing Tavily workflow is verified against the configured environment when access permits. Clearly distinguish automated from live verification.
+
+### Pipeline Batch 5 — Image Intelligence Worker
+**Goal:** process image uploads through a dedicated service only after the streaming/context foundation is reliable.
+
+- Audit the existing upload path and agree on image request/response contracts first.
+- Route to the chosen Groq or Cloudflare vision model using verified current limits, bounded batches, and limited concurrency.
+- Combine results with provenance and partial-failure markers; preserve access to original images for targeted visual verification.
+- Use a private Service Binding if a separate Worker is justified. Do not assume a separate Worker increases the per-request CPU budget or account-level Workers AI allocation.
+
+**Acceptance gate:** tests cover image validation, batch limits, provider fallback, partial failure, context preservation, and the end-to-end user workflow.
+
+### Cross-batch rules
+- The nine requirements R1–R9 in AI_PIPELINE_REQUIREMENTS.md apply to every relevant batch.
+- Implement one pipeline batch at a time. Run focused tests, typecheck/build, Worker tests, and CI where available; inspect the diff and record exact evidence.
+- Measure Worker CPU time separately from wall-clock duration and provider latency. Do not state that the original incident was a CPU-limit failure until runtime evidence confirms it.
+- Preserve current Tavily behavior, current working Forge features, and the immutable repository/branch context for each run.
+- Update the status here only after evidence is collected. These stages are planned; they are not implemented or accepted.
