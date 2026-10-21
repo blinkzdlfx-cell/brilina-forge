@@ -10,7 +10,7 @@ export type ProviderModelOptions = {
 export class ProviderAgentModel implements AgentModel {
   constructor(private readonly options: ProviderModelOptions) {}
 
-  async next(input: ModelInput): Promise<ModelDecision> {
+  async next(input: ModelInput, onTextDelta?: (content: string) => void): Promise<ModelDecision> {
     const messages = toAiMessages(input.messages);
     const request: AiModelRequest = {
       messages,
