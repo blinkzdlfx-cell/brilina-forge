@@ -37,6 +37,7 @@ Approved architecture constraints:
 - Forge's own catalogued GitHub tools are the production execution path; the official GitHub MCP tool list is a reference inventory, not a production runtime dependency. Track adopted/deferred capabilities in `docs/GITHUB_TOOL_SYSTEM.md`.
 - Tool/category preferences may disable tools but cannot bypass mandatory server-side authorization. Uncatalogued `github.*` tools fail closed, and GitHub writes to the repository default branch are prohibited even when it is selected.
 - Provider-neutral adapter and typed controller/tool/policy boundaries.
+- For AI streaming/search/context work, read docs/AI_PIPELINE_REQUIREMENTS.md. Preserve the existing owner-confirmed working Tavily integration; trace its actual request path rather than concluding it is absent from a text search. Implement only the next unaccepted pipeline batch in docs/IMPLEMENTATION_PLAN.md.
 - No shell in Worker and no browser terminal.
 - No automatic merge or production deployment.
 - No mock data pretending a real integration worked.
