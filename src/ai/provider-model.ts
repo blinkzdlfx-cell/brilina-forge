@@ -22,9 +22,23 @@ export class ProviderAgentModel implements AgentModel {
       ...(this.options.signal ? { signal: this.options.signal } : {})
     };
 
-    const result = await this.options.provider.complete(request, this.options.model);
-    this.lastUsage = result.usage;
-    return toDecision(result.toolCalls[0], result.content);
+    let content = "";
+    let toolCall: AiToolCall | undefined;
+    let usage: AiUsage | undefined;
+
+    for await (const event of this.options.provider.stream(request, this.options.model)) {
+      if (event.type === "text_delta") {
+        content += event.content;
+        onTextDelta?.(event.content);
+      } else if (event.type === "tool_call") {
+        toolCall ??= event.call;
+      } else if (event.type === "usage" || event.type === "done") {
+        if (event.usage) usage = event.usage;
+      }
+    }
+
+    this.lastUsage = usage;
+    return toDecision(toolCall, content);
   }
 
   lastUsage?: AiUsage;

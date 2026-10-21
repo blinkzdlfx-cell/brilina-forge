@@ -157,6 +157,11 @@ test("malformed streamed tool arguments degrade to an empty object", () => {
   assert.deepEqual(safeParseArguments('{"a":1}'), { a: 1 });
 });
 
+test("stream rejects malformed completed tool-call arguments", async () => {
+  const adapter = provider(async () => sseResponse([JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, id: "call_bad", function: { name: "github.get_repository", arguments: "{not json" } }] } }] })]));
+  await assert.rejects(async () => { for await (const event of adapter.stream(request(), "test-model")) void event; }, /invalid tool-call arguments/i);
+});
+
 test("default fetch is bound to the global context in Workers-compatible runtimes", async () => {
   const originalFetch = globalThis.fetch;
   let calledWithGlobalThis = false;

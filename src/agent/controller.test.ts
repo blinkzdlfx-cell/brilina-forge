@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { AgentController } from "./controller.js";
 import { FakeModel, InMemoryAgentAuditStore } from "./fakes.js";
 import { ToolRegistry } from "./registry.js";
-import type { ForgeTool } from "./types.js";
+import type { AgentModel, ForgeTool } from "./types.js";
 
 const readTool: ForgeTool<{ path: string }, { content: string }> = {
   name: "github.read_file", description: "Read a selected repository file.",
@@ -23,6 +23,23 @@ test("controller validates, authorizes, executes and records a read-only tool", 
   assert.equal(result.status, "completed"); assert.equal(result.response, "Read complete.");
   assert.equal(audit.runs[0].status, "completed"); assert.equal(audit.toolCalls[0].status, "completed");
   assert.deepEqual(audit.toolCalls[0].result, { content: "contents:README.md" });
+});
+
+test("controller emits deltas before the model finishes", async () => {
+  let finish!: () => void;
+  const gate = new Promise<void>(resolve => { finish = resolve; });
+  const model: AgentModel = { async next(_input, onTextDelta) { onTextDelta?.("first"); await gate; return { type: "final", content: "first answer" }; } };
+  const events: Array<{ type: string; content?: string }> = [];
+  const controller = new AgentController(model, new ToolRegistry(), new InMemoryAgentAuditStore(), { emit(event) { events.push(event); } });
+  let settled = false;
+  const pending = controller.run({ conversationId: "conversation-streaming", principal: { userId: "user-1", workspaceId: "workspace-1" }, message: "Stream the answer." }).then(result => { settled = true; return result; });
+  while (!events.some(event => event.type === "assistant.delta")) await new Promise(resolve => setTimeout(resolve, 0));
+  assert.deepEqual(events.filter(event => event.type === "assistant.delta").map(event => event.content), ["first"]);
+  assert.equal(settled, false);
+  finish();
+  const result = await pending;
+  assert.equal(result.status, "completed");
+  assert.equal(result.response, "first answer");
 });
 
 test("controller includes prior conversation turns before the current message", async () => {

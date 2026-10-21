@@ -80,7 +80,7 @@ import {
 import { classifyCommand } from "../src/execution/command-policy.js";
 
 const TOKEN_REFRESH_SKEW_MS = 60_000;
-const DELTA_CHUNK_SIZE = 80;
+
 const MAX_RUN_MESSAGE_LENGTH = 8_000;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const BRANCH_NAME_PATTERN = /^[A-Za-z0-9._/-]{1,255}$/;
@@ -176,11 +176,6 @@ function assertSafeTitle(value: string): string {
     throw Object.assign(new Error("Invalid conversation title"), { statusCode: 400 });
   }
   return value;
-}
-
-function chunkResponse(response: string): string[] {
-  const chunks = response.match(new RegExp(`.{1,${DELTA_CHUNK_SIZE}}(?:\\s+|$)`, "g")) ?? [];
-  return chunks.length ? chunks : [response];
 }
 
 async function sessionForRequest(request: Request): Promise<Session> {
@@ -396,7 +391,6 @@ async function executeRun(
     }).catch(error => console.error("Failed to record AI usage", error));
 
     if (result.response) {
-      for (const chunk of chunkResponse(result.response)) emit({ type: "assistant.delta", content: chunk });
       await addConversationMessage({
         conversationId,
         userId,

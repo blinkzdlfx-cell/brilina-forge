@@ -151,7 +151,9 @@ export class AgentController {
           return { runId: run.id, status: "cancelled" };
         }
 
-        const decision = await this.model.next(context.input());
+        const decision = await this.model.next(context.input(), content => {
+          if (content) this.observer?.emit({ type: "assistant.delta", content });
+        });
         if (decision.type === "final") {
           state.transition("completed");
           await this.audit.updateRun(run.id, "completed");

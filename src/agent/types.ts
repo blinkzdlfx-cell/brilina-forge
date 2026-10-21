@@ -10,7 +10,7 @@ export type AgentContextItem =
 export type ToolCallRequest = { id: string; name: string; arguments: unknown };
 export type ModelDecision = { type: "tool_call"; call: ToolCallRequest } | { type: "final"; content: string };
 export type ModelInput = { messages: AgentContextItem[]; tools: Array<{ name: string; description: string; inputSchema: Record<string, unknown> }> };
-export type AgentModel = { next(input: ModelInput): Promise<ModelDecision> };
+export type AgentModel = { next(input: ModelInput, onTextDelta?: (content: string) => void): Promise<ModelDecision> };
 export type ToolExecutionContext = { principal: AgentPrincipal; runId: string };
 export type ForgeTool<TArgs = unknown, TResult = unknown> = {
   name: string; description: string; inputSchema: Record<string, unknown>; policy: ToolPolicy;
@@ -27,6 +27,7 @@ export type ToolResultSummary = {
 };
 
 export type AgentObserverEvent =
+  | { type: "assistant.delta"; content: string }
   | { type: "tool.requested"; toolName: string; callId: string }
   | { type: "tool.started"; toolName: string; callId: string }
   | { type: "tool.completed"; toolName: string; callId: string; resultSummary?: ToolResultSummary }

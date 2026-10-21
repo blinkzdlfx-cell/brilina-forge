@@ -219,7 +219,7 @@ export class OpenAiCompatibleProvider implements AiProvider {
 
     for (const call of pending.values()) {
       if (!call.name) continue;
-      yield { type: "tool_call", call: { id: call.id || call.name, name: call.name, arguments: safeParseArguments(call.args) } };
+      yield { type: "tool_call", call: { id: call.id || call.name, name: call.name, arguments: parseStreamArguments(call.args) } };
     }
 
     if (usage) yield { type: "usage", usage };
@@ -247,6 +247,13 @@ function normalizeToolCalls(calls?: ChatCompletionMessage["tool_calls"]): AiTool
     });
   }
   return normalized;
+}
+
+function parseStreamArguments(raw: string): unknown {
+  const trimmed = raw.trim();
+  if (!trimmed) return {};
+  try { return JSON.parse(trimmed); }
+  catch { throw new Error("AI provider returned invalid tool-call arguments"); }
 }
 
 export function safeParseArguments(raw: string): unknown {
@@ -279,6 +286,8 @@ async function* readLines(body: ReadableStream<Uint8Array>): AsyncGenerator<stri
     }
     if (buffer.trim()) yield buffer.trim();
   } finally {
-    reader.releaseLock();
+    try { await reader.cancel(); }
+    catch { /* Stream may already be closed or aborted. */ }
+    finally { reader.releaseLock(); }
   }
 }

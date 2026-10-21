@@ -73,6 +73,34 @@ test("provider agent model converts a tool call into a controller decision", asy
   assert.ok(model.lastUsage);
 });
 
+test("provider model forwards text before the stream completes", async () => {
+  let finish!: () => void;
+  const gate = new Promise<void>(resolve => { finish = resolve; });
+  const streamingProvider = {
+    id: "openai-compatible" as const, models: [],
+    async complete() { throw new Error("complete() must not be called"); },
+    async *stream() {
+      yield { type: "text_delta" as const, content: "first" };
+      await gate;
+      yield { type: "text_delta" as const, content: " second" };
+      yield { type: "usage" as const, usage: { inputTokens: 3, outputTokens: 2 } };
+      yield { type: "done" as const, usage: { inputTokens: 3, outputTokens: 2 } };
+    }
+  };
+  const model = new ProviderAgentModel({ provider: streamingProvider, model: "test-model" });
+  const deltas: string[] = [];
+  let settled = false;
+  const pending = model.next({ messages: [{ role: "user", content: "hello" }], tools: [] }, delta => deltas.push(delta)).then(result => { settled = true; return result; });
+  while (!deltas.length) await new Promise(resolve => setTimeout(resolve, 0));
+  assert.deepEqual(deltas, ["first"]);
+  assert.equal(settled, false);
+  finish();
+  const decision = await pending;
+  assert.equal(decision.type, "final");
+  assert.equal(decision.type === "final" ? decision.content : "", "first second");
+  assert.deepEqual(model.lastUsage, { inputTokens: 3, outputTokens: 2 });
+});
+
 test("controller context maps to a valid provider conversation", () => {
   const messages = toAiMessages([
     { role: "system", content: "system" },
