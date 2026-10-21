@@ -1,32 +1,45 @@
-# Next Kilo Code Task — Brilina Forge
+# Next Kilo Code Task — Brilina Forge AI Pipeline Batch 1
 
-**Start with Batch 1 in `docs/IMPLEMENTATION_PLAN.md`: Tailwind CSS + shadcn/ui foundation.** Do not begin the full UI migration, backend reliability work, or later batches in the same increment.
+**Task:** Implement only Pipeline Batch 1 — Native end-to-end streaming, as defined in docs/IMPLEMENTATION_PLAN.md and docs/AI_PIPELINE_REQUIREMENTS.md. Do not begin context-processing, Tavily reconciliation, observability, or image-worker implementation in this batch.
 
 ## Read first
-1. `README.md`
-2. `docs/PRODUCT_SPEC.md`
-3. `docs/IMPLEMENTATION_PLAN.md`
-4. `docs/AGENT_WORKFLOW.md`
-5. The relevant source/config/tests and any supporting technical reference needed for Batch 1.
+1. README.md
+2. docs/PRODUCT_SPEC.md
+3. docs/IMPLEMENTATION_PLAN.md
+4. docs/AI_PIPELINE_REQUIREMENTS.md
+5. docs/AGENT_WORKFLOW.md
+6. Relevant provider, controller, Worker SSE, frontend stream-consumer, persistence, and test files.
 
-## First response before editing
-- Confirm repository, branch, HEAD SHA, and `git status`; preserve all local changes.
-- Inspect package.json and lockfile, React/Vite/Tailwind versions, tsconfig aliases, Vite config, current CSS, existing UI components, and build/test scripts.
-- Report the smallest safe setup plan, exact files expected to change, compatibility considerations, acceptance criteria, and checks to run.
-- Do not assume old documentation accurately describes the current checkout.
-- Do not install dependencies or edit files until this inspection and proposed plan are reported.
+## Owner clarification
+Tavily is already integrated and working. Preserve it. Its source/runtime path must be traced in its own planned batch; do not replace it, duplicate it, or report it as absent based only on text search.
 
-## Batch 1 implementation goal
-Configure Tailwind and shadcn/ui in a way compatible with the actual project. Establish theme tokens, component aliases/directories, and clear frontend organization. Keep global CSS limited to framework directives, theme tokens, and genuinely global rules. Do not use a handwritten styles.css as the styling system.
+## Before editing
+- Confirm repository, branch, HEAD SHA, and git status; preserve all local changes.
+- Trace the current path from provider adapter through model/controller and Worker SSE to frontend and message persistence.
+- Confirm which code paths call the provider's native stream method versus its non-streaming completion method.
+- Identify current event names, run/conversation identifiers, tool-call handling, cancellation/error behavior, and tests.
+- Report the smallest safe implementation plan, exact files expected to change, acceptance criteria, risks, and tests before editing.
+- Do not add new dependencies or create a separate Worker unless evidence proves it is necessary and the owner approves that architectural change.
 
-Do not preserve unapproved styling just because it exists, but preserve existing application functionality. Do not migrate every screen yet. Avoid duplicate styling systems, unnecessary dependencies, and unused components.
+## Batch 1 goal
+Forward provider-generated text incrementally through the existing pipeline instead of waiting for the full response and splitting completed text into artificial chunks.
 
-## Verification and handoff
-- Run the relevant install/lockfile checks, build, typecheck, and available focused tests; fix and retest failures.
-- Inspect the final diff for accidental backend changes, unrelated edits, generated artifacts, and secrets.
-- Commit and push directly to `main` unless the owner explicitly changes that agreement. Do not deploy production.
-- Update `docs/IMPLEMENTATION_PLAN.md` only with evidence actually collected.
-- Report starting/final SHA, changed files, exact commands/results, CI evidence, and remaining gaps.
-- Stop at Batch 1's acceptance gate. Do not begin Batch 2 until review confirms the foundation build is verified.
+Requirements:
+- Reuse the existing provider streaming interface where supported.
+- Preserve event ordering and correct run/conversation association.
+- Assemble streamed tool-call fragments fully; parse and validate before executing.
+- Preserve usage metadata, final response persistence, and accurate terminal/error states.
+- Handle provider failure, cancellation, disconnect, and cleanup without false success.
+- Keep a clear fallback only for providers that cannot stream.
+- Do not implement the later chunk/filter/batch pipeline or image worker in this batch.
 
-Use `docs/AGENT_WORKFLOW.md` for the complete agent contract. Never claim live UI behavior is verified by a build alone.
+## Verification
+- Add/adjust tests proving the first text event is delivered before the mocked provider finishes generating.
+- Test ordered chunks, completion/error states, fragmented tool calls, invalid tool arguments, cancellation/cleanup, and final persistence.
+- Run focused tests, typecheck, build, Worker tests, and available CI. Fix failures and rerun.
+- Inspect the final diff for regressions, accidental scope expansion, and secrets.
+- Do not claim the original incident was CPU exhaustion unless actual runtime evidence proves it.
+- Do not deploy production without explicit owner authorization.
+
+## Handoff
+Record starting/final SHA, exact changed files, commands and results, CI evidence, any live checks, and unresolved issues in docs/IMPLEMENTATION_PLAN.md. Stop after Pipeline Batch 1; do not begin Batch 2 until the gate is reviewed.
