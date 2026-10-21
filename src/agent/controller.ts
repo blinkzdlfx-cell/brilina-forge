@@ -85,11 +85,27 @@ function boundToolResult(result: unknown, maxCharacters = MAX_TOOL_RESULT_CHARS)
   if (limit < 256) {
     return { truncated: true, originalCharacters: serialized.length, preview: "[Tool result omitted: run context budget exhausted]" };
   }
-  const suffix = "\\n...[tool result truncated to protect model context and run history]";
+  const omission = (count: number) => "\\n...[omitted " + count + " characters]...\\n";
+  const available = Math.max(0, limit - 100);
+  const headLength = Math.floor(available / 2);
+  const tailLength = Math.max(0, available - headLength - omission(serialized.length - headLength - Math.max(0, available - headLength)).length);
+  const omitted = Math.max(0, serialized.length - headLength - tailLength);
+  const preview = serialized.slice(0, headLength) + omission(omitted) + (tailLength ? serialized.slice(-tailLength) : "");
+  const sourceMetadata: Record<string, string | number | boolean> = {};
+  if (result && typeof result === "object" && !Array.isArray(result)) {
+    const source = result as Record<string, unknown>;
+    for (const key of ["id", "url", "path", "name", "sha", "branch", "repository", "source", "contentType", "mimeType", "total_count"]) {
+      const value = source[key];
+      if ((typeof value === "string" && value.length <= 512) || typeof value === "number" || typeof value === "boolean") {
+        sourceMetadata[key] = value;
+      }
+    }
+  }
   return {
     truncated: true,
     originalCharacters: serialized.length,
-    preview: serialized.slice(0, limit - suffix.length - 100) + suffix
+    ...(Object.keys(sourceMetadata).length ? { sourceMetadata } : {}),
+    preview
   };
 }
 

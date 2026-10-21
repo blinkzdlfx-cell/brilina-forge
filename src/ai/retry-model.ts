@@ -13,10 +13,18 @@ export function wrapWithCooldownRetry(
   onRetry?: (attempt: { attempt: number; kind: string; delayMs: number }) => void
 ): AgentModel {
   return {
-    async next(input: ModelInput): Promise<ModelDecision> {
+    async next(input: ModelInput, onTextDelta?: (content: string) => void): Promise<ModelDecision> {
+      let emittedText = false;
       const { value } = await withCooldownRetry(
-        () => model.next(input),
-        options,
+        () => model.next(input, content => {
+          if (!content) return;
+          emittedText = true;
+          onTextDelta?.(content);
+        }),
+        {
+          ...options,
+          shouldRetry: error => !emittedText && (options.shouldRetry?.(error) ?? true)
+        },
         attempt => onRetry?.({ attempt: attempt.attempt, kind: attempt.error.details.kind, delayMs: attempt.delayMs })
       );
       return value;

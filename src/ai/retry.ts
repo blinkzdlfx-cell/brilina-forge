@@ -6,6 +6,7 @@ export type RetryOptions = {
   baseDelayMs: number;
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
+  shouldRetry?: (error: unknown) => boolean;
 };
 
 export type RetryAttempt = { attempt: number; error: AiProviderError; delayMs: number; waited: boolean };
@@ -39,7 +40,12 @@ export async function withCooldownRetry<T>(
     try {
       return { value: await operation(attempt), retries };
     } catch (error) {
-      if (!(error instanceof AiProviderError) || !error.details.retryable || attempt === settings.maxAttempts) {
+      if (
+        !(error instanceof AiProviderError) ||
+        !error.details.retryable ||
+        attempt === settings.maxAttempts ||
+        (settings.shouldRetry && !settings.shouldRetry(error))
+      ) {
         throw error;
       }
       retries += 1;

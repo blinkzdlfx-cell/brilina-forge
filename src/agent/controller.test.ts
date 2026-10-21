@@ -183,9 +183,9 @@ test("controller rejects unexpected tool properties when schema disallows them",
 });
 
 test("controller bounds oversized tool results before adding them to run history", async () => {
-  const oversizedTool: ForgeTool<{ path: string }, { content: string }> = {
+  const oversizedTool: ForgeTool<{ path: string }, { path: string; url: string; content: string }> = {
     ...readTool,
-    async execute() { return { content: "x".repeat(40_000) }; }
+    async execute() { return { path: "large.txt", url: "https://example.test/large.txt", content: "START-MARKER" + "x".repeat(39_978) + "END-MARKER" }; }
   };
   const registry = new ToolRegistry();
   registry.register(oversizedTool);
@@ -202,10 +202,14 @@ test("controller bounds oversized tool results before adding them to run history
   });
 
   assert.equal(result.status, "completed");
-  const saved = audit.toolCalls[0].result as { truncated?: boolean; originalCharacters?: number; preview?: string };
+  const saved = audit.toolCalls[0].result as { truncated?: boolean; originalCharacters?: number; preview?: string; sourceMetadata?: Record<string, unknown> };
   assert.equal(saved.truncated, true);
-  assert.equal(saved.originalCharacters, 40_014);
+  assert.equal(saved.originalCharacters, JSON.stringify({ path: "large.txt", url: "https://example.test/large.txt", content: "START-MARKER" + "x".repeat(39_978) + "END-MARKER" }).length);
   assert.ok((saved.preview?.length ?? 0) < 32_000);
+  assert.ok(saved.preview?.startsWith('{"path":"large.txt"'));
+  assert.ok(saved.preview?.includes("END-MARKER"));
+  assert.equal(saved.sourceMetadata?.path, "large.txt");
+  assert.equal(saved.sourceMetadata?.url, "https://example.test/large.txt");
 });
 
 test("controller caps the number of tool steps even when a caller requests more", async () => {

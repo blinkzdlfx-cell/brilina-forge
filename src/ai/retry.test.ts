@@ -126,6 +126,47 @@ test("cooldownFor falls back to exponential backoff without a retry-after value"
   assert.equal(cooldownFor(providerError({ retryAfterMs: -5 }), 1, options), 0);
 });
 
+test("wrapped model forwards streamed text and does not retry after visible output", async () => {
+  const retries: Array<{ attempt: number; kind: string; delayMs: number }> = [];
+  const received: string[] = [];
+  let attempts = 0;
+  const model = wrapWithCooldownRetry(
+    {
+      async next(_input, onTextDelta) {
+        attempts += 1;
+        onTextDelta?.("visible-" + attempts);
+        throw providerError();
+      }
+    },
+    { maxAttempts: 3, sleep: async () => undefined },
+    attempt => retries.push(attempt)
+  );
+
+  await assert.rejects(
+    () => model.next({ messages: [], tools: [] }, delta => received.push(delta)),
+    /rate limited/
+  );
+  assert.deepEqual(received, ["visible-1"]);
+  assert.equal(attempts, 1);
+  assert.deepEqual(retries, []);
+});
+
+test("wrapped model retries provider failures before emitting any text", async () => {
+  let attempts = 0;
+  const model = wrapWithCooldownRetry(
+    {
+      async next() {
+        attempts += 1;
+        if (attempts === 1) throw providerError();
+        return { type: "final" as const, content: "done" };
+      }
+    },
+    { maxAttempts: 3, sleep: async () => undefined }
+  );
+  assert.deepEqual(await model.next({ messages: [], tools: [] }), { type: "final", content: "done" });
+  assert.equal(attempts, 2);
+});
+
 test("wrapped provider model reports retries without leaking provider internals", async () => {
   const retries: Array<{ attempt: number; kind: string; delayMs: number }> = [];
   let attempts = 0;
