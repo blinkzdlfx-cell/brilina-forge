@@ -62,6 +62,7 @@ These remain useful when relevant to the batch, but do not supersede the authori
 - `docs/GITHUB_APP_SETUP.md` — GitHub App setup.
 - `docs/PHASE_1_SETUP_AND_USER_GUIDE.md` and `docs/CLOUDFLARE_WORKERS_AI_TOKEN_SETUP.md` — setup references where still applicable.
 - `docs/CURRENT_STATE_AND_CONTINUATION.md` — historical checkpoint/evidence record; refresh against current HEAD before relying on it.
+- `docs/AI_PIPELINE_REQUIREMENTS.md` — normative requirements for streaming, existing Tavily search, chunking/filtering/batching, bounded buffering/concurrency, recovery, observability, and context preservation.
 - `docs/UI_BEHAVIOR_CONTRACT.md` — detailed existing UI acceptance matrix, to be reconciled with the product spec during UI implementation.
 
 ## Working rule
