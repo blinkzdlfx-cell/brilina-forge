@@ -118,6 +118,16 @@ Prompt instructions alone are not a security boundary. Do not expose powerful to
 - Resume from completed steps without blindly repeating writes or commands.
 - Evaluate Cloudflare Workflows only through a bounded proof of concept against Worker + Neon; do not adopt it without evidence and an explicit decision.
 
+### 5.5 Streaming, search, context preparation, and AI pipeline
+The normative nine-requirement contract is maintained in [AI Pipeline Requirements](AI_PIPELINE_REQUIREMENTS.md). It covers incremental model streaming, logical chunking, relevance filtering, bounded buffering, batch combination, concurrency limits, recovery, stage-level observability, and preservation of context/provenance.
+
+- The provider adapter already exposes a streaming interface; the end-to-end provider → controller → Worker SSE → frontend path must be verified and completed so generated text is forwarded as it arrives rather than post-chunking a completed answer.
+- Preserve the existing **Tavily web-search integration**, which the owner confirms is working. Do not replace or duplicate it. Trace its real request/configuration path during implementation, then apply bounded result processing, filtering, batching, and provenance preservation around it.
+- Tool output and model context must be bounded without relying solely on silent prefix truncation. Preserve source references and make partial/truncated results explicit.
+- Measure Worker CPU time separately from total duration and upstream provider latency. Do not attribute an error to CPU exhaustion without runtime evidence.
+- Worker separation is optional architecture, not the default fix. Service bindings do not multiply per-request CPU budgets or account-level AI quotas.
+- Implementation order and acceptance gates are defined in docs/AI_PIPELINE_REQUIREMENTS.md and reconciled in docs/IMPLEMENTATION_PLAN.md.
+
 ## 6. GitHub coding and review contract
 - Bind operations to the authenticated user and conversation-bound repository.
 - Use selected work branch as immutable run context.
